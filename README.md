@@ -21,23 +21,28 @@ in brackets, is:
 
 ```
 [1] git checkout master
-[2] git checkout -b <descriptive-branch-name>
-[3] <code editing goes here>
-[4] git commit -a
-[5] git push -u origin <descriptive-branch-name>
+[2] git pull
+[3] git checkout -b <descriptive-branch-name>
+[4] <code editing goes here>
+[5] git commit -a
+[6] git push -u origin <descriptive-branch-name>
 ```
 
 The idea is that, first, you want to make sure you're in the "master"
 branch. [1] (`git status` will tell you what branch you're in, or just typing
 `git checkout master` will switch you to it if you're not already there.) You
-then want to create a new branch [2], something like `git checkout -b
+also want to make sure your master branch is up to date [2], or else you'll end
+up in what we call "git hell". (Note: if you do ever find yourself in git hell,
+just ask someone for help, because everyone ends up there at some point.)
+
+You then want to create a new branch [3], something like `git checkout -b
 code-for-InfoCompuCorp` or `git checkout -b topic-copying-code`. `checkout`
 tells git to switch you to that branch; `-b` tells it you're making a new
 branch.  Once you're in that branch, you can add or modify code to your heart's
-content [3].  When you're done you "commit" your changes: the command in [4]
+content [4].  When you're done you "commit" your changes: the command in [5]
 commits everything that's changed, or alternately you can use `git add <files>`
 to add just those files you want to add, and then `git commit` to commit the
-ones you've added.  Finally, push it to GitHub [5]. If you've previously put it
+ones you've added.  Finally, push it to GitHub [6]. If you've previously put it
 on GitHub and are making changes, you can just type `git push` at this step;
 the command given here both pushes the code and tells GitHub about your new
 branch.
