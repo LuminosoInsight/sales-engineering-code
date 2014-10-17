@@ -71,12 +71,13 @@ def topic_copier(old_project_path, new_project_path, username,
                 if topic['color'] == color:
                     post_topic(new_project, topic)
     else:
+        # Topics are reversed so they're posted in the correct order.
         for topic in reversed(topics):
-            # Topics are reversed so they're posted in the correct order.
             post_topic(new_project, topic)
 
 
 if __name__ == '__main__':
+    # Is there a way to grab this information straight from the docstring?
     description = 'Copy topics from one Luminoso project to another.'
     old_project_path_help = 'The eight-character account ID of the project \
                              to copy from, an underscore, and the \
