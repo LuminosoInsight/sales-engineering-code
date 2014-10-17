@@ -90,7 +90,7 @@ if __name__ == '__main__':
                      appropriate accounts and projects'
     deployed_help = 'A boolean value indicating whether these projects are on \
                      the deployed version of the Luminoso system. If false, \
-                     it connects to the staged version. Defaults to true.'
+                     it connects to the staged version. Defaults to false.'
     sort_help = 'A boolean value indicating whether the topics should be \
                  sorted by color before posting. Defaults to false.'
 
