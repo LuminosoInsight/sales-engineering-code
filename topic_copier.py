@@ -28,13 +28,13 @@ def topic_copier(old_project_path, new_project_path, username,
     """
     Required parameters:
         old_project_path - the eight-character account ID of the project to
-            copy from, a slash, and the five-character account ID of the
+            copy from, an underscore, and the five-character account ID of the
             project to copy from.
         new_project_path - the eight-character account ID of the project to
-            copy to, a slash, and the five-character account ID of the
+            copy to, an underscore, and the five-character account ID of the
             project to copy to.
         username - a Luminoso username that has permissions on the appropriate
-            accounts and projects
+            accounts and projects.
 
     Optional parameters:
         deployed - A boolean value indicating whether these projects are on
