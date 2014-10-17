@@ -79,11 +79,12 @@ def topic_copier(old_project_path, new_project_path, username,
 if __name__ == '__main__':
     description = 'Copy topics from one Luminoso project to another.'
     old_project_path_help = 'The eight-character account ID of the project \
-                             to copy from, a slash, and the five-character \
-                             account ID of the project to copy from.'
+                             to copy from, an underscore, and the \
+                             five-character account ID of the project to copy \
+                             from.'
     new_project_path_help = 'The eight-character account ID of the project to \
-                             copy to, a slash, and the five-character account \
-                             ID of the project to copy to.'
+                             copy to, an underscore, and the five-character \
+                             account ID of the project to copy to.'
     username_help = 'A Luminoso username that has permissions on the \
                      appropriate accounts and projects'
     deployed_help = 'A boolean value indicating whether these projects are on \
