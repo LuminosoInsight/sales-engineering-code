@@ -75,31 +75,33 @@ def topic_copier(old_project_path, new_project_path, username,
             # Topics are reversed so they're posted in the correct order.
             post_topic(new_project, topic)
 
-description = 'Copy topics from one Luminoso project to another.'
-old_project_path_help = 'The eight-character account ID of the project to \
-                         copy from, a slash, and the five-character account \
-                         ID of the project to copy from.'
-new_project_path_help = 'The eight-character account ID of the project to \
-                         copy to, a slash, and the five-character account ID \
-                         of the project to copy to.'
-username_help = 'A Luminoso username that has permissions on the appropriate \
-                 accounts and projects'
-deployed_help = 'A boolean value indicating whether these projects are on \
-                 the deployed version of the Luminoso system. If false, it \
-                 connects to the staged version. Defaults to true.'
-sort_help = 'A boolean value indicating whether the topics should be sorted \
-             by color before posting. Defaults to false.'
 
-parser = argparse.ArgumentParser(description=description)
-parser.add_argument('old_project_path', help=old_project_path_help)
-parser.add_argument('new_project_path', help=new_project_path_help)
-parser.add_argument('username', help=username_help)
-parser.add_argument('-d', '--deployed', help=deployed_help,
-                    action='store_true')
-parser.add_argument('-s', '--sort', help=sort_help, action='store_true')
-args = parser.parse_args()
-topic_copier(old_project_path=args.old_project_path,
-             new_project_path=args.new_project_path,
-             username=args.username,
-             deployed=args.deployed,
-             sort=args.sort)
+if __name__ == '__main__':
+    description = 'Copy topics from one Luminoso project to another.'
+    old_project_path_help = 'The eight-character account ID of the project \
+                             to copy from, a slash, and the five-character \
+                             account ID of the project to copy from.'
+    new_project_path_help = 'The eight-character account ID of the project to \
+                             copy to, a slash, and the five-character account \
+                             ID of the project to copy to.'
+    username_help = 'A Luminoso username that has permissions on the \
+                     appropriate accounts and projects'
+    deployed_help = 'A boolean value indicating whether these projects are on \
+                     the deployed version of the Luminoso system. If false, \
+                     it connects to the staged version. Defaults to true.'
+    sort_help = 'A boolean value indicating whether the topics should be \
+                 sorted by color before posting. Defaults to false.'
+
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument('old_project_path', help=old_project_path_help)
+    parser.add_argument('new_project_path', help=new_project_path_help)
+    parser.add_argument('username', help=username_help)
+    parser.add_argument('-d', '--deployed', help=deployed_help,
+                        action='store_true')
+    parser.add_argument('-s', '--sort', help=sort_help, action='store_true')
+    args = parser.parse_args()
+    topic_copier(old_project_path=args.old_project_path,
+                 new_project_path=args.new_project_path,
+                 username=args.username,
+                 deployed=args.deployed,
+                 sort=args.sort)
