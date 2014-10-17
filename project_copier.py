@@ -58,7 +58,7 @@ if __name__ == '__main__':
                   Defaults to the original account.'
     deployed_help = 'A boolean value indicating whether these projects are on \
                      the deployed version of the Luminoso system. If false, \
-                     it connects to the staged version. Defaults to true.'
+                     it connects to the staged version. Defaults to false.'
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('project_path', help=project_path_help)
