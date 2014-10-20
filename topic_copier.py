@@ -13,8 +13,8 @@ def post_topic(project, topic):
         (and prints it to the screen).
 
     Formats a topic dictionary from Luminoso into an appropriate format for
-    reupload by deleting the unnecessary arguments. There's likely a magical
-    Python operator that makes this unneccesary.
+    reupload by deleting the unnecessary arguments, and then POSTs it to the
+    appropriate project.
     """
 
     del topic['vector']
@@ -28,10 +28,10 @@ def topic_copier(old_project_path, new_project_path, username,
     """
     Required parameters:
         old_project_path - the eight-character account ID of the project to
-            copy from, an underscore, and the five-character account ID of the
+            copy from, an underscore, and the five-character project ID of the
             project to copy from.
         new_project_path - the eight-character account ID of the project to
-            copy to, an underscore, and the five-character account ID of the
+            copy to, an underscore, and the five-character project ID of the
             project to copy to.
         username - a Luminoso username that has permissions on the appropriate
             accounts and projects.
@@ -41,7 +41,8 @@ def topic_copier(old_project_path, new_project_path, username,
             the deployed version of the Luminoso system. If false, it connects
             to the staged version. Defaults to true.
         sort - A boolean value indicating whether the topics should be sorted
-            by color before posting. Defaults to false.
+            by color before posting. Defaults to false, in which case, topic
+            order is preserved. 
 
     Result: all topics are copied from one project to another.
     """
