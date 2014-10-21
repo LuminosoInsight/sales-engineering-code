@@ -1,6 +1,7 @@
+import argparse
+from operator import itemgetter
 from luminoso_api import LuminosoClient
 import luminoso_api
-import argparse
 
 
 def post_topic(project, topic):
@@ -65,16 +66,10 @@ def topic_copier(old_project_path, new_project_path, username,
     topics = old_project.get('topics')
 
     if sort:
-        colors = list(set([topic['color'] for topic in topics]))
-        for color in colors:
-            # Topics are reversed so they're posted in the correct order.
-            for topic in reversed(topics):
-                if topic['color'] == color:
-                    post_topic(new_project, topic)
-    else:
-        # Topics are reversed so they're posted in the correct order.
-        for topic in reversed(topics):
-            post_topic(new_project, topic)
+        topics.sort(key=itemgetter('color'))
+    # Topics are reversed so they're posted in the correct order.
+    for topic in reversed(topics):
+        post_topic(new_project, topic)
 
 
 if __name__ == '__main__':
