@@ -51,8 +51,6 @@ def topic_copier(old_project_path, new_project_path, username,
     # Ensure that the paths are correctly forwarded
     old_project_path = old_project_path.replace('_', '/')
     new_project_path = new_project_path.replace('_', '/')
-    assert old_project_path[8] == '/'
-    assert new_project_path[8] == '/'
 
     if deployed:
         client = LuminosoClient.connect('projects', username=username)
