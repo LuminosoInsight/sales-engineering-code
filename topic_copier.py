@@ -51,8 +51,6 @@ def topic_copier(old_project_path, new_project_path, username,
     # Ensure that the paths are correctly forwarded
     old_project_path = old_project_path.replace('_', '/')
     new_project_path = new_project_path.replace('_', '/')
-    assert len(old_project_path) == 14
-    assert len(new_project_path) == 14
     assert old_project_path[8] == '/'
     assert new_project_path[8] == '/'
 
