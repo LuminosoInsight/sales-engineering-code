@@ -61,6 +61,20 @@ def topic_copier(old_project_path, new_project_path, username,
     old_project = client.change_path(old_project_path)
     new_project = client.change_path(new_project_path)
 
+    # Test to ensure the paths are invalid
+    try:
+        old_project.get()
+    except LuminosoAuthError as e:
+        log.error('Luminoso authorization error on project %s. '
+                  'Possibly it does not exist.', old_project_path)
+        raise
+    try:
+        new_project.get()
+    except LuminosoAuthError as e:
+        log.error('Luminoso authorization error on project %s. '
+                  'Possibly it does not exist.', new_project_path)
+        raise 
+
     topics = old_project.get('topics')
 
     if sort:
@@ -99,9 +113,11 @@ if __name__ == '__main__':
                         action='store_true')
     parser.add_argument('-s', '--sort', help=sort_help, action='store_true')
     args = parser.parse_args()
-    topic_copier(old_project_path=args.old_project_path,
-                 new_project_path=args.new_project_path,
-                 username=args.username,
-                 deployed=args.deployed,
-                 sort=args.sort)
-        
+    try:
+        topic_copier(old_project_path=args.old_project_path,
+                     new_project_path=args.new_project_path,
+                     username=args.username,
+                     deployed=args.deployed,
+                     sort=args.sort)
+    except LuminosoAuthError as e:
+        pass
