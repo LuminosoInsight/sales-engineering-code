@@ -22,7 +22,7 @@ def post_topic(project, topic):
     del topic['vector']
     del topic['_id']
     project.post('topics', **topic)
-
+    log.info('Topic posted: %s', topic)
 
 def topic_copier(old_project_path, new_project_path, username,
                  deployed=False, sort=False):
@@ -88,6 +88,9 @@ if __name__ == '__main__':
     sort_help = 'A boolean value indicating whether the topics should be \
                  sorted by color before posting. Defaults to false.'
 
+    logging.basicConfig()
+    log = logging.getLogger('__main__')
+
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('old_project_path', help=old_project_path_help)
     parser.add_argument('new_project_path', help=new_project_path_help)
@@ -96,11 +99,9 @@ if __name__ == '__main__':
                         action='store_true')
     parser.add_argument('-s', '--sort', help=sort_help, action='store_true')
     args = parser.parse_args()
-    try:
-        topic_copier(old_project_path=args.old_project_path,
-                     new_project_path=args.new_project_path,
-                     username=args.username,
-                     deployed=args.deployed,
-                     sort=args.sort)
-    except LuminosoAuthError as e:
-        print(e)
+    topic_copier(old_project_path=args.old_project_path,
+                 new_project_path=args.new_project_path,
+                 username=args.username,
+                 deployed=args.deployed,
+                 sort=args.sort)
+        
