@@ -1,6 +1,7 @@
 import argparse
+import logging
 from operator import itemgetter
-from luminoso_api import LuminosoClient
+from luminoso_api import LuminosoClient, LuminosoAuthError
 import luminoso_api
 
 
@@ -20,7 +21,6 @@ def post_topic(project, topic):
 
     del topic['vector']
     del topic['_id']
-    print(topic)
     project.post('topics', **topic)
 
 
@@ -57,8 +57,10 @@ def topic_copier(old_project_path, new_project_path, username,
     else:
         client = LuminosoClient.connect('http://api.staging.lumi/v4/projects',
                                         username=username)
+
     old_project = client.change_path(old_project_path)
     new_project = client.change_path(new_project_path)
+
     topics = old_project.get('topics')
 
     if sort:
@@ -94,8 +96,11 @@ if __name__ == '__main__':
                         action='store_true')
     parser.add_argument('-s', '--sort', help=sort_help, action='store_true')
     args = parser.parse_args()
-    topic_copier(old_project_path=args.old_project_path,
-                 new_project_path=args.new_project_path,
-                 username=args.username,
-                 deployed=args.deployed,
-                 sort=args.sort)
+    try:
+        topic_copier(old_project_path=args.old_project_path,
+                     new_project_path=args.new_project_path,
+                     username=args.username,
+                     deployed=args.deployed,
+                     sort=args.sort)
+    except LuminosoAuthError as e:
+        print(e)
