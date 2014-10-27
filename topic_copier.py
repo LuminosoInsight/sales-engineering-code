@@ -24,6 +24,7 @@ def post_topic(project, topic):
     project.post('topics', **topic)
     log.info('Topic posted: %s', topic)
 
+
 def topic_copier(old_project_path, new_project_path, username,
                  deployed=False, sort=False):
     """
@@ -43,7 +44,7 @@ def topic_copier(old_project_path, new_project_path, username,
             to the staged version. Defaults to true.
         sort - A boolean value indicating whether the topics should be sorted
             by color before posting. Defaults to false, in which case, topic
-            order is preserved. 
+            order is preserved.
 
     Result: all topics are copied from one project to another.
     """
@@ -65,15 +66,13 @@ def topic_copier(old_project_path, new_project_path, username,
     try:
         old_project.get()
     except LuminosoAuthError as e:
-        log.error('Luminoso authorization error on project %s. '
-                  'Possibly it does not exist.', old_project_path)
-        raise
+        raise RuntimeError('Luminoso authorization error on project '  +
+                           old_project_path + '. Possibly it does not exist.')
     try:
-        new_project.get()
+        old_project.get()
     except LuminosoAuthError as e:
-        log.error('Luminoso authorization error on project %s. '
-                  'Possibly it does not exist.', new_project_path)
-        raise 
+        raise RuntimeError('Luminoso authorization error on project '  +
+                           new_project_path + '. Possibly it does not exist.')
 
     topics = old_project.get('topics')
 
@@ -119,5 +118,7 @@ if __name__ == '__main__':
                      username=args.username,
                      deployed=args.deployed,
                      sort=args.sort)
-    except LuminosoAuthError as e:
-        pass
+    except RuntimeError as e:
+        log.error('LuminosoAuthError:' + str(e))
+    except Exception as e:
+        log.error(str(type(e)) + ':' + str(e))
