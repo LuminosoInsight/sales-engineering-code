@@ -69,7 +69,7 @@ def topic_copier(old_project_path, new_project_path, username,
         raise RuntimeError('Luminoso authorization error on project '  +
                            old_project_path + '. Possibly it does not exist.')
     try:
-        old_project.get()
+        new_project.get()
     except LuminosoAuthError as e:
         raise RuntimeError('Luminoso authorization error on project '  +
                            new_project_path + '. Possibly it does not exist.')
