@@ -65,12 +65,12 @@ def topic_copier(old_project_path, new_project_path, username,
     # Test to ensure the paths are invalid
     try:
         old_project.get()
-    except LuminosoAuthError as e:
+    except LuminosoAuthError:
         raise RuntimeError('Luminoso authorization error on project '  +
                            old_project_path + '. Possibly it does not exist.')
     try:
         new_project.get()
-    except LuminosoAuthError as e:
+    except LuminosoAuthError:
         raise RuntimeError('Luminoso authorization error on project '  +
                            new_project_path + '. Possibly it does not exist.')
 
@@ -102,7 +102,7 @@ if __name__ == '__main__':
                  sorted by color before posting. Defaults to false.'
 
     logging.basicConfig()
-    log = logging.getLogger('__main__')
+    log = logging.getLogger('topic-copier')
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('old_project_path', help=old_project_path_help)
@@ -121,4 +121,5 @@ if __name__ == '__main__':
     except RuntimeError as e:
         log.error('LuminosoAuthError:' + str(e))
     except Exception as e:
-        log.error(str(type(e)) + ':' + str(e))
+        log.error('This program hit an exception (%s: %s).',
+                  e.__class__.__name__, e)
