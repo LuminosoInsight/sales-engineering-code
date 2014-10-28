@@ -15,7 +15,7 @@ setup(
         'luminoso_api'
         ],
     entry_points={
-    'console_scripts': [
-        'topic_copier = se_code.topic_copier:main'
+        'console_scripts': [
+            'topic_copier = se_code.topic_copier:main'
     ]},
 )
