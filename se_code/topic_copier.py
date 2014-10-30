@@ -83,7 +83,7 @@ def topic_copier(old_project_path, new_project_path, username,
         post_topic(new_project, topic)
 
 
-if __name__ == '__main__':
+def main():
     # Is there a way to grab this information straight from the docstring?
     description = 'Copy topics from one Luminoso project to another.'
     old_project_path_help = 'The eight-character account ID of the project \
@@ -123,3 +123,6 @@ if __name__ == '__main__':
     except Exception as e:
         log.error('This program hit an exception (%s: %s).',
                   e.__class__.__name__, e)
+
+if __name__ == '__main__':
+    main()
