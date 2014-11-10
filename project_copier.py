@@ -1,13 +1,16 @@
 import argparse
-from luminoso_api import LuminosoClient
+import logging
+from operator import itemgetter
+from luminoso_api import LuminosoClient, LuminosoAuthError
+import luminoso_api
 
 def copy_project(project_path, username, destination=None, owner=None,
                  deployed=False):
     """
     Required parameters:
-        project_path - the eight-character account ID of the owner of the
-            project to copy from, an underscore, and the five-character 
-            project ID of the project to copy from.
+        project_path - the account ID of the project to copy from, an
+            underscore, and the five-character project ID of the project to
+            copy from.
         username - a Luminoso username that has permissions on the appropriate
             accounts and projects.
 
@@ -24,8 +27,6 @@ def copy_project(project_path, username, destination=None, owner=None,
     """
 
     project_path = project_path.replace('_', '/')
-    assert len(project_path) == 14
-    assert project_path[8] == '/'
 
     if deployed:
         client = LuminosoClient.connect('projects', username=username)
@@ -34,22 +35,28 @@ def copy_project(project_path, username, destination=None, owner=None,
                                         username=username)
 
     project = client.change_path(project_path)
-    name = project.get()['name']
+    
+    # Test to ensure the paths are invalid
+    try:
+        name = project.get()['name']
+    except LuminosoAuthError:
+        raise RuntimeError('Luminoso authorization error on project '  +
+                           project_path + '. Possibly it does not exist.')
 
     # I'm sure there's a better way to do this... Maybe with **kwargs?
     if destination is None:
         destination = 'Copy of ' + name
     if owner is None:
-        owner = project_path[:8]
+        owner = project_path.partition('/')[0]
 
-    print('Copying project...')
     project.post('copy', destination=destination, owner=owner)
+    # What's the best way to change this to a logging format?
     print('Copied', name, 'to account', owner)
 
 if __name__ == '__main__':
     description = 'Make a copy of a Luminoso project.'
-    project_path_help = 'The eight-character account ID of the owner of the \
-                         project to copy from, an underscore, and the five-\
+    project_path_help = 'The account ID of the owner of the \
+                         project to copy from, an underscore, and the five- \
                          character project ID of the project to copy from.'
     username_help = 'A Luminoso username that has permissions on the \
                      appropriate accounts and projects'
@@ -69,8 +76,15 @@ if __name__ == '__main__':
                         action='store_true')
 
     args = parser.parse_args()
-    copy_project(project_path=args.project_path,
-                 username=args.username,
-                 destination=args.destination,
-                 owner=args.owner,
-                 deployed=args.deployed)
+
+    try:
+        copy_project(project_path=args.project_path,
+                     username=args.username,
+                     destination=args.destination,
+                     owner=args.owner,
+                     deployed=args.deployed)
+    except RuntimeError as e:
+        log.error('LuminosoAuthError:' + str(e))
+    except Exception as e:
+        log.error('This program hit an exception (%s: %s).',
+                  e.__class__.__name__, e)
