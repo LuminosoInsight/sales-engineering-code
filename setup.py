@@ -19,3 +19,8 @@ setup(
             'copy_project = se_code.project_copier:main'
     ]},
 )
+
+            'topic_copier = se_code.topic_copier:main',
+            'copy_project = se_code.project_copier:main'
+    ]},
+)
