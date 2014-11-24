@@ -36,7 +36,6 @@ def copy_project(project_path, username, destination=None, owner=None,
 
     project = client.change_path(project_path)
     
-    # Test to ensure the paths are valid
     try:
         name = project.get()['name']
     except LuminosoAuthError:
@@ -53,7 +52,9 @@ def copy_project(project_path, username, destination=None, owner=None,
     # What's the best way to change this to a logging format?
     print('Copied', name, 'to account', owner)
 
+
 def main():
+if __name__ == '__main__':
     description = 'Make a copy of a Luminoso project.'
     project_path_help = 'The account ID of the owner of the \
                          project to copy from, an underscore, and the five- \
