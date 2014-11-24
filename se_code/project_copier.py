@@ -1,8 +1,6 @@
 import argparse
 import logging
-from operator import itemgetter
 from luminoso_api import LuminosoClient, LuminosoAuthError
-import luminoso_api
 
 def copy_project(project_path, username, destination=None, owner=None,
                  deployed=False):
@@ -54,7 +52,6 @@ def copy_project(project_path, username, destination=None, owner=None,
 
 
 def main():
-if __name__ == '__main__':
     description = 'Make a copy of a Luminoso project.'
     project_path_help = 'The account ID of the owner of the \
                          project to copy from, an underscore, and the five- \
