@@ -25,6 +25,7 @@ def copy_project(project_path, username, destination=None, owner=None,
     """
 
     project_path = project_path.replace('_', '/')
+    assert '/' in project_path
 
     if deployed:
         client = LuminosoClient.connect('projects', username=username)
@@ -34,6 +35,7 @@ def copy_project(project_path, username, destination=None, owner=None,
 
     project = client.change_path(project_path)
     
+    # Test to make sure that the project path is valid
     try:
         name = project.get()['name']
     except LuminosoAuthError:
