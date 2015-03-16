@@ -12,9 +12,9 @@ USERNAME = 'user@luminoso.com'
 PROJECT_PATH = 'projects/%s/%s' % (ACCOUNT_ID, PROJECT_ID)
 
 project = LuminosoClient.connect(PROJECT_PATH, username=USERNAME)
-doc_fields = ['title', 'text', '_id']
+DOC_FIELDS = ['title', 'text', '_id']
 
-def download_docs(project, doc_fields=doc_fields):
+def download_docs(project, doc_fields=DOC_FIELDS):
     """
     Given a project, download all the documents from it. There is NO SANITY
     CHECKING for project size, so this should only be used on relatively small
