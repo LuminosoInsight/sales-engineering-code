@@ -20,10 +20,9 @@ def doc_to_row(doc, corrs, topics):
     Given a document and a topic-document correlation dictionary, make a pretty
     CSV row with all the appropriate information.
     """
-    doc_corrs = [corrs[doc['_id']][topic['_id']] for topic in topics]
-    if 'title' not in doc:
-        doc['title'] = ''
-    return [doc['title'], doc['text']] + doc_corrs
+    doc_corr_dict = corrs[doc['_id']]
+    doc_corrs = [doc_corr_dict[topic['_id'] for topic in topics]
+    return [doc.get('title'), doc['text']] + doc_corrs
 
 
 topics = project.get('topics')
