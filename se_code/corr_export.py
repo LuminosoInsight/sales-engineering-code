@@ -21,7 +21,7 @@ def doc_to_row(doc, corrs, topics):
     CSV row with all the appropriate information.
     """
     doc_corr_dict = corrs[doc['_id']]
-    doc_corrs = [doc_corr_dict[topic['_id'] for topic in topics]]
+    doc_corrs = [doc_corr_dict[topic['_id']] for topic in topics]
     return [doc.get('title'), doc['text']] + doc_corrs
 
 
