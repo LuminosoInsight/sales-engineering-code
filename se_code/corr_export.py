@@ -6,9 +6,9 @@ This script is essentially a wrapper for the GET /docs/correlations/ endpoint,
 and outputs a human-readable CSV with topic-document correlations.
 """
 
-ACCOUNT_ID = 'lumi-test'
-PROJECT_ID = 'qg7wb'
-USERNAME = 'tlewandowski@luminoso.com'
+ACCOUNT_ID = 'a11a111a'
+PROJECT_ID = 'a1a1a'
+USERNAME = 'user@luminoso.com'
 PROJECT_PATH = 'projects/%s/%s' % (ACCOUNT_ID, PROJECT_ID)
 
 project = LuminosoClient.connect(PROJECT_PATH, username=USERNAME)
@@ -28,7 +28,7 @@ def doc_to_row(doc, corrs, topics):
 project_info = project.get()
 topics = project.get('topics')
 corrs = project.get('docs/correlations')
-header = [['title', 'text'] + [topic['name'] for topic in topics]]
+header = ['title', 'text'] + [topic['name'] for topic in topics]
 
 with open(project_info['name'] + '_corrs.csv', 'w') as f:
     writer = csv.writer(f)
