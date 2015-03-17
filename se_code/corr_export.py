@@ -21,7 +21,7 @@ def doc_to_row(doc, corrs, topics):
     CSV row with all the appropriate information.
     """
     doc_corr_dict = corrs[doc['_id']]
-    doc_corrs = [doc_corr_dict[topic['_id'] for topic in topics]
+    doc_corrs = [doc_corr_dict[topic['_id'] for topic in topics]]
     return [doc.get('title'), doc['text']] + doc_corrs
 
 
@@ -35,7 +35,7 @@ with open(project.get()['name'] + '_corrs.csv', 'w') as f:
     i = 0
     docs = []
     while True:
-        batch = project.get('docs', limit=25000, offset=i, 
+        batch = project.get('docs', limit=25000, offset=i,
                             doc_fields=DOC_FIELDS)
         if batch == []:
             break
