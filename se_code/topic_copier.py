@@ -2,8 +2,8 @@ import argparse
 import logging
 from operator import itemgetter
 from luminoso_api import LuminosoClient, LuminosoAuthError
-import luminoso_api
 
+LOG = None
 
 def post_topic(project, topic):
     """
@@ -22,7 +22,8 @@ def post_topic(project, topic):
     del topic['vector']
     del topic['_id']
     project.post('topics', **topic)
-    log.info('Topic posted: %s', topic)
+    if LOG:
+        LOG.info('Topic posted: %s', topic)
 
 
 def topic_copier(old_project_path, new_project_path, username,
@@ -84,6 +85,8 @@ def topic_copier(old_project_path, new_project_path, username,
 
 
 def main():
+    global LOG
+
     # Is there a way to grab this information straight from the docstring?
     description = 'Copy topics from one Luminoso project to another.'
     old_project_path_help = 'The eight-character account ID of the project \
@@ -101,8 +104,8 @@ def main():
     sort_help = 'A boolean value indicating whether the topics should be \
                  sorted by color before posting. Defaults to false.'
 
-    logging.basicConfig()
-    log = logging.getLogger('topic-copier')
+    logging.basicConfig(level=logging.INFO)
+    LOG = logging.getLogger('topic-copier')
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('old_project_path', help=old_project_path_help)
@@ -119,9 +122,9 @@ def main():
                      deployed=args.deployed,
                      sort=args.sort)
     except RuntimeError as e:
-        log.error('LuminosoAuthError:' + str(e))
+        LOG.error('LuminosoAuthError:' + str(e))
     except Exception as e:
-        log.error('This program hit an exception (%s: %s).',
+        LOG.error('This program hit an exception (%s: %s).',
                   e.__class__.__name__, e)
 
 if __name__ == '__main__':
