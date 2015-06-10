@@ -87,17 +87,7 @@ def topic_copier(old_project_path, new_project_path, username,
 def main():
     global LOG
 
-    # Is there a way to grab this information straight from the docstring?
     description = 'Copy topics from one Luminoso project to another.'
-    old_project_path_help = 'The eight-character account ID of the project \
-                             to copy from, an underscore, and the \
-                             five-character account ID of the project to copy \
-                             from.'
-    new_project_path_help = 'The eight-character account ID of the project to \
-                             copy to, an underscore, and the five-character \
-                             account ID of the project to copy to.'
-    username_help = 'A Luminoso username that has permissions on the \
-                     appropriate accounts and projects'
     deployed_help = 'A boolean value indicating whether these projects are on \
                      the deployed version of the Luminoso system. If false, \
                      it connects to the staged version. Defaults to false.'
@@ -108,17 +98,27 @@ def main():
     LOG = logging.getLogger('topic-copier')
 
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('old_project_path', help=old_project_path_help)
-    parser.add_argument('new_project_path', help=new_project_path_help)
-    parser.add_argument('username', help=username_help)
     parser.add_argument('-d', '--deployed', help=deployed_help,
                         action='store_true')
     parser.add_argument('-s', '--sort', help=sort_help, action='store_true')
     args = parser.parse_args()
+
+    print(description + '\n')
+    old_account = input('Account ID of project to copy topics FROM: ')
+    old_project = input('Project ID of project to copy topics FROM: ')
+    if input('Copy to a project in the same account? (y/n): ').lower() == 'n':
+        new_account = input('Account ID of project to copy topics TO: ')
+    else:
+        new_account = old_account
+    new_project = input('Project ID of project to copy topics TO: ')
+    old_project_path = '%s_%s' % (old_account, old_project)
+    new_project_path = '%s_%s' % (new_account, new_project)
+    username = input('Luminoso username: ')
+
     try:
-        topic_copier(old_project_path=args.old_project_path,
-                     new_project_path=args.new_project_path,
-                     username=args.username,
+        topic_copier(old_project_path=old_project_path,
+                     new_project_path=new_project_path,
+                     username=username,
                      deployed=args.deployed,
                      sort=args.sort)
     except RuntimeError as e:
