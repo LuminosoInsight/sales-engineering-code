@@ -41,16 +41,14 @@ def post_topic(project, topic):
         LOG.info('Topic posted: %s', topic)
 
 
-def topic_copier(old_project_path, new_project_path, username,
+def topic_copier(old_account, old_project, new_account, new_project, username,
                  deployed=False, sort=False):
     """
     Required parameters:
-        old_project_path - the eight-character account ID of the project to
-            copy from, an underscore, and the five-character project ID of the
-            project to copy from.
-        new_project_path - the eight-character account ID of the project to
-            copy to, an underscore, and the five-character project ID of the
-            project to copy to.
+        old_account - the eight-character account ID of the project to copy from
+        old_project - the five-character project ID of the project to copy from
+        new_account - the eight-character account ID of the project to copy to
+        new_project - the five-character project ID of the project to copy to
         username - a Luminoso username that has permissions on the appropriate
             accounts and projects.
 
@@ -65,18 +63,14 @@ def topic_copier(old_project_path, new_project_path, username,
     Result: all topics are copied from one project to another.
     """
 
-    # Ensure that the paths are correctly forwarded
-    old_project_path = old_project_path.replace('_', '/')
-    new_project_path = new_project_path.replace('_', '/')
-
     if deployed:
         client = LuminosoClient.connect('projects', username=username)
     else:
         client = LuminosoClient.connect('http://api.staging.lumi/v4/projects',
                                         username=username)
 
-    old_project = client.change_path(old_project_path)
-    new_project = client.change_path(new_project_path)
+    old_project = client.change_path('%s/%s' % (old_account, old_project))
+    new_project = client.change_path('%s/%s' % (new_account, new_project))
 
     # Test to ensure the paths are invalid
     try:
@@ -111,8 +105,6 @@ def main():
     new_account = input('Account ID of project to copy topics TO '
                         '(Leave blank if same account): ') or old_account
     new_project = input('Project ID of project to copy topics TO: ')
-    old_project_path = '%s_%s' % (old_account, old_project)
-    new_project_path = '%s_%s' % (new_account, new_project)
     username = input('Luminoso username: ')
     deployed = bool_prompt_with_default('Use deployed system '
                                         '(as opposed to staging)? ')
@@ -120,11 +112,8 @@ def main():
                                     '(as opposed to sorting by color)? ')
 
     try:
-        topic_copier(old_project_path=old_project_path,
-                     new_project_path=new_project_path,
-                     username=username,
-                     deployed=deployed,
-                     sort=sort)
+        topic_copier(old_account, old_project, new_account, new_project,
+                     username, deployed=deployed, sort=sort)
     except RuntimeError as e:
         LOG.error('LuminosoAuthError:' + str(e))
     except Exception as e:
