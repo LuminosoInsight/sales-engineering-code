@@ -1,9 +1,24 @@
-import argparse
 import logging
 from operator import itemgetter
 from luminoso_api import LuminosoClient, LuminosoAuthError
 
 LOG = None
+
+# Copied (& modified) from lumi_auth/cli, because it seems silly to have a
+# dependency just for this.
+def bool_prompt_with_default(prompt):
+    """
+    Given a string to prompt the user with, prompt them until they give an
+    appropriate answer: return True if the answer starts with Y or y, and False
+    if it starts with N or n.
+    """
+    while True:
+        res = input(prompt).strip().lower()
+        if res.startswith('y') or res == '':
+            return True
+        if res.startswith('n'):
+            return False
+
 
 def post_topic(project, topic):
     """
@@ -87,40 +102,29 @@ def topic_copier(old_project_path, new_project_path, username,
 def main():
     global LOG
 
-    description = 'Copy topics from one Luminoso project to another.'
-    deployed_help = 'A boolean value indicating whether these projects are on \
-                     the deployed version of the Luminoso system. If false, \
-                     it connects to the staged version. Defaults to false.'
-    sort_help = 'A boolean value indicating whether the topics should be \
-                 sorted by color before posting. Defaults to false.'
-
     logging.basicConfig(level=logging.INFO)
     LOG = logging.getLogger('topic-copier')
 
-    parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('-d', '--deployed', help=deployed_help,
-                        action='store_true')
-    parser.add_argument('-s', '--sort', help=sort_help, action='store_true')
-    args = parser.parse_args()
-
-    print(description + '\n')
+    print('\nCopy topics from one Luminoso project to another.')
     old_account = input('Account ID of project to copy topics FROM: ')
     old_project = input('Project ID of project to copy topics FROM: ')
-    if input('Copy to a project in the same account? (y/n): ').lower() == 'n':
-        new_account = input('Account ID of project to copy topics TO: ')
-    else:
-        new_account = old_account
+    new_account = input('Account ID of project to copy topics TO '
+                        '(Leave blank if same account): ') or old_account
     new_project = input('Project ID of project to copy topics TO: ')
     old_project_path = '%s_%s' % (old_account, old_project)
     new_project_path = '%s_%s' % (new_account, new_project)
     username = input('Luminoso username: ')
+    deployed = bool_prompt_with_default('Use deployed system '
+                                        '(as opposed to staging)? ')
+    sort = bool_prompt_with_default('Use same topic order as original '
+                                    '(as opposed to sorting by color)? ')
 
     try:
         topic_copier(old_project_path=old_project_path,
                      new_project_path=new_project_path,
                      username=username,
-                     deployed=args.deployed,
-                     sort=args.sort)
+                     deployed=deployed,
+                     sort=sort)
     except RuntimeError as e:
         LOG.error('LuminosoAuthError:' + str(e))
     except Exception as e:
