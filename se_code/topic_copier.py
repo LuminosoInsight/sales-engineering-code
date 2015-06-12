@@ -107,9 +107,9 @@ def main():
     new_project = input('Project ID of project to copy topics TO: ')
     username = input('Luminoso username: ')
     deployed = bool_prompt_with_default('Use deployed system '
-                                        '(as opposed to staging)? ')
+                                        '(as opposed to staging) [Y/n]? ')
     sort = bool_prompt_with_default('Use same topic order as original '
-                                    '(as opposed to sorting by color)? ')
+                                    '(as opposed to sorting by color) [Y/n]? ')
 
     try:
         topic_copier(old_account, old_project, new_account, new_project,
