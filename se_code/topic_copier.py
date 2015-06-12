@@ -1,9 +1,24 @@
-import argparse
 import logging
 from operator import itemgetter
 from luminoso_api import LuminosoClient, LuminosoAuthError
 
 LOG = None
+
+# Copied (& modified) from lumi_auth/cli, because it seems silly to have a
+# dependency just for this.
+def bool_prompt_with_default(prompt):
+    """
+    Given a string to prompt the user with, prompt them until they give an
+    appropriate answer: return True if the answer starts with Y or y, and False
+    if it starts with N or n.
+    """
+    while True:
+        res = input(prompt).strip().lower()
+        if res.startswith('y') or res == '':
+            return True
+        if res.startswith('n'):
+            return False
+
 
 def post_topic(project, topic):
     """
@@ -26,16 +41,14 @@ def post_topic(project, topic):
         LOG.info('Topic posted: %s', topic)
 
 
-def topic_copier(old_project_path, new_project_path, username,
+def topic_copier(old_account, old_project, new_account, new_project, username,
                  deployed=False, sort=False):
     """
     Required parameters:
-        old_project_path - the eight-character account ID of the project to
-            copy from, an underscore, and the five-character project ID of the
-            project to copy from.
-        new_project_path - the eight-character account ID of the project to
-            copy to, an underscore, and the five-character project ID of the
-            project to copy to.
+        old_account - the eight-character account ID of the project to copy from
+        old_project - the five-character project ID of the project to copy from
+        new_account - the eight-character account ID of the project to copy to
+        new_project - the five-character project ID of the project to copy to
         username - a Luminoso username that has permissions on the appropriate
             accounts and projects.
 
@@ -50,18 +63,14 @@ def topic_copier(old_project_path, new_project_path, username,
     Result: all topics are copied from one project to another.
     """
 
-    # Ensure that the paths are correctly forwarded
-    old_project_path = old_project_path.replace('_', '/')
-    new_project_path = new_project_path.replace('_', '/')
-
     if deployed:
         client = LuminosoClient.connect('projects', username=username)
     else:
         client = LuminosoClient.connect('http://api.staging.lumi/v4/projects',
                                         username=username)
 
-    old_project = client.change_path(old_project_path)
-    new_project = client.change_path(new_project_path)
+    old_project = client.change_path('%s/%s' % (old_account, old_project))
+    new_project = client.change_path('%s/%s' % (new_account, new_project))
 
     # Test to ensure the paths are invalid
     try:
@@ -87,40 +96,24 @@ def topic_copier(old_project_path, new_project_path, username,
 def main():
     global LOG
 
-    # Is there a way to grab this information straight from the docstring?
-    description = 'Copy topics from one Luminoso project to another.'
-    old_project_path_help = 'The eight-character account ID of the project \
-                             to copy from, an underscore, and the \
-                             five-character account ID of the project to copy \
-                             from.'
-    new_project_path_help = 'The eight-character account ID of the project to \
-                             copy to, an underscore, and the five-character \
-                             account ID of the project to copy to.'
-    username_help = 'A Luminoso username that has permissions on the \
-                     appropriate accounts and projects'
-    deployed_help = 'A boolean value indicating whether these projects are on \
-                     the deployed version of the Luminoso system. If false, \
-                     it connects to the staged version. Defaults to false.'
-    sort_help = 'A boolean value indicating whether the topics should be \
-                 sorted by color before posting. Defaults to false.'
-
     logging.basicConfig(level=logging.INFO)
     LOG = logging.getLogger('topic-copier')
 
-    parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('old_project_path', help=old_project_path_help)
-    parser.add_argument('new_project_path', help=new_project_path_help)
-    parser.add_argument('username', help=username_help)
-    parser.add_argument('-d', '--deployed', help=deployed_help,
-                        action='store_true')
-    parser.add_argument('-s', '--sort', help=sort_help, action='store_true')
-    args = parser.parse_args()
+    print('\nCopy topics from one Luminoso project to another.')
+    old_account = input('Account ID of project to copy topics FROM: ')
+    old_project = input('Project ID of project to copy topics FROM: ')
+    new_account = input('Account ID of project to copy topics TO '
+                        '(Leave blank if same account): ') or old_account
+    new_project = input('Project ID of project to copy topics TO: ')
+    username = input('Luminoso username: ')
+    deployed = bool_prompt_with_default('Use deployed system '
+                                        '(as opposed to staging) [Y/n]? ')
+    sort = bool_prompt_with_default('Use same topic order as original '
+                                    '(as opposed to sorting by color) [Y/n]? ')
+
     try:
-        topic_copier(old_project_path=args.old_project_path,
-                     new_project_path=args.new_project_path,
-                     username=args.username,
-                     deployed=args.deployed,
-                     sort=args.sort)
+        topic_copier(old_account, old_project, new_account, new_project,
+                     username, deployed=deployed, sort=sort)
     except RuntimeError as e:
         LOG.error('LuminosoAuthError:' + str(e))
     except Exception as e:
