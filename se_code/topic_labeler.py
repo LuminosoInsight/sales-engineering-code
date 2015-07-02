@@ -4,10 +4,8 @@
 # In[58]:
 
 from luminoso_api import LuminosoClient
+import argparse
 import csv
-
-USERNAME = 'rspeer@luminoso.com'
-PROJECT_PATH = '/projects/admin/btnf5'
 
 
 def collect_doc_dicts(client, batch_size=25000):
@@ -44,7 +42,8 @@ def collect_topic_mapping(client):
                 doc_dict['exact_topics'].add(topic_id)
             elif terms & topic_dict['related_terms']:
                 doc_dict['related_topics'].add(topic_id)
-    return doc_dicts
+
+    return topic_dicts, doc_dicts
 
 
 def write_csv(topic_dicts, doc_dicts, out_filename):
@@ -72,10 +71,22 @@ def write_csv(topic_dicts, doc_dicts, out_filename):
             writer.writerow(doc_row)
 
 
-if __name__ == '__main__':
-    root_client = LuminosoClient.connect('https://api.luminoso.com/v4', username=USERNAME)
-    client = root_client.change_path(PROJECT_PATH)
+def run(project_id, username, out_filename):
+    client = LuminosoClient.connect(
+        'https://api.luminoso.com/v4/projects/%s' % project_id,
+        username=username
+    )
 
-    topic_dicts = client.get('topics')
-    doc_dicts = collect_doc_dicts(client)
-    write_csv(topic_dicts, doc_dicts, 'example.csv')
+    topic_dicts, doc_dicts = collect_topic_mapping(client)
+    write_csv(topic_dicts, doc_dicts, out_filename)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('project_id', help="The ID of the project to analyze, such as 'demo/2jsnm'")
+    parser.add_argument('username', help="A Luminoso username with access to the project")
+    parser.add_argument('output', help="The filename to write CSV output to")
+
+    args = parser.parse_args()
+    run(args.project_id, args.username, args.output)
+
