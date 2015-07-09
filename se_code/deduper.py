@@ -1,4 +1,3 @@
-from collections import defaultdict
 from itertools import chain
 from sklearn.feature_extraction.text import TfidfVectorizer
 from luminoso_api import LuminosoClient
@@ -22,37 +21,34 @@ class Deduper(object):
         If you wish to use a custom reconcile function, you should pass a function that takes a list of
         document dictionaries, and returns a single document dictionary to be retained in the project. """
 
-    def __init__(self, acct, proj, token, split_amt=10**10, reconcile_func=None):
+    def __init__(self, acct, proj, token, split_amt=10**10, reconcile_func=None, sim_threshhold = 0.95):
         """ split_amt is the number of docs per batch  """
+        self.thresh = sim_threshhold
         self.reconcile_func = reconcile_func
         self.split_amt = split_amt
         self.cli = LuminosoClient.connect('/projects/'+acct+'/'+proj, token=token)
 
-    def all_docs(self, client, docs=[], offset = 0):
+    def all_docs(self):
         """ Fetches all documents from a project """
-        new_docs = client.get('/docs', limit=25000, offset=offset, doc_fields=['text', 'title', 'date', 'subsets', '_id'])
-        if isinstance(new_docs, dict): #if only one result, returns a dict
-            docs.append(new_docs)
-            return docs
-        if isinstance(new_docs, list): #if >1 result, returns a list
-            docs.extend(new_docs)
-            if len(new_docs) == 25000:
-                return self.all_docs(client, docs, offset+25000)
-            else:
+        limit = 25000
+        offset = 0
+        docs = []
+        while True:
+            batch = self.cli.get('docs', limit=limit, offset=offset)
+            docs.extend(batch)
+            if len(batch) < limit:
                 return docs
+            offset += limit
 
     def intervals(self, maximum, interval):
         """ Creates intervals of size 'interval' up to maximum """
-        ints1 = [(i-interval, i) for i in range(maximum) if i % interval == 0]
-        ints2 = [(ints1[-1][-1], maximum)]
-        return (ints1+ints2)[1:]
+        return [(i, min(i + interval, maximum)) for i in range(0, maximum, interval)]
 
     def get_similar(self, similarity_matrix):
-        """ Return all pairs with similarity > 0.95. This is batched to save memory """
+        """ Return all pairs with similarity > self.thresh. This is batched to save memory """
         similar = []
-        for interval in self.intervals(similarity_matrix.shape[0], 5000):
-            lower, upper = interval
-            sim = similarity_matrix[lower:upper,] > .95
+        for lower, upper in self.intervals(similarity_matrix.shape[0], 5000):
+            sim = similarity_matrix[lower:upper,] > self.thresh
             sim = sim.nonzero()
             similar.extend([(x[0]+lower, x[1]) for x in zip(*sim)])
             print("processed rows " + str(lower) + " to row " + str(upper))
@@ -60,7 +56,7 @@ class Deduper(object):
 
     # get_similar outputs a list of dupe pairs. The following graph methods turn these
     # dupe pairs in to a graph and return the connected components (full sets of dupes).
-    # Note: in some cases two docs will be considered dupes even with similarity a bit < 0.95
+    # Note: in some cases two docs will be considered dupes even with similarity a bit < sim.thresh
     #       due to transitivity
     def to_graph(self, l):
         G = networkx.Graph()
@@ -98,7 +94,7 @@ class Deduper(object):
         """ Main method that should be called to dedupe the project """
         
         print("Fetching documents from project")
-        documents = self.all_docs(self.cli)
+        documents = self.all_docs()
         n_docs = len(documents)
 
         if self.split_amt < n_docs:
@@ -125,14 +121,12 @@ class Deduper(object):
             pairwise_similarity = tfidf * tfidf.T
             print("Finished constructing similarity matrix")
 
-            print("Starting to identify duplicates")
-            dupes = self.get_similar(pairwise_similarity)
+            print("Starting to identify duplicates and near-duplicates")
+            sets_of_dupes = self.get_dupes(self.get_similar(pairwise_similarity))
             print("Finished identifying duplicates")
 
-            #get duplicates and reconcile them. Deduped is a list of docs to keep
-            sets_of_dupes = self.get_dupes(dupes)
-            flat_dupe_list = chain(*sets_of_dupes)
-            dupe_ids = [batch[i]['_id'] for i in flat_dupe_list] #IDs of all dupes
+            #get duplicates and near-duplicates and reconcile them. Deduped is a list of docs to keep
+            dupe_ids = [batch[i]['_id'] for i in chain(*sets_of_dupes)] #IDs of all dupes
 
             deduped = [] #will contain the duplicates that should be retained
             for dupe_set in sets_of_dupes:
