@@ -130,10 +130,9 @@ class Deduper(object):
             print("Finished identifying duplicates")
 
             # get duplicates and near-duplicates and reconcile them.
-            # Deduped is a list of docs to keep
             dupe_ids = [batch[i]['_id'] for i in chain(*dupe_sets)]
 
-            dupes_to_retain = [] #will contain the duplicates that should be retained
+            dupes_to_retain = []
             for dupe_set in dupe_sets:
                 docs = [batch[i] for i in dupe_set]
                 dupes_to_retain.append(self.reconcile_dupes(docs))
