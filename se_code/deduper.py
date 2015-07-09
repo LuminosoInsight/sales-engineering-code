@@ -126,35 +126,32 @@ class Deduper(object):
             print("Finished constructing similarity matrix")
 
             print("Starting to identify duplicates and near-duplicates")
-            sets_of_dupes = self.get_dupes(self.get_similar(pairwise_similarity))
+            dupe_sets = self.get_dupes(self.get_similar(pairwise_similarity))
             print("Finished identifying duplicates")
 
             # get duplicates and near-duplicates and reconcile them.
             # Deduped is a list of docs to keep
-            dupe_ids = [batch[i]['_id'] for i in chain(*sets_of_dupes)]
+            dupe_ids = [batch[i]['_id'] for i in chain(*dupe_sets)]
 
-            deduped = [] #will contain the duplicates that should be retained
-            for dupe_set in sets_of_dupes:
+            dupes_to_retain = [] #will contain the duplicates that should be retained
+            for dupe_set in dupe_sets:
                 docs = [batch[i] for i in dupe_set]
-                deduped.append(self.reconcile_dupes(docs))
+                dupes_to_retain.append(self.reconcile_dupes(docs))
 
-            #partitioned due to URI length limitations
-            dupe_ids_partitions = self.chunks(dupe_ids, 100)
-
-            # send delete request to delete all dupes
-            for d in dupe_ids_partitions:
+            # send delete request to delete all dupes. Partitioned due to URI limitations.
+            for d in self.chunks(dupe_ids, 100):
                 self.cli.delete('/docs', ids=d)
             print("Finished deleting duplicates from project \n")
 
             # need to remove the _id field otherwise it will get deleted
             # upon recalc (if it's the same as one of the deleted docs,
             # which it often is depending on the reconcile function).
-            for d in deduped:
+            for d in dupes_to_retain:
                 if '_id' in d:
                     del d['_id']
 
             # upload the dupes we have chosen to keep
-            self.cli.upload('docs', deduped)
+            self.cli.upload('docs', dupes_to_retain)
         
         print("Deduping finished. Project is now recalculating.")
         self.cli.post('docs/recalculate')
