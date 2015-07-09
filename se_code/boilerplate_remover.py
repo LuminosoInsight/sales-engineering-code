@@ -1,19 +1,23 @@
 from lumi_science.text_readers import get_reader
 from luminoso_api.json_stream import open_json_or_csv_somehow
 from collections import defaultdict
-from operator import itemgetter
 import argparse
-import time
 import itertools
-import codecs
 import json
-import sys
-import re
 
 
 SEPARATOR = '¶'
 GAP = '___'
 DEFAULT_TOKENS_TO_SCAN = 1000000
+
+
+def get_ngrams(seq, window_size):
+    """
+    Get all ngrams of the given sequence with the given size. The items in
+    the list returned will be of the form ((startpos, endpos), ngram).
+    """
+    return [((i, i + window_size), seq[i:(i + window_size)])
+            for i in range(len(seq) - window_size + 1)]
 
 
 class BPDetector(object):
@@ -109,21 +113,31 @@ class BPDetector(object):
             # We can't read any n-grams from this document.
             return 0
 
-        for left in range(len(token_triples)):
-            right = left + self.window_size
-            if right > len(token_triples):
-                continue
-
+        for (startpos, endpos), ngram in get_ngrams(token_triples, self.window_size):
             # Make a tuple of the normalized forms of the words in this n-gram.
-            stems = tuple(token_triples[i][0] for i in range(left, right))
-            self.counts[stems] += 1.
+            stems = tuple(token[0] for token in ngram)
 
-            # Also add versions with 'gaps' if requested, but at half the
-            # weight.
-            if self.use_gaps:
-                for gapped, filler in add_gap(stems):
-                    self.counts[gapped] += 0.5
-                    self.gap_fillers[gapped].add(filler)
+            # Don't count most n-grams that have a SEPARATOR in the middle.
+            # The separator should appear on the edges of n-grams, so that it
+            # separates.
+            #
+            # However, we'd like to be able to match sequences of separated
+            # pieces that form a larger mass of boilerplate. So if an edge of
+            # the n-gram is already a separator, or the start or end of the
+            # text, then we allow other separators as well.
+            separator_ok = (
+                startpos == 0 or endpos == len(token_triples)
+                or stems[0] == SEPARATOR or stems[-1] == SEPARATOR
+            )
+            if separator_ok or SEPARATOR not in stems[1:-1]:
+                self.counts[stems] += 1.
+
+                # Also add versions with 'gaps' if requested, but at half the
+                # weight.
+                if self.use_gaps:
+                    for gapped, filler in add_gap(stems):
+                        self.counts[gapped] += 0.5
+                        self.gap_fillers[gapped].add(filler)
 
         return len(token_triples)
 
@@ -135,53 +149,38 @@ class BPDetector(object):
         self.boilerplate = set(bp for bp, count in self.counts.items()
                                if count >= self.threshold)
 
-    def boilerplate_match(self, bset, words):
+    def boilerplate_match(self, words):
         """
         Determine whether a sequence of words matches a known boilerplate
         n-gram, taking versions with gaps into account. Return the sequence
         that it matched.
         """
-        if words in bset:
+        if words in self.boilerplate:
             return words
         if self.use_gaps:
-            for gap_slot in range(len(words)):
+            for gap_slot in range(1, len(words) - 1):
                 gapped = words[:gap_slot] + (GAP,) + words[gap_slot + 1:]
-                if gapped in bset:
+                if gapped in self.boilerplate:
                     return gapped
         return False
 
-    def remove_boilerplate(self, doc):
+    def merge_boilerplate_spans(self, words):
         """
-        Transform a document in place, removing sequences of boilerplate from
-        its text.
+        Find n-grams of this list of tokenized words that match known
+        boilerplate sequences, and combine them into possibly longer sequences.
 
-        Return the spans of character indices that were removed.
+        Returns tuples of ((start, end), seq), indicating the sequences that
+        were matched (with gaps indicated) and their indices in the list.
         """
-        # Remember what the original text was
-        doc['original_text'] = doc['text']
-
-        # Make some attributes into locals for efficiency
-        boilerplate_set = self.boilerplate
-        window_size = self.window_size
-        overlapping_ngrams = []
-        token_triples = (doc.get('bp_tokens') or doc.get('tokens') or
-                         self.reader.text_to_token_triples(doc['text']))
-        tokenwords = tuple(triple[0] for triple in token_triples)
-        startpoint = 0
-
-        # boilerplate_spans is a list of pairs, each containing:
-        #   - An inner pair of (start location, end location)
-        #   - A tuple of the words or gaps that were matched
-        boilerplate_spans = []
         prev_endpoint = -1
         prev_startpoint = 0
+        window_size = self.window_size
+        boilerplate_spans = []
 
         # Look for all the n-grams that match something in the boilerplate_set,
         # and merge them into spans in boilerplate_spans.
-        for startpoint in range(len(token_triples) - window_size + 1):
-            endpoint = startpoint + window_size
-            these_tokens = tokenwords[startpoint:endpoint]
-            match_seq = self.boilerplate_match(boilerplate_set, these_tokens)
+        for (startpoint, endpoint), these_tokens in get_ngrams(words, window_size):
+            match_seq = self.boilerplate_match(these_tokens)
             if match_seq:
                 if startpoint > prev_endpoint:
                     # If it's separate from the previous span, add it as a new span.
@@ -200,62 +199,37 @@ class BPDetector(object):
                 prev_startpoint = startpoint
                 prev_endpoint = endpoint
 
+        return boilerplate_spans
+
+    def remove_boilerplate(self, doc):
+        """
+        Transform a document in place, removing sequences of boilerplate from
+        its text.
+
+        Return the spans of character indices that were removed.
+        """
+        # Remember what the original text was
+        doc['original_text'] = doc['text']
+
+        # Make some attributes into locals for efficiency
+        token_triples = (doc.get('bp_tokens') or doc.get('tokens') or
+                         self.reader.text_to_token_triples(doc['text']))
+        tokenwords = tuple(triple[0] for triple in token_triples)
+        startpoint = 0
+
+        # boilerplate_spans is a list of pairs, each containing:
+        #   - An inner pair of (start location, end location)
+        #   - A tuple of the words or gaps that were matched
+        boilerplate_spans = self.merge_boilerplate_spans(tokenwords)
+
         # Iterate through the spans backwards (to preserve indices), removing
         # text that meets the criteria for boilerplate.
         removed_spans = []
-        for span, token_seq in boilerplate_spans[::-1]:
-            startpoint, endpoint = span
-            # We'll trim the boilerplate span according to various criteria.
-            # We repeat this loop for as long as something is being trimmed.
-            while startpoint + window_size < endpoint:
-                # If the sequence starts or ends with a gap, shorten the
-                # sequence to exclude the gap.
-                if token_seq[0] in GAP:
-                    token_seq = token_seq[1:]
-                    startpoint += 1
-                elif token_seq[-1] == GAP:
-                    token_seq = token_seq[:-1]
-                    endpoint -= 1
-                # We'd prefer not to absorb unrelated text that appears after
-                # the boilerplate. One case where this would happen is when
-                # we have a lot of boilerplate, then hard punctuation
-                # (the SEPARATOR), then the start of a new sentence that
-                # uses common words.
-                #
-                # The way we correct for this is to ensure that SEPARATOR
-                # does not occur too close to the beginning or end of the
-                # token sequence, unless it is unavoidable because the token
-                # sequence is at the beginning or end of the text overall.
-                elif SEPARATOR in token_seq[-window_size:-1] and endpoint < len(token_triples):
-                    # There's a separator too close to the end. Look for the
-                    # innermost separator and trim the sequence to end there.
-                    trim_loc = -window_size
-                    while token_seq[trim_loc] != SEPARATOR:
-                        trim_loc += 1
-                        assert trim_loc < 0
-                    token_seq = token_seq[:trim_loc]
-                    endpoint += trim_loc
-                elif SEPARATOR in token_seq[1:window_size] and startpoint > 0:
-                    # There's a separator too close to the end. Look for the
-                    # innermost separator and trim the sequence to start there.
-                    trim_loc = window_size
-                    while token_seq[trim_loc - 1] != SEPARATOR:
-                        trim_loc -= 1
-                        assert trim_loc > 0
-                    token_seq = token_seq[trim_loc:]
-                    startpoint += trim_loc
-                else:
-                    # None of these criteria matched, so we're done trimming.
-                    break
-
-            # If the sequence is too short after trimming, it's not actually
-            # boilerplate. Otherwise, it's ready to be removed.
-            if startpoint + window_size < endpoint:
-                tstart = token_triples[startpoint][2][0]
-                tend = token_triples[endpoint - 1][2][1]
-                removed = doc['text'][tstart:tend]
-                removed_spans.append((tstart, tend))
-                doc['text'] = doc['text'][:tstart] + self.bp_replacement + doc['text'][tend:]
+        for (startpoint, endpoint), token_seq in boilerplate_spans[::-1]:
+            tstart = token_triples[startpoint][2][0]
+            tend = token_triples[endpoint - 1][2][1]
+            removed_spans.append((tstart, tend))
+            doc['text'] = doc['text'][:tstart] + self.bp_replacement + doc['text'][tend:]
 
         if 'bp_tokens' in doc:
             del doc['bp_tokens']
@@ -317,8 +291,7 @@ class BPDetector(object):
                 print(json.dumps(doc, ensure_ascii=False), file=out)
                 if verbose and count % 10000 == 0:
                     text_to_show = doc['original_text']
-                    for span in removed_spans:
-                        start, end = span
+                    for start, end in removed_spans:
                         text_to_show = (
                             text_to_show[:start]
                             + highlight(text_to_show[start:end])
@@ -345,7 +318,7 @@ class BPDetector(object):
         if output_ngrams:
             self.save_data(output_ngrams)
 
-        if len(self.boilerplate) == 0 and len(self.counts) == 0:
+        if not self.counts:
             raise RuntimeError("No boilerplate data has been loaded.")
 
         self.handle_docs(docs, output, verbose=verbose)
@@ -356,7 +329,7 @@ def add_gap(words):
     Given a sequence of words, iterate through all the possibilities of
     replacing one of those words with the GAP value.
     """
-    for gap_slot in range(len(words)):
+    for gap_slot in range(1, len(words) - 1):
         gapped = words[:gap_slot] + (GAP,) + words[gap_slot + 1:]
         yield gapped, words[gap_slot]
 
@@ -406,7 +379,6 @@ def main():
     # Set use_gaps based on the --exact parameter
     bp.use_gaps = (not args.exact)
 
-    docs = open_json_or_csv_somehow(sys.argv[1])
     bp.run(input=args.input, output=args.output,
            output_ngrams=args.output_ngrams,
            train=(not args.input_ngrams),
