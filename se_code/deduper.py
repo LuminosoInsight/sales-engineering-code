@@ -32,6 +32,15 @@ class Deduper(object):
         self.split_amt = split_amt
         self.cli = LuminosoClient.connect('/projects/'+acct+'/'+proj, token=token)
 
+    def intervals(self, maximum, interval):
+        """ Creates intervals of size 'interval' up to maximum """
+        return [(i, min(i + interval, maximum)) for i in range(0, maximum, interval)]
+
+    def chunks(self, l, n):
+        """ Partitions a list in to a list of lists """
+        n = max(1, n)
+        return [l[i:i + n] for i in range(0, len(l), n)]
+
     def all_docs(self):
         """ Fetches all documents from a project """
         limit = 25000
@@ -43,10 +52,6 @@ class Deduper(object):
             if len(batch) < limit:
                 return docs
             offset += limit
-
-    def intervals(self, maximum, interval):
-        """ Creates intervals of size 'interval' up to maximum """
-        return [(i, min(i + interval, maximum)) for i in range(0, maximum, interval)]
 
     def get_similar(self, similarity_matrix):
         """ Return all pairs with similarity > self.thresh.
@@ -78,7 +83,7 @@ class Deduper(object):
             last = current
             
     def get_dupes(self, dupe_list):
-        return [d for d in connected_components(self.to_graph(dupe_list))]
+        return connected_components(self.to_graph(dupe_list))
 
     def reconcile_dupes(self, dupes):
         """ Dedupe reconciliation process. Currently retains the first dupe.
@@ -88,11 +93,6 @@ class Deduper(object):
         if self.reconcile_func:
             return self.reconcile_func(dupes)
         return dupes[0]
-
-    def chunks(self, l, n):
-        """ Partitions a list in to a list of lists """
-        n = max(1, n)
-        return [l[i:i + n] for i in range(0, len(l), n)]
 
     def dedupe(self):
         """ Main method that should be called to dedupe the project """
