@@ -1,8 +1,7 @@
 from itertools import chain
 from sklearn.feature_extraction.text import TfidfVectorizer
 from luminoso_api import LuminosoClient
-import networkx 
-from networkx.algorithms.components.connected import connected_components
+from networkx import Graph, connected_components
 
 class Deduper(object):
     """ This class is initialized by pointing it at a project. It then downloads
@@ -38,7 +37,6 @@ class Deduper(object):
 
     def chunks(self, l, n):
         """ Partitions a list in to a list of lists """
-        n = max(1, n)
         return [l[i:i + n] for i in range(0, len(l), n)]
 
     def all_docs(self):
@@ -63,27 +61,13 @@ class Deduper(object):
             similar.extend([(x[0] + lower, x[1]) for x in zip(*sim)])
             print("processed rows " + str(lower) + " to row " + str(upper))
         return [s for s in similar if s[0] != s[1]]
-
-    # get_similar outputs a list of dupe pairs. The following graph methods turn
-    # these dupe pairs in to a graph and return the connected components (full
-    # sets of dupes). Note: in some cases two docs will be considered dupes even
-    # with similarity a bit less than self.thresh due to transitivity
-    def to_graph(self, l):
-        G = networkx.Graph()
-        for part in l:
-            G.add_nodes_from(part) # each sublist is a bunch of nodes
-            G.add_edges_from(self.to_edges(part)) # it also implies a number of edges
-        return G
-
-    def to_edges(self, l):
-        it = iter(l)
-        last = next(it)
-        for current in it:
-            yield last, current
-            last = current
             
     def get_dupes(self, dupe_list):
-        return connected_components(self.to_graph(dupe_list))
+        """ Turn these dupe pairs in to a graph and return the connected
+            components (full sets of dupes). Note: in some cases two docs
+            will be considered dupes even with similarity a bit less than
+            self.thresh due to transitivity """
+        return connected_components(Graph(dupe_list))
 
     def reconcile_dupes(self, dupes):
         """ Dedupe reconciliation process. Currently retains the first dupe.
