@@ -27,12 +27,10 @@ def get_surveys(token):
     return requests.get(BASE_URI+'surveys?apiToken='+token+'&fileType=json').json()
 
 def get_survey(sid, token):
-    return requests.get(BASE_URI+'surveys/'+sid+'?apiToken='
-                        +token+'&fileType=json').json()
+    return requests.get(BASE_URI+'surveys/'+sid+'?apiToken='+token+'&fileType=json').json()
 
 def get_responses(sid, token):
-    return requests.get(BASE_URI+'surveys/'+sid+'/responseExports/?apiToken='
-                        +token+'&fileType=JSON').json()
+    return requests.get(BASE_URI+'surveys/'+sid+'/responseExports/?apiToken='+token+'&fileType=JSON').json()
 
 def get_name_id(token):
     surveys = get_surveys(token)
@@ -54,6 +52,7 @@ def get_question_descriptions(sid, token):
 def get_survey_json(sid, token):
     #strip the url from get requests
     responses_json = get_responses(sid, token)
+    print(responses_json, '\n')
     url1 = responses_json['result']['exportStatus']
     test = requests.get(url1+'?apiToken='+token)
     #strip the url from the test.text
@@ -119,10 +118,8 @@ def step3():
     sid = request.args.get('sid', 0, type=str)
     token = request.args.get('token', 0, type=str)
     text_q = request.args.get('text_q', 0, type=str)
-    subset_qs = request.args.get('subset_qs', 0, type=list)
-    print(sid, token, text_q, subset_qs)
-    account = lumi_account
-    token = lumi_token
+    subset_qs = eval(request.args.get('subset_qs', 0, type=str))
+    print(sid, token, text_q, subset_qs, '\n')
     proj_url = build_analytics_project(sid, token, text_q, subset_qs,
                                        lumi_account, lumi_token, "Qualtrics Import")
     return proj_url
