@@ -81,6 +81,8 @@
 
               $('input[name=formSubmit]').bind('click', function() {
                 console.log("sending over form stuff");
+                console.log("subset" + $('input[name=subSelect]').val());
+                console.log("docSelect" + $('input[name=docSelect]').val());
                $.getJSON($SCRIPT_ROOT + '/_step3', {
                //sending over the sid of the survey
                  sid: $('select[name=surveys]').val(), 
