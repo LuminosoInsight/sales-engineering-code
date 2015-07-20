@@ -50,10 +50,10 @@
 
                  if (key == 'text'){
                   var selectTextCode = 'Select which questions to have as documents:<br>';
-                  selectTextCode += '<form name="docSubForm"><table>';
+                  //selectTextCode += '<form name="docSubForm"><table>';
                   for (var i = 0; i < apple.text.length; i++){
                      selectTextCode += '<tr>';
-                     selectTextCode += '<td><input type="radio" name="docSelect" value='+apple.text[i][0]+'/></td>';
+                     selectTextCode += '<td><input type="radio" name="docSelect" value="'+apple.text[i][0]+'"/></td>';
                      selectTextCode += '<td>' + apple.text[i][0] + '</td><td>' + apple.text[i][1] + '</td></tr>';
                   } 
                   selectTextCode += '</table>';
@@ -65,11 +65,11 @@
                   selectSubsetCode += '<table>';
                   for (var i = 0; i < apple.subsets.length; i++){
                      selectSubsetCode += '<tr>';
-                     selectSubsetCode += '<td><input type="checkbox" name="subSelect" value='+apple.subsets[i][0]+'/></td>';
+                     selectSubsetCode += '<td><input type="checkbox" name="subSelect[]" value="'+apple.subsets[i][0]+'"/></td>';
                      selectSubsetCode += '<td>' + apple.subsets[i][0] + '</td><td>' + apple.subsets[i][1] + '</td></tr>';
                   }
                   selectSubsetCode += '</table>';
-                  selectSubsetCode += '<br><input type="submit" name="formSubmit" value="Create Project"/></form>'
+                  selectSubsetCode += '<br><input type="submit" name="formSubmit" value="Create Project"/>'
                  }
                  
               }
@@ -80,15 +80,20 @@
 
 
               $('input[name=formSubmit]').bind('click', function() {
-                console.log("sending over form stuff");
-                console.log("subset" + $('input[name=subSelect]').val());
-                console.log("docSelect" + $('input[name=docSelect]').val());
-               $.getJSON($SCRIPT_ROOT + '/_step3', {
+                
+                var checked = [];   
+                $('input[type="checkbox"]:checked').each(function() {
+                    checked.push($(this).val());
+                  });
+                var checkedStr = JSON.stringify(checked);
+                console.log("subset: " + checkedStr);
+                console.log("docSelect: " + $('input[name=docSelect]').val());
+                $.getJSON($SCRIPT_ROOT + '/_step3', {
                //sending over the sid of the survey
                  sid: $('select[name=surveys]').val(), 
                  token: $('input[name=token]').val(),
                  text_q: $('input[name=docSelect]').val(),
-                 subset_qs: $('input[name=subSelect]').val()
+                 subset_qs: checkedStr
                 }, function(data) {
 
                 });
