@@ -40,8 +40,45 @@
           sid: $('select[name=surveys]').val(), 
           token: $('input[name=token]').val()
           }, function(data) {
-          $('#testing').text(data.result);
-           console.log("data submitted");
+
+            questions = JSON.stringify(data);
+            var apple = JSON.parse(questions);
+
+            for(var key in apple){ //Create selections for Documents
+              if (apple.hasOwnProperty(key)){
+                 var value=apple[key];
+
+                 if (key == 'text'){
+                  var selectTextCode = 'Select which questions to have as documents:<br>';
+                  selectTextCode += '<form name="docSubForm"><table>';
+                  for (var i = 0; i < apple.text.length; i++){
+                     selectTextCode += '<tr>';
+                     selectTextCode += '<td><input type="radio" name="docSelect" value='+apple.text[i][0]+'/></td>';
+                     selectTextCode += '<td>' + apple.text[i][0] + '</td><td>' + apple.text[i][1] + '</td></tr>';
+                  } 
+                  selectTextCode += '</table>';
+                  
+                 } 
+
+                 if (key == 'subsets'){ //Create selections for Subsets
+                  var selectSubsetCode = 'Select which questions to have as subsets:<br>';
+                  selectSubsetCode += '<table>';
+                  for (var i = 0; i < apple.subsets.length; i++){
+                     selectSubsetCode += '<tr>';
+                     selectSubsetCode += '<td><input type="checkbox" name="subSelect" value='+apple.subsets[i][0]+'/></td>';
+                     selectSubsetCode += '<td>' + apple.subsets[i][0] + '</td><td>' + apple.subsets[i][1] + '</td></tr>';
+                  }
+                  selectSubsetCode += '</table>';
+                  selectSubsetCode += '<br><input type="submit" name="formSubmit" value="Create Project"/></form>'
+                 }
+                 
+              }
+             }
+            $('#text').html(selectTextCode);
+            $('#subsets').html(selectSubsetCode);
+            $('#questions').text(questions);
+
+            //console.log("data submitted");
            });
          });
 
@@ -79,7 +116,7 @@
 
 <h1>Qualtrics</h1>
   <p>
-  Enter Token: <input type="text" size="50" name="token" value="YGt8lpZHTOfbUip5puXwQVlARk2CfMaGeusxyPHD"> 
+  Enter Token: <input type="text" size="50" name="token" value="YGt8lpZHTOfbUip5puXwQVlARk2CfMaGeusxyPHD">
   <br>
   <input type="submit" name="sub_cred" value="Get Surveys"/>
   </p>
@@ -90,9 +127,17 @@
 
   </p>
 
+  <p>
+
+  <span id="questions"></span>
+</p>
+
 <p>
 
-  <span id="testing"><input type="submit" name="testing" value="testing"/></span>
+  <span id="text"></span>
+</p>
+<p>
+  <span id="subsets"></span>
 
 </p>
   
