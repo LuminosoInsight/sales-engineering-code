@@ -100,7 +100,9 @@ def step3():
     subset_qs = request.args.get('subset_qs', 0, type=list)
     account = lumi_account
     token = lumi_token
-    return get_question_descriptions(sid, token)
+    proj_url = build_analytics_project(sid, token, text_q, subset_q_ids,
+                                       lumi_acct, lumi_token, "Qualtrics Import")
+    return proj_url
 
 if __name__ == '__main__':
     app.run(debug=True)
