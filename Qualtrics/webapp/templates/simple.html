@@ -78,17 +78,34 @@
             $('#subsets').html(selectSubsetCode);
             $('#questions').text(questions);
 
-            //console.log("data submitted");
-           });
+
+              $('input[name=formSubmit]').bind('click', function() {
+                console.log("sending over form stuff");
+               $.getJSON($SCRIPT_ROOT + '/_step3', {
+               //sending over the sid of the survey
+                 sid: $('select[name=surveys]').val(), 
+                 token: $('input[name=token]').val(),
+                 text_q: $('input[name=docSelect]').val(),
+                 subset_qs: $('input[name=subSelect]').val()
+                }, function(data) {
+
+                });
+
+              });
+
+                 //console.log("data submitted");
+           });  //end of step2 function(data)
          });
 
 
 
-        }); //end of function(data)
+        }); //end of step1 function(data)
         return false;
     }; //end of variable submit_form
 
     $('input[name=sub_cred]').bind('click', submit_form);
+
+
     
     $('input[type=text]').bind('keydown', function(e) {
       if (e.keyCode == 13) {
