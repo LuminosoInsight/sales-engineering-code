@@ -51,6 +51,28 @@ def get_question_descriptions(sid, token):
             ret["subsets"].append((q_name, q_text))
     return dict(ret)
 
+def get_survey_json(sid, token):
+    #strip the url from get requests
+    responses_json = get_responses(sid, token)
+    url1 = responses_json['result']['exportStatus']
+    test = requests.get(url1+'?apiToken='+token)
+    #strip the url from the test.text
+    new = str(test.text)
+    d = json.loads(new)
+    url2 = str(d['result']['fileUrl'])
+    #make a new folder
+    foldername='qualtrics_download'
+    if not os.path.isdir(foldername):
+        os.mkdir(foldername)
+    #download the file
+    timestamp = str(round(time.time()))
+    urlretrieve(url2,sid+"_"+timestamp+".zip")
+    #unzip the file, put it into the new folder
+    with zipfile.ZipFile(sid+"_"+timestamp+".zip", "r") as z:
+        z.extractall(path=foldername)
+        newest = max(glob.iglob(foldername+'/*.json'), key=os.path.getctime)
+        return json.load(open(newest, 'r'))
+
 def _create_project(acct, token, name, docs):
     cli = LuminosoClient.connect('/projects/'+acct, token = lumi_token)
     pid = cli.post('/', name = name)['project_id']
@@ -62,7 +84,7 @@ def _create_project(acct, token, name, docs):
     return 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+pid
 
 def build_analytics_project(sid, token, text_q_id, subset_q_ids, acct, lumi_token, name):
-    responses_json = get_survey_json(ice_cream, token)
+    responses_json = get_survey_json(sid, token)
     docs = []
     for r in responses_json['responses']:
         subsets = [qid+": "+r[qid] for qid in subset_q_ids]
@@ -98,10 +120,11 @@ def step3():
     token = request.args.get('token', 0, type=str)
     text_q = request.args.get('text_q', 0, type=str)
     subset_qs = request.args.get('subset_qs', 0, type=list)
+    print(sid, token, text_q, subset_qs)
     account = lumi_account
     token = lumi_token
-    proj_url = build_analytics_project(sid, token, text_q, subset_q_ids,
-                                       lumi_acct, lumi_token, "Qualtrics Import")
+    proj_url = build_analytics_project(sid, token, text_q, subset_qs,
+                                       lumi_account, lumi_token, "Qualtrics Import")
     return proj_url
 
 if __name__ == '__main__':
