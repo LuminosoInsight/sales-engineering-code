@@ -1,0 +1,103 @@
+{% extends "layout.html" %}
+{% block body %}
+<script type="text/javascript">
+
+
+  $(function() {
+
+    var submit_form = function(e) {
+      $.getJSON($SCRIPT_ROOT + '/_step1', {
+        token: $('input[name=token]').val()
+      }, function(data) {
+        //$('#result').text(data.result);
+        //console.log("server response:" + JSON.stringify(data));
+        w = JSON.stringify(data);
+        //$('#result').text(w);
+
+        var obj = JSON.parse(w);
+        var d = {};
+        var selectSurveyCode = 'Select which survey you would like to upload:<br>';
+        selectSurveyCode += '<select name="surveys">';
+        
+        for(var key in obj){
+          if (obj.hasOwnProperty(key)){
+           var value=obj[key];
+           console.log("key:" + key);
+           console.log("value:" + value);
+           d[key] = value;
+           selectSurveyCode += '<option value='+value+'>'+key+'</option>';
+          }
+        }
+        selectSurveyCode += '</select>'
+        selectSurveyCode += '<input type="submit" name="submitSurveySelect" value="Select this Survey"/>'
+
+        $('#surveys').html(selectSurveyCode);
+
+        $('input[name=submitSurveySelect]').bind('click', function() {
+          console.log("sending over: " + $('select[name=surveys]').val() + " and token: " + $('input[name=token]').val());
+         $.getJSON($SCRIPT_ROOT + '/_step2', {
+          //sending over the sid of the survey
+          sid: $('select[name=surveys]').val(), 
+          token: $('input[name=token]').val()
+          }, function(data) {
+          $('#testing').text(data.result);
+           console.log("data submitted");
+           });
+         });
+
+
+
+        }); //end of function(data)
+        return false;
+    }; //end of variable submit_form
+
+    $('input[name=sub_cred]').bind('click', submit_form);
+    
+    $('input[type=text]').bind('keydown', function(e) {
+      if (e.keyCode == 13) {
+        submit_form(e);
+      }
+    });
+
+    
+
+
+
+    
+    
+
+
+
+  }); //end of main function
+
+
+</script>
+
+
+
+
+
+<h1>Qualtrics</h1>
+  <p>
+  Enter Token: <input type="text" size="50" name="token"> 
+  <br>
+  <input type="submit" name="sub_cred" value="Get Surveys"/>
+  </p>
+
+  <p>
+  
+  <span id="surveys"></span>
+
+  </p>
+
+<p>
+
+  <span id="testing"><input type="submit" name="testing" value="testing"/></span>
+
+</p>
+  
+
+
+  
+
+{% endblock %}
