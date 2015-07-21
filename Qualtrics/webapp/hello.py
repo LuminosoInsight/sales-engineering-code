@@ -133,7 +133,7 @@ def step3():
     print("BLAH 2 "+text_q+str(subset_qs))
     proj_url = build_analytics_project(sid, token, text_q, subset_qs,
                                        lumi_account, lumi_token, "Qualtrics Import")
-    return proj_url
+    return jsonify({"url":proj_url})
 
 if __name__ == '__main__':
     app.run(debug=True)
