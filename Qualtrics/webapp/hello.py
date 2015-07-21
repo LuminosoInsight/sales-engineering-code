@@ -130,9 +130,10 @@ def step3():
     token = request.args.get('token', 0, type=str)
     text_q = request.args.get('text_q', 0, type=str)
     subset_qs = eval(request.args.get('subset_qs', 0, type=str))
+    title = request.args.get('title', 0, type=str)
     print("BLAH 2 "+text_q+str(subset_qs))
     proj_url = build_analytics_project(sid, token, text_q, subset_qs,
-                                       lumi_account, lumi_token, "Qualtrics Import")
+                                       lumi_account, lumi_token, title+" (Imported from Qualtrics)")
     print(proj_url)
     return jsonify({"url":proj_url})
 
