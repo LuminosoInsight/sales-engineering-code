@@ -1,5 +1,5 @@
 {% extends "layout.html" %}
-{% block body %}
+{% block content %}
 <script type="text/javascript">
 
 
@@ -16,8 +16,8 @@
 
         var obj = JSON.parse(w);
         var d = {};
-        var selectSurveyCode = 'Select which survey you would like to upload:<br>';
-        selectSurveyCode += '<select name="surveys">';
+        var selectSurveyCode = '<br><h4>Step 2: Select which survey you would like to upload:</h4><p>';
+        selectSurveyCode += '<select class="form-control" name="surveys">';
         
         for(var key in obj){
           if (obj.hasOwnProperty(key)){
@@ -28,8 +28,8 @@
            selectSurveyCode += '<option value='+value+'>'+key+'</option>';
           }
         }
-        selectSurveyCode += '</select>'
-        selectSurveyCode += '<input type="submit" name="submitSurveySelect" value="Select this Survey"/>'
+        selectSurveyCode += '</select><br>'
+        selectSurveyCode += '<input type="submit" class="btn btn-default btn-sm" name="submitSurveySelect" value="Select this Survey"/>'
 
         $('#surveys').html(selectSurveyCode);
 
@@ -49,27 +49,29 @@
                  var value=apple[key];
 
                  if (key == 'text'){
-                  var selectTextCode = 'Select which questions to have as documents:<br>';
-                  selectTextCode += '<table>';
+                  var selectTextCode = '<br><h4>Step 3: Select which questions to have as documents:</h4><p>';
+                  selectTextCode += '<table class="table table-striped"><tr><th>Select</th><th>Question ID</th><th>Question</th></tr>';
                   for (var i = 0; i < apple.text.length; i++){
                      selectTextCode += '<tr>';
                      selectTextCode += '<td><input type="radio" name="docSelect" value="'+apple.text[i][0]+'"/></td>';
                      selectTextCode += '<td>' + apple.text[i][0] + '</td><td>' + apple.text[i][1] + '</td></tr>';
+                     console.log("this value is: " + apple.text[i][0]);
                   } 
                   selectTextCode += '</table>';
                   
                  } 
 
                  if (key == 'subsets'){ //Create selections for Subsets
-                  var selectSubsetCode = 'Select which questions to have as subsets:<br>';
-                  selectSubsetCode += '<table>';
+                  var selectSubsetCode = '<br><h4>Step 4: Select which questions to have as subsets:</h4><br>';
+                  selectSubsetCode += '<table class="table table-striped"><tr><th>Select</th><th>Question ID</th><th>Question</th></tr>';
                   for (var i = 0; i < apple.subsets.length; i++){
                      selectSubsetCode += '<tr>';
-                     selectSubsetCode += '<td><input type="checkbox" name="subSelect[]" value="'+apple.subsets[i][0]+'"/></td>';
+                     selectSubsetCode += '<td><input type="checkbox" class="checkbox" name="subSelect[]" value="'+apple.subsets[i][0]+'"/></td>';
                      selectSubsetCode += '<td>' + apple.subsets[i][0] + '</td><td>' + apple.subsets[i][1] + '</td></tr>';
                   }
                   selectSubsetCode += '</table>';
-                  selectSubsetCode += '<br><input type="submit" name="formSubmit" value="Create Project"/>'
+                  selectSubsetCode += '<br><h4>Step 5: Click below to create a new project.</h4>A project url will appear below once the project is completed.<br><br><p><input type="submit" class="btn btn-primary" name="formSubmit" value="Create Project"/>';
+                  selectSubsetCode += '<br><img id="loading" alt="spinning wheel" src="http://i.giphy.com/3o85xCakol73CquQco.gif" style="display:none"></p><br><br> ';
                  }
                  
               }
@@ -80,7 +82,8 @@
 
 
               $('input[name=formSubmit]').bind('click', function() {
-                
+                $("#loading").show();
+                console.log("spinner started");
                 var checked = [];   
                 $('input[type="checkbox"]:checked').each(function() {
                     checked.push($(this).val());
@@ -95,12 +98,20 @@
                  text_q: $('input[name=docSelect]').val(),
                  subset_qs: checkedStr
                 }, function(data) {
-
+                    
+                    //$("#loading").hide();
+                    //console.log("spinner removed");
+                    //proj_url = JSON.stringify(data);
+                    //var uploadedCode = "<br>Your project has finished uploading. Here is the url:<br>";
+                    //uploadedCode += proj_url;
+                    //$('#uploaded').html(uploadedCode);
+                    //console.log("done");
+                    
                 });
-
+                console.log("data submitted");
               });
 
-                 //console.log("data submitted");
+                 
            });  //end of step2 function(data)
          });
 
@@ -138,11 +149,14 @@
 
 
 
-<h1>Qualtrics</h1>
+
   <p>
-  Enter Token: <input type="text" size="50" name="token" value="YGt8lpZHTOfbUip5puXwQVlARk2CfMaGeusxyPHD">
+  <div class="row">
+  <div class="col-xs-7">
+  <h4>Step 1: Enter your Qualtrics token</h4>
+  <input type="text" class="form-control" name="token" value="YGt8lpZHTOfbUip5puXwQVlARk2CfMaGeusxyPHD">
   <br>
-  <input type="submit" name="sub_cred" value="Get Surveys"/>
+  <input type="submit" class="btn btn-default btn-sm" name="sub_cred" value="Get Surveys"/>
   </p>
 
   <p>
@@ -164,9 +178,12 @@
   <span id="subsets"></span>
 
 </p>
-  
+<p>
+  <span id="uploaded"></span>
 
+</p>
 
+</div></div>
   
 
 {% endblock %}
