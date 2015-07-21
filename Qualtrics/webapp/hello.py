@@ -61,9 +61,9 @@ def get_survey_json(sid, token):
         os.mkdir(foldername)
     #download the file
     timestamp = str(round(time.time()))
-    urlretrieve(url2,sid+"_"+timestamp+".zip")
+    urlretrieve(url2,'./'+foldername+'/'+sid+"_"+timestamp+".zip")
     #unzip the file, put it into the new folder
-    with zipfile.ZipFile(sid+"_"+timestamp+".zip", "r") as z:
+    with zipfile.ZipFile('./'+foldername+'/'+sid+"_"+timestamp+".zip", "r") as z:
         z.extractall(path=foldername)
         newest = max(glob.iglob(foldername+'/*.json'), key=os.path.getctime)
         return json.load(open(newest, 'r'))
@@ -95,7 +95,6 @@ def build_analytics_project(sid, token, text_q_id, subset_q_ids, acct, lumi_toke
         docs.append({"text":r[text_q_id],
                      "date":arrow.get(r['EndDate']).timestamp,
                      "subsets":subsets})
-    print(docs[0], docs[100])
     proj_url = _create_project(acct, lumi_token, name, docs)
     return proj_url
 
