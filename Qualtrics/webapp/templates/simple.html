@@ -71,7 +71,7 @@
                   }
                   selectSubsetCode += '</table>';
                   selectSubsetCode += '<br><h4>Step 5: Click below to create a new project.</h4>A project url will appear below once the project is completed.<br><br><input type="submit" class="btn btn-primary" name="formSubmit" value="Create Project"/>';
-                  selectSubsetCode += ' <img id="loading" padding-left="50px" alt="spinning wheel" src="http://i.giphy.com/3o85xCakol73CquQco.gif" style="display:none"><p id="status" class="text-muted" style="display:none">New project being created....please wait</p><br><br>';
+                  selectSubsetCode += ' <img id="loading" padding-left="50px" alt="spinning wheel" src="http://i.giphy.com/3o85xCakol73CquQco.gif" style="display:none"><div id="statusUpdate"></div><br>';
                  }
                  
               }
@@ -84,6 +84,32 @@
               $('input[name=formSubmit]').bind('click', function() {
                 $("#loading").show();
                 $("#status").show();
+                $("#statusUpdate").show();
+                $("#status1").show();
+                 setTimeout(function (){
+
+                    // Something you want delayed.
+                    $("#status2").show();
+
+                  }, 1000);
+                 setTimeout(function (){
+
+                    // Something you want delayed.
+                     $("#status3").show();
+
+                  }, 2500);
+                 setTimeout(function (){
+
+                    // Something you want delayed.
+                   $("#status4").show();
+
+                  }, 3500);
+              
+                
+               
+                
+                
+
                 $('#uploaded').html("");
                 console.log("load bar started");
                 var checked = [];   
@@ -184,7 +210,20 @@
 <p>
   <span id="subsets"></span>
 
-  <span id="uploaded"></span>
+  <div id="status1" style="display:none">
+  Step 1 of 4: Downloading data from Qualtrics<br>
+  </div>
+  <div id="status2" style="display:none">
+  Step 2 of 4: Creating a Luminoso Project<br>
+  </div>
+  <div id="status3" style="display:none">
+  Step 3 of 4: Uploading data to Luminoso Project<br>
+  </div>
+  <div id="status4" style="display:none">
+  Step 4 of 4: Recalculating Luminoso Project<br>
+  </div>
+
+   <span id="uploaded"></span>
 
 </p>
 
