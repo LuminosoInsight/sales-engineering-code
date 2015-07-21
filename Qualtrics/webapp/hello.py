@@ -54,11 +54,9 @@ def get_survey_json(sid, token):
     responses_json = get_responses(sid, token)
     print(responses_json, '\n')
     url1 = responses_json['result']['exportStatus']
-    test = requests.get(url1+'?apiToken='+token)
-    #strip the url from the test.text
-    new = str(test.text)
-    d = json.loads(new)
-    url2 = str(d['result']['fileUrl'])
+    file_json = requests.get(url1+'?apiToken='+token).json()
+    print(file_json)
+    url2 = file_json['result']['fileUrl']
     #make a new folder
     foldername='qualtrics_download'
     if not os.path.isdir(foldername):
