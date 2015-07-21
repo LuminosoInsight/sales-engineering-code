@@ -93,10 +93,12 @@
                 var checkedStr = JSON.stringify(checked);
                 console.log("subset: " + checkedStr);
                 console.log("docSelect: " + $('input[name=docSelect]:checked').val());
+                console.log("title: " +  $('#surveys option:selected').text());
                 $.getJSON($SCRIPT_ROOT + '/_step3', {
                //sending over the sid of the survey
                  sid: $('select[name=surveys]').val(), 
                  //add proj_name: 
+                 title: $('#surveys option:selected').text(),
                  token: $('input[name=token]').val(),
                  text_q: $('input[name=docSelect]:checked').val(),
                  subset_qs: checkedStr
@@ -107,8 +109,8 @@
                     $("#loading").hide();
                     $("#status").hide();
                     console.log("spinner removed");
-                    var uploadedCode = "<br>Your project has finished uploading. Here is the url:<br>";
-                    uploadedCode += "<a href="+x.url+">"+x.url+"</a>";
+                    var uploadedCode = "<br><h4>Your project has finished calculating. ";
+                    uploadedCode += "<a href="+x.url+">Click here</a> to view it.</h4><br><br>";
                     $('#uploaded').html(uploadedCode);
                     console.log("done");
                     
