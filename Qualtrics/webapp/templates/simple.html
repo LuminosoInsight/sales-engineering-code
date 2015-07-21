@@ -95,7 +95,7 @@
                //sending over the sid of the survey
                  sid: $('select[name=surveys]').val(), 
                  token: $('input[name=token]').val(),
-                 text_q: $('input[name=docSelect]').val(),
+                 text_q: $('input[name=docSelect]:checked').val(),
                  subset_qs: checkedStr
                 }, function(data) {
                     
