@@ -52,10 +52,8 @@ def get_question_descriptions(sid, token):
 def get_survey_json(sid, token):
     #strip the url from get requests
     responses_json = get_responses(sid, token)
-    print(responses_json, '\n')
     url1 = responses_json['result']['exportStatus']
     file_json = requests.get(url1+'?apiToken='+token).json()
-    print(file_json)
     url2 = file_json['result']['fileUrl']
     #make a new folder
     foldername='qualtrics_download'
@@ -81,13 +79,23 @@ def _create_project(acct, token, name, docs):
     return 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+pid
 
 def build_analytics_project(sid, token, text_q_id, subset_q_ids, acct, lumi_token, name):
+    def make_subset_mapping(survey):
+        survey = survey['result']['questions']
+        ret = {}
+        for qid in survey:
+            if 'choices' in survey[qid].keys():
+                qid2 = ''.join(re.search("(Q)ID(\d+)", qid).group(1,2))
+                ret[qid2] = {s:survey[qid]['choices'][s]['description'] for s in survey[qid]['choices']}
+        return ret
     responses_json = get_survey_json(sid, token)
+    subset_mapping = make_subset_mapping(get_survey(sid, token))
     docs = []
     for r in responses_json['responses']:
-        subsets = [qid+": "+r[qid] for qid in subset_q_ids]
+        subsets = [qid+": "+subset_mapping[qid][r[qid]] for qid in subset_q_ids]
         docs.append({"text":r[text_q_id],
                      "date":arrow.get(r['EndDate']).timestamp,
                      "subsets":subsets})
+    print(docs[0], docs[100])
     proj_url = _create_project(acct, lumi_token, name, docs)
     return proj_url
 
@@ -117,7 +125,6 @@ def step3():
     token = request.args.get('token', 0, type=str)
     text_q = request.args.get('text_q', 0, type=str)
     subset_qs = eval(request.args.get('subset_qs', 0, type=str))
-    print(sid, token, text_q, subset_qs, '\n')
     proj_url = build_analytics_project(sid, token, text_q, subset_qs,
                                        lumi_account, lumi_token, "Qualtrics Import")
     return proj_url

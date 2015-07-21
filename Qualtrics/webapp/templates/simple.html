@@ -50,7 +50,7 @@
 
                  if (key == 'text'){
                   var selectTextCode = 'Select which questions to have as documents:<br>';
-                  //selectTextCode += '<form name="docSubForm"><table>';
+                  selectTextCode += '<table>';
                   for (var i = 0; i < apple.text.length; i++){
                      selectTextCode += '<tr>';
                      selectTextCode += '<td><input type="radio" name="docSelect" value="'+apple.text[i][0]+'"/></td>';
@@ -87,7 +87,7 @@
                   });
                 var checkedStr = JSON.stringify(checked);
                 console.log("subset: " + checkedStr);
-                console.log("docSelect: " + $('input[name=docSelect]').val());
+                console.log("docSelect: " + $('input[name=docSelect]:checked').val());
                 $.getJSON($SCRIPT_ROOT + '/_step3', {
                //sending over the sid of the survey
                  sid: $('select[name=surveys]').val(), 
