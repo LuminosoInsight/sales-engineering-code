@@ -70,8 +70,8 @@
                      selectSubsetCode += '<td>' + apple.subsets[i][0] + '</td><td>' + apple.subsets[i][1] + '</td></tr>';
                   }
                   selectSubsetCode += '</table>';
-                  selectSubsetCode += '<br><h4>Step 5: Click below to create a new project.</h4>A project url will appear below once the project is completed.<br><br><p><input type="submit" class="btn btn-primary" name="formSubmit" value="Create Project"/>';
-                  selectSubsetCode += '<br><img id="loading" alt="spinning wheel" src="http://i.giphy.com/3o85xCakol73CquQco.gif" style="display:none"></p><br><br> ';
+                  selectSubsetCode += '<br><h4>Step 5: Click below to create a new project.</h4>A project url will appear below once the project is completed.<br><br><input type="submit" class="btn btn-primary" name="formSubmit" value="Create Project"/>';
+                  selectSubsetCode += ' <img id="loading" padding-left="50px" alt="spinning wheel" src="http://i.giphy.com/3o85xCakol73CquQco.gif" style="display:none"><p id="status" class="text-muted" style="display:none">New project being created....please wait</p><br><br>';
                  }
                  
               }
@@ -83,7 +83,9 @@
 
               $('input[name=formSubmit]').bind('click', function() {
                 $("#loading").show();
-                console.log("spinner started");
+                $("#status").show();
+                $('#uploaded').html("");
+                console.log("load bar started");
                 var checked = [];   
                 $('input[type="checkbox"]:checked').each(function() {
                     checked.push($(this).val());
@@ -94,18 +96,21 @@
                 $.getJSON($SCRIPT_ROOT + '/_step3', {
                //sending over the sid of the survey
                  sid: $('select[name=surveys]').val(), 
+                 //add proj_name: 
                  token: $('input[name=token]').val(),
                  text_q: $('input[name=docSelect]:checked').val(),
                  subset_qs: checkedStr
                 }, function(data) {
-                    
-                    //$("#loading").hide();
-                    //console.log("spinner removed");
-                    //proj_url = JSON.stringify(data);
-                    //var uploadedCode = "<br>Your project has finished uploading. Here is the url:<br>";
-                    //uploadedCode += proj_url;
-                    //$('#uploaded').html(uploadedCode);
-                    //console.log("done");
+                    projurl = JSON.stringify(data);
+                    var x= JSON.parse(projurl);
+                    console.log("url: " +x.url);
+                    $("#loading").hide();
+                    $("#status").hide();
+                    console.log("spinner removed");
+                    var uploadedCode = "<br>Your project has finished uploading. Here is the url:<br>";
+                    uploadedCode += "<a href="+x.url+">"+x.url+"</a>";
+                    $('#subsets').html(uploadedCode);
+                    console.log("done");
                     
                 });
                 console.log("data submitted");
@@ -177,8 +182,6 @@
 <p>
   <span id="subsets"></span>
 
-</p>
-<p>
   <span id="uploaded"></span>
 
 </p>
