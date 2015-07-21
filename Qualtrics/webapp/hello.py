@@ -78,7 +78,7 @@ def _create_project(acct, token, name, docs):
     batches = chunks(docs, 1000)
     for b in batches:
         cli.upload('/docs/', b)
-    cli.post('/docs/recalculate/')
+    cli.wait_for(cli.post('/docs/recalculate/'))
     return 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+pid
 
 def build_analytics_project(sid, token, text_q_id, subset_q_ids, acct, lumi_token, name):
@@ -133,6 +133,7 @@ def step3():
     print("BLAH 2 "+text_q+str(subset_qs))
     proj_url = build_analytics_project(sid, token, text_q, subset_qs,
                                        lumi_account, lumi_token, "Qualtrics Import")
+    print(proj_url)
     return jsonify({"url":proj_url})
 
 if __name__ == '__main__':
