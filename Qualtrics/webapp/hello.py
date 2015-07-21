@@ -4,7 +4,7 @@ import json
 import urllib
 import zipfile
 import os
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 import time
 import glob
 from urllib.request import urlretrieve
@@ -47,13 +47,16 @@ def get_question_descriptions(sid, token):
             ret["text"].append((q_name, q_text))
         else:
             ret["subsets"].append((q_name, q_text))
-    return dict(ret)
+        ret["text"] = sorted(ret["text"], key = lambda x: int(x[0][1:]))
+        ret["subsets"] = sorted(ret["subsets"], key = lambda x: int(x[0][1:]))
+    return ret
 
 def get_survey_json(sid, token):
     #strip the url from get requests
     responses_json = get_responses(sid, token)
     url1 = responses_json['result']['exportStatus']
     file_json = requests.get(url1+'?apiToken='+token).json()
+    print(file_json)
     url2 = file_json['result']['fileUrl']
     #make a new folder
     foldername='qualtrics_download'
@@ -79,6 +82,7 @@ def _create_project(acct, token, name, docs):
     return 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+pid
 
 def build_analytics_project(sid, token, text_q_id, subset_q_ids, acct, lumi_token, name):
+    print("BLAH "+text_q_id)
     def make_subset_mapping(survey):
         survey = survey['result']['questions']
         ret = {}
@@ -95,6 +99,8 @@ def build_analytics_project(sid, token, text_q_id, subset_q_ids, acct, lumi_toke
         docs.append({"text":r[text_q_id],
                      "date":arrow.get(r['EndDate']).timestamp,
                      "subsets":subsets})
+    for i in range(0, len(docs), 100):
+        print(docs[i])
     proj_url = _create_project(acct, lumi_token, name, docs)
     return proj_url
 
@@ -124,6 +130,7 @@ def step3():
     token = request.args.get('token', 0, type=str)
     text_q = request.args.get('text_q', 0, type=str)
     subset_qs = eval(request.args.get('subset_qs', 0, type=str))
+    print("BLAH 2 "+text_q+str(subset_qs))
     proj_url = build_analytics_project(sid, token, text_q, subset_qs,
                                        lumi_account, lumi_token, "Qualtrics Import")
     return proj_url
