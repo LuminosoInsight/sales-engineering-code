@@ -83,7 +83,7 @@ def _create_project(acct, token, name, docs):
     cli.wait_for(cli.post('/docs/recalculate/'))
     return 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+pid
 
-def build_analytics_project(sid, token, text_q_id, subset_q_ids, acct, lumi_token, name):
+def build_analytics_project(sid, token, text_q_ids, subset_q_ids, acct, lumi_token, name):
     def make_subset_mapping(survey):
         survey = survey['result']['questions']
         ret = {}
@@ -97,7 +97,7 @@ def build_analytics_project(sid, token, text_q_id, subset_q_ids, acct, lumi_toke
     docs = []
     for r in responses_json['responses']:
         subsets = [qid+": "+subset_mapping[qid][r[qid]] for qid in subset_q_ids]
-        docs.append({"text":r[text_q_id],
+        docs.append({"text":' ¶ '.join([r[q] for q in text_q_ids]),
                      "date":arrow.get(r['EndDate']).timestamp,
                      "subsets":subsets})
     proj_url = _create_project(acct, lumi_token, name, docs)
@@ -127,10 +127,10 @@ def step3():
        a luminoso account and token, create a proj in Analytics"""
     sid = request.args.get('sid', 0, type=str)
     token = request.args.get('token', 0, type=str)
-    text_q = request.args.get('text_q', 0, type=str)
+    text_qs = eval(request.args.get('text_qs', 0, type=str))
     subset_qs = eval(request.args.get('subset_qs', 0, type=str))
     title = request.args.get('title', 0, type=str)
-    proj_url = build_analytics_project(sid, token, text_q, subset_qs,
+    proj_url = build_analytics_project(sid, token, text_qs, subset_qs,
                                        lumi_account, lumi_token, title+" (Imported from Qualtrics)")
     return jsonify({"url":proj_url})
 

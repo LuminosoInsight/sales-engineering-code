@@ -53,7 +53,7 @@
                   selectTextCode += '<table class="table table-striped"><tr><th>Select</th><th>Question ID</th><th>Question</th></tr>';
                   for (var i = 0; i < apple.text.length; i++){
                      selectTextCode += '<tr>';
-                     selectTextCode += '<td><input type="radio" name="docSelect" value="'+apple.text[i][0]+'"/></td>';
+                     selectTextCode += '<td><input type="checkbox" name="docSelect[]" value="'+apple.text[i][0]+'"/></td>';
                      selectTextCode += '<td>' + apple.text[i][0] + '</td><td>' + apple.text[i][1] + '</td></tr>';
                      console.log("this value is: " + apple.text[i][0]);
                   } 
@@ -112,13 +112,18 @@
 
                 $('#uploaded').html("");
                 console.log("load bar started");
-                var checked = [];   
-                $('input[type="checkbox"]:checked').each(function() {
-                    checked.push($(this).val());
+                var sub_checked = [];   
+                $('input[name="subSelect[]"]:checked').each(function() {
+                    sub_checked.push($(this).val());
                   });
-                var checkedStr = JSON.stringify(checked);
-                console.log("subset: " + checkedStr);
-                console.log("docSelect: " + $('input[name=docSelect]:checked').val());
+                var sub_checkedStr = JSON.stringify(sub_checked);
+                var doc_checked = [];   
+                $('input[name="docSelect[]"]:checked').each(function() {
+                    doc_checked.push($(this).val());
+                  });
+                var doc_checkedStr = JSON.stringify(doc_checked);
+                console.log("subset: " + sub_checkedStr);
+                console.log("subset: " + doc_checkedStr);
                 console.log("title: " +  $('#surveys option:selected').text());
                 $.getJSON($SCRIPT_ROOT + '/_step3', {
                //sending over the sid of the survey
@@ -126,8 +131,8 @@
                  //add proj_name: 
                  title: $('#surveys option:selected').text(),
                  token: $('input[name=token]').val(),
-                 text_q: $('input[name=docSelect]:checked').val(),
-                 subset_qs: checkedStr
+                 text_qs: doc_checkedStr,
+                 subset_qs: sub_checkedStr
                 }, function(data) {
                     projurl = JSON.stringify(data);
                     var x= JSON.parse(projurl);
