@@ -82,9 +82,16 @@
 
 
               $('input[name=formSubmit]').bind('click', function() {
+                if ($('input[name="docSelect[]"]:checked').length < 1) {
+                  alert("You must select at least one text field to be analyzed!")
+                  return;
+                }
+                $('input[name=formSubmit]').attr("disabled", true);
+                console.log("button disabled")
                 $("#loading").show();
                 $("#status").show();
                 $("#statusUpdate").show();
+                // These statuses are just for demo purposes. They do not reflect reality.
                 $("#status1").show();
                  setTimeout(function (){
 
@@ -105,10 +112,6 @@
 
                   }, 3500);
               
-                
-               
-                
-                
 
                 $('#uploaded').html("");
                 console.log("load bar started");
@@ -225,7 +228,7 @@
   Step 3 of 4: Uploading data to Luminoso Project<br>
   </div>
   <div id="status4" style="display:none">
-  Step 4 of 4: Recalculating Luminoso Project<br>
+  Step 4 of 4: Calculating Luminoso Project<br>
   </div>
 
    <span id="uploaded"></span>
