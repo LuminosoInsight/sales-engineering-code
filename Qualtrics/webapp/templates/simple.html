@@ -71,7 +71,7 @@
                   }
                   selectSubsetCode += '</table>';
                   selectSubsetCode += '<br><h4>Step 5: Click below to create a new project.</h4>A project url will appear below once the project is completed.<br><br><input type="submit" class="btn btn-primary" name="formSubmit" value="Create Project"/>';
-                  selectSubsetCode += ' <img id="loading" padding-left="50px" alt="spinning wheel" src="http://i.giphy.com/3o85xCakol73CquQco.gif" style="display:none"><div id="statusUpdate"></div><br>';
+                  selectSubsetCode += ' <img id="loading" padding-left="50px" alt="spinning wheel" src="http://i.giphy.com/3o85xCakol73CquQco.gif" style="display:none"><br>';
                  }
                  
               }
@@ -89,30 +89,6 @@
                 $('input[name=formSubmit]').attr("disabled", true);
                 console.log("button disabled")
                 $("#loading").show();
-                $("#status").show();
-                $("#statusUpdate").show();
-                // These statuses are just for demo purposes. They do not reflect reality.
-                $("#status1").show();
-                 setTimeout(function (){
-
-                    // Something you want delayed.
-                    $("#status2").show();
-
-                  }, 1000);
-                 setTimeout(function (){
-
-                    // Something you want delayed.
-                     $("#status3").show();
-
-                  }, 2500);
-                 setTimeout(function (){
-
-                    // Something you want delayed.
-                   $("#status4").show();
-
-                  }, 3500);
-              
-
                 $('#uploaded').html("");
                 console.log("load bar started");
                 var sub_checked = [];   
@@ -147,9 +123,28 @@
                     uploadedCode += "<a target='_blank' href="+x.url+">Click here</a> to view it.</h4><br><br>To create a new project, please refresh this page.<br><br>";
                     $('#uploaded').html(uploadedCode);
                     console.log("done");
-                    
                 });
+                // These statuses are just for demo purposes. They do not reflect reality.
                 console.log("data submitted");
+                $("#status1").show();
+                 setTimeout(function (){
+
+                    // Something you want delayed.
+                    $("#status2").show();
+
+                  }, 1000);
+                 setTimeout(function (){
+
+                    // Something you want delayed.
+                     $("#status3").show();
+
+                  }, 2500);
+                 setTimeout(function (){
+
+                    // Something you want delayed.
+                   $("#status4").show();
+
+                  }, 3500);
               });
 
                  
