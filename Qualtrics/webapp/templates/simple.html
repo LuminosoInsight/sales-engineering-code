@@ -71,7 +71,7 @@
                   }
                   selectSubsetCode += '</table>';
                   selectSubsetCode += '<br><h4>Step 5: Click below to create a new project.</h4>A project url will appear below once the project is completed.<br><br><input type="submit" class="btn btn-primary" name="formSubmit" value="Create Project"/>';
-                  selectSubsetCode += ' <img id="loading" padding-left="50px" alt="spinning wheel" src="http://i.giphy.com/3o85xCakol73CquQco.gif" style="display:none"><br>';
+                  selectSubsetCode += ' <img id="loading" padding-left="50px" alt="spinning wheel" src={{ url_for('static', filename = 'images/ajax-loader.gif') }}  style="display:none"><br>';
                  }
                  
               }
