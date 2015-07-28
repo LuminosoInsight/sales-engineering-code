@@ -69,8 +69,10 @@ def topic_copier(old_account, old_project, new_account, new_project, username,
         client = LuminosoClient.connect('http://api.staging.lumi/v4/projects',
                                         username=username)
 
-    old_project = client.change_path('%s/%s' % (old_account, old_project))
-    new_project = client.change_path('%s/%s' % (new_account, new_project))
+    old_project_path = '%s/%s' % (old_account, old_project)
+    new_project_path = '%s/%s' % (new_account, new_project)
+    old_project = client.change_path(old_project_path)
+    new_project = client.change_path(new_project_path)
 
     # Test to ensure the paths are invalid
     try:
