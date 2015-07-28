@@ -57,6 +57,7 @@ def get_survey_json(sid, token):
     url1 = responses_json['result']['exportStatus']
     file_json = None
     while not file_json:
+        print('getting file json')
         file_json = requests.get(url1+'?apiToken='+token).json()
     while file_json['result']['percentComplete'] < 100:
         print("waiting for zip file to download. Percent complete: "
