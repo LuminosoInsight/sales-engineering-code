@@ -1,10 +1,10 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="Sales Engineering Code",
+    name="se_code",
     version = '0.1',
     maintainer='Luminoso Technologies, Inc.',
-    maintainer_email='dev@lumino.so',
+    maintainer_email='dev@luminoso.com',
     license = "LICENSE",
     url = 'http://github.com/LuminosoInsight/sales-engineering-code',
     platforms = ["any"],

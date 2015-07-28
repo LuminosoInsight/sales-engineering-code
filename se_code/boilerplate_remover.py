@@ -4,6 +4,7 @@ from collections import defaultdict
 import argparse
 import itertools
 import json
+import re
 
 
 SEPARATOR = '¶'
@@ -18,6 +19,36 @@ def get_ngrams(seq, window_size):
     """
     return [((i, i + window_size), seq[i:(i + window_size)])
             for i in range(len(seq) - window_size + 1)]
+
+
+class SpaceSplittingReader:
+    '''
+    A class that tokenizes text in a very simple way for boilerplate detection.
+    For backwards compatibility, this emulates the TextReader interface from
+    lumi_science, although it only provides the text_to_token_triples() method.
+    '''
+    # This is the stem used for newlines.
+    HARDLINE_REPLACEMENT = '^^^'
+    # This regular expression matches any single newline character or any
+    # sequence of one or more non-whitespace characters.
+    WORD_RE = re.compile(r'\S+|\n')
+
+    def normalize(self, word):
+        '''
+        A method to normalize a word for the purposes of boilerplate detection.
+        If the word is a newline, it returns "^^^"; otherwise it merely case-
+        folds the word.
+        '''
+        return self.HARDLINE_REPLACEMENT if word == '\n' else word.casefold()
+
+    def text_to_token_triples(self, text):
+        '''
+        Split the text at spaces and return the words and newlines, normalized.
+        For compatibility, this returns a list of (stem, tag, endpoints)
+        triples, but because no actual stemmer is run the tag is always None.
+        '''
+        return [(self.normalize(m.group()), None, (m.start(), m.end()))
+                for m in self.WORD_RE.finditer(text)]
 
 
 class BPDetector(object):
@@ -64,7 +95,10 @@ class BPDetector(object):
         `BPDetector.load_data(filename)`.
         """
         self.reader_name = reader
-        self.reader = get_reader(reader)
+        if reader == 'ssr':
+            self.reader = SpaceSplittingReader()
+        else:
+            self.reader = get_reader(reader)
         self.counts = defaultdict(float)
         self.gap_fillers = defaultdict(set)
         self.boilerplate = set()
