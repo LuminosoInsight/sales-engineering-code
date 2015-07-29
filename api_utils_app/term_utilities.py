@@ -1,23 +1,17 @@
 from luminoso_api import LuminosoClient
 
-def del_topics(cli, acct_id, proj_id):
-    """ Delete all topics in a project """
-    cli = cli.change_path(acct_id+'/'+proj_id)
-    topics = cli.get('/topics')
-    topic_ids = [t['_id'] for t in topics]
-    for tid in topic_ids:
-        cli.delete('/topics/id/' + tid)
+def search_terms(query, cli):
+    results = cli.get('/terms/search/', text=query, limit=100)['search_results']
+    return [(r['text'], r['term']) for r in results]
 
-def __post_topic(cli, topic):
-    """ Post a topic to a project """
-    del topic['vector']
-    del topic['_id']
-    cli.post('/topics', **topic)
+def ignore_terms(cli, terms):
+    for term in terms:
+        cli.put('/terms/ignorelist/', term=term)
 
-def copy_topics(cli, from_acct, from_proj, to_acct, to_proj):
-    """ Copy all topics from a project to another project """
-    src_proj = cli.change_path(from_acct + '/' + from_proj)
-    dest_proj = cli.change_path(to_acct + '/' + to_proj)        
-    src_topics = src_proj.get('/topics') #get topics from source project
-    for topic in reversed(src_topics): 
-        __post_topic(dest_proj, topic)
+def list_ignored_terms(cli, terms):
+    return cli.get('/terms/ignorelist/')
+
+def merge_terms(cli, terms):
+    """ restems all the terms to the first term """
+    for term in terms[1:]:
+        cli.put('/terms/restem/', from_term=term, to_term=terms[0])

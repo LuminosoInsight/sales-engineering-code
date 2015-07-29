@@ -3,6 +3,7 @@ import json
 from collections import defaultdict, OrderedDict
 from luminoso_api import LuminosoClient
 from topic_utilities import copy_topics, del_topics
+from term_utilities import search_terms, ignore_terms, merge_terms
 
 app = Flask(__name__)
 app.secret_key = 'secret_key_that_we_need_to_have_to_use_sessions'
@@ -37,11 +38,11 @@ def topic_utils():
 @app.route('/topic_utils/copy', methods=['POST'])
 def topic_utils_copy():
 	#NOTE: Should add a checkbox for if the existing topics should be deleted first
-	acct = request.form['account']
-	source = request.form['source_pid']
+	acct = request.form['account'].strip()
+	source = request.form['source_pid'].strip()
 	dests = [p_id.strip() for p_id in request.form['dest_pids'].split(',')]
 	cli = LuminosoClient.connect('/projects/', username=session['username'],
-									   password=session['password'])
+											password=session['password'])
 	for dest_proj in dests:
 		copy_topics(cli, from_acct=acct, from_proj=source, to_acct=acct, to_proj=dest_proj)
 	#NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
@@ -50,12 +51,10 @@ def topic_utils_copy():
 
 @app.route('/topic_utils/delete', methods=['POST'])
 def topic_utils_delete():
-	acct = request.form['account']
+	acct = request.form['account'].strip()
 	dests = [p_id.strip() for p_id in request.form['pids'].split(',')]
-	print(acct)
-	print(dests)
 	cli = LuminosoClient.connect('/projects/', username=session['username'],
-									   password=session['password'])
+									   		password=session['password'])
 	for dest_proj in dests:
 		del_topics(cli, acct_id=acct, proj_id=dest_proj)
 	#NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
@@ -67,8 +66,13 @@ def term_utils():
 
 @app.route('/term_utils/search')
 def term_utils_search():
-	###code
-	return jsonify(results)
+	acct = request.form['account'].strip()
+	proj = request.form['project'].strip()
+	query = request.form['query'].strip()
+	cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,
+							username=session['username'],
+							password=session['password'])
+	return jsonify(search_terms(query, cli))
 
 @app.route('/term_utils/merge')
 def term_utils_merge():
