@@ -17,7 +17,8 @@ def login():
 	session['apps_to_show'] = {'app1':url_for('app1')}
 	try:
 		LuminosoClient.connect(username = session['username'], password = session['password'])
-		return redirect(url_for('index'))
+		#return redirect(url_for('index')) this wasn't working...perhaps because since we haven't rendered the template of index before, it's not possible to redirect? 
+		return render_template('index.html')
 	except:
 		error = 'Invalid_credentials'
 		return render_template('login.html', error=error)
