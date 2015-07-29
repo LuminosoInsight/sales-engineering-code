@@ -16,9 +16,8 @@ def login():
 	session['password'] = request.form['password']
 	session['apps_to_show'] = [('Topic Utilities',url_for('topic_utils')), ('app2',url_for('app2')), ('app3',url_for('app3'))]
 	try:
-		LuminosoClient.connect(username = session['username'], password = session['password'])
-		#return redirect(url_for('index')) this wasn't working...perhaps because since we haven't rendered the template of index before, it's not possible to redirect? 
-		return render_template('index.html')
+		LuminosoClient.connect(username=session['username'], password=session['password'])
+		return render_template('index.html', urls=session['apps_to_show'])
 	except:
 		error = 'Invalid_credentials'
 		return render_template('login.html', error=error)
@@ -33,7 +32,8 @@ def topic_utils():
 
 @app.route('/topic_utils/copy')
 def copy_topics():
-	pass
+	source = request.args.get('source_proj', 0, type=str)
+	dests = request.args.get('source_proj', 0, type=str)
 
 @app.route('/topic_utils/delete')
 def delete_topics():
