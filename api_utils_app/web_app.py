@@ -64,7 +64,7 @@ def topic_utils_delete():
 def term_utils():
 	return render_template('term_utils.html', urls=session['apps_to_show'])
 
-@app.route('/term_utils/search')
+@app.route('/term_utils/search', methods=['POST'])
 def term_utils_search():
 	acct = request.form['account'].strip()
 	proj = request.form['project'].strip()
@@ -74,14 +74,20 @@ def term_utils_search():
 							password=session['password'])
 	return jsonify(search_terms(query, cli))
 
-@app.route('/term_utils/merge')
+@app.route('/term_utils/merge', methods=['POST'])
 def term_utils_merge():
-	###code
+	acct = request.form['account'].strip()
+	proj = request.form['project'].strip()
+	terms = request.form.getlist('terms')
+	merge_terms(cli, terms)
 	return render_template('term_utils.html', urls=session['apps_to_show'])
 
-@app.route('/term_utils/ignore')
+@app.route('/term_utils/ignore', methods=['POST'])
 def term_utils_ignore():
-	###code
+	acct = request.form['account'].strip()
+	proj = request.form['project'].strip()
+	terms = request.form.getlist('terms')
+	ignore_terms(cli, terms)
 	return render_template('term_utils.html', urls=session['apps_to_show'])
 
 if __name__ == '__main__':
