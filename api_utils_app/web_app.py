@@ -61,13 +61,24 @@ def topic_utils_delete():
 	#NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
 	return render_template('topic_utils.html', urls=session['apps_to_show'])
 
-@app.route('/app2')
-def app2():
-	return render_template('lumi_app2.html')
+@app.route('/term_utils')
+def term_utils():
+	return render_template('term_utils.html', urls=session['apps_to_show'])
 
-@app.route('/app3')
-def app3():
-	return render_template('lumi_app3.html')
+@app.route('/term_utils/search')
+def term_utils_search():
+	###code
+	return jsonify(results)
+
+@app.route('/term_utils/merge')
+def term_utils_merge():
+	###code
+	return render_template('term_utils.html', urls=session['apps_to_show'])
+
+@app.route('/term_utils/ignore')
+def term_utils_ignore():
+	###code
+	return render_template('term_utils.html', urls=session['apps_to_show'])
 
 if __name__ == '__main__':
     app.run(debug=True)
