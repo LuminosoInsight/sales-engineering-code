@@ -14,7 +14,7 @@ def home():
 def login():
 	session['username'] = request.form['username']
 	session['password'] = request.form['password']
-	session['apps_to_show'] = {'app1':url_for('app1')}
+	session['apps_to_show'] = [('Topic Utilities',url_for('topic_utils')), ('app2',url_for('app2')), ('app3',url_for('app3'))]
 	try:
 		LuminosoClient.connect(username = session['username'], password = session['password'])
 		#return redirect(url_for('index')) this wasn't working...perhaps because since we haven't rendered the template of index before, it's not possible to redirect? 
@@ -27,9 +27,25 @@ def login():
 def index():
     return render_template('index.html', apps=session['apps_to_show'])
 
-@app.route('/app1')
-def app1():
-	return render_template('lumi_app1.html')
+@app.route('/topic_utils')
+def topic_utils():
+	return render_template('topic_utils.html')
+
+@app.route('/topic_utils/copy')
+def copy_topics():
+	pass
+
+@app.route('/topic_utils/delete')
+def delete_topics():
+	pass
+
+@app.route('/app2')
+def app2():
+	return render_template('lumi_app2.html')
+
+@app.route('/app3')
+def app3():
+	return render_template('lumi_app3.html')
 
 if __name__ == '__main__':
     app.run(debug=True)
