@@ -4,25 +4,23 @@ from collections import defaultdict, OrderedDict
 from luminoso_api import LuminosoClient
 
 app = Flask(__name__)
-#app.secret_key = 'some_secret'
+app.secret_key = 'secret_key_that_we_need_to_have_to_use_sessions'
 
 @app.route('/')
 def home():
     return render_template('login.html')
 
-@app.route('/login', methods=['POST'])
+@app.route('/', methods=['GET', 'POST'])
 def login():
-    """From the given token, get name and id of surveys"""
-    session['username'] = request.form['username']
-    session['password'] = request.form['password']
-    session['apps_to_show'] = {'app1':url_for('app1')}
-    try:
-        LuminosoClient.connect('/projects/', username=session['username'],
-                                             password=session['password'])
-        return redirect(url_for('index'))
-    except:
-        error = 'Invalid credentials'
-        return render_template('login.html', error=error)
+	session['username'] = request.form['username']
+	session['password'] = request.form['password']
+	session['apps_to_show'] = {'app1':url_for('app1')}
+	try:
+		LuminosoClient.connect(username = session['username'], password = session['password'])
+		return redirect(url_for('index'))
+	except:
+		error = 'Invalid_credentials'
+		return render_template('login.html', error=error)
 
 @app.route('/index')
 def index():
