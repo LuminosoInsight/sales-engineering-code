@@ -1,0 +1,42 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+	<div class="page-header"><p>
+       <h1>Topic Utils</h1>
+    </div>
+
+      <p class="lead">Copy topics from one project to another, or delete all topics from a project.</p>
+      <div id="content">
+      <h3>Copy all topics from a project to other project(s)</h3>
+      <form action="{{ url_for('copy_topics') }}" method='post' >
+        
+        
+        <input type="text" name="accountID" class="form-control" placeholder="account ID: ie. admin" required autofocus>
+        <input type="text" name="projectID" class="form-control" placeholder="project ID: ie. 45kdh3" required>
+        <input type="text" name="projectID" class="form-control" placeholder="destination project ID(s): ie. s5kdh3, 34sdh3" required>
+        
+        <input class="btn btn-lg btn-primary btn-block" type="submit" value="Copy"/>
+        <br>
+        <span id="errorLogin">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+
+
+      
+      <h3>Delete all topics from a project</h3>
+      <form action="{{ url_for('delete_topics') }}" method='post'>
+     
+      	<input type="text" name="accountID" class="form-control" placeholder="account ID: ie. admin" required autofocus>
+        <input type="text" name="projectID" class="form-control" placeholder="project ID: ie. 45kdh3" required>
+        
+        <input class="btn btn-lg btn-primary btn-block" type="submit" value="Delete"/>
+        <br>
+        <span id="errorLogin">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+      </div>
+
+{% endblock %}

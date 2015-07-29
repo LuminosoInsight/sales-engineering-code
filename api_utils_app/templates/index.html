@@ -1,20 +1,16 @@
 {% extends "base_layout.html" %}
+
 {% block navbar %}
- <ul class="nav navbar-nav">
-    <li><a href="#">App1</a></li>
-    <li><a href="#">App2</a></li>
-    <li><a href="#">App3</a></li>
-        
+     <ul class="nav navbar-nav">
+  {% for name,url in urls %}
+    <li><a href={{url}}>{{ name }}</a></li>
+    {% endfor %}  
  </ul>
-{% endblock %}
-{% block content %}
-	<div class="page-header"><p>
-      
-      <h1>Welcome</h1>
-      </div>
-      
-      <p class="lead">Please select which app you would like to use.</p>
-      <div id="content">
-      </div>
+      {% endblock %}
+
+{% block container %}
+
+   {% block content %}  
+   {% endblock %}
   
 {% endblock %}
