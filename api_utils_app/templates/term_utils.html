@@ -1,0 +1,35 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+	<div class="page-header"><p>
+       <h1>Term Utils</h1>
+    </div>
+      <div id="content">
+      <h3>Merge terms</h3>
+      <form action="{{ url_for('term_utils_search') }}" method='post' >
+        
+        
+        <input type="text" name="search_term" class="form-control" placeholder="Enter your search term: ie. waffles" required autofocus>
+        <input class="btn btn-lg btn-primary btn-block" type="submit" value="Go"/>
+
+        <span id="errorSearch">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+
+
+      
+      <h3>Ignore terms</h3>
+      <form action="{{ url_for('term_utils_search') }}" method='post' >
+        
+        
+        <input type="text" name="search_term" class="form-control" placeholder="Enter your search term: ie. waffles" required autofocus>
+        <input class="btn btn-lg btn-primary btn-block" type="submit" value="Go"/>
+
+        <span id="errorSearch">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+      
+{% endblock %}

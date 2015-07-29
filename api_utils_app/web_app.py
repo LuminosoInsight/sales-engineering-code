@@ -16,8 +16,8 @@ def login():
 	session['username'] = request.form['username']
 	session['password'] = request.form['password']
 	session['apps_to_show'] = [('Topic Utilities',url_for('topic_utils')),
-							   ('app2',url_for('app2')),
-							   ('app3',url_for('app3'))]
+							   ('Term Utilities',url_for('term_utils')),
+							   ('app3',url_for('topic_utils'))]
 	try:
 		LuminosoClient.connect('/projects/', username=session['username'],
 											 password=session['password'])
