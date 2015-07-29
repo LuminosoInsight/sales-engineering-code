@@ -14,26 +14,27 @@ def home():
 def login():
 	session['username'] = request.form['username']
 	session['password'] = request.form['password']
+	session['client'] = LuminosoClient.connect('/projects/')
 	session['apps_to_show'] = [('Topic Utilities',url_for('topic_utils')), ('app2',url_for('app2')), ('app3',url_for('app3'))]
 	try:
 		LuminosoClient.connect(username=session['username'], password=session['password'])
-		return render_template('index.html', urls=session['apps_to_show'])
+		return render_template('welcome.html', urls=session['apps_to_show'])
 	except:
 		error = 'Invalid_credentials'
 		return render_template('login.html', error=error)
 
 @app.route('/index')
 def index():
-    return render_template('index.html', apps=session['apps_to_show'])
+    return render_template('index.html', urls=session['apps_to_show'])
 
 @app.route('/topic_utils')
 def topic_utils():
-	return render_template('topic_utils.html')
+	return render_template('topic_utils.html', urls=session['apps_to_show'])
 
 @app.route('/topic_utils/copy')
 def copy_topics():
-	source = request.args.get('source_proj', 0, type=str)
-	dests = request.args.get('source_proj', 0, type=str)
+	source = request.form['source']
+	dests = request.form['dests']
 
 @app.route('/topic_utils/delete')
 def delete_topics():
