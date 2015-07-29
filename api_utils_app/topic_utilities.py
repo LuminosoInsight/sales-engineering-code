@@ -2,6 +2,7 @@ from luminoso_api import LuminosoClient
 
 def del_topics(cli, acct_id, proj_id):
     """ Delete all topics in a project """
+    cli = cli.change_path(acct_id+'/'+proj_id)
     topics = cli.get('/topics')
     topic_ids = [t['_id'] for t in topics]
     for tid in topic_ids:

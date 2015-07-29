@@ -3,18 +3,18 @@
 {% block content %}
 
 	<div class="page-header"><p>
-       <h1>Topic Utils</h1>
+       <h1>Topic Utilities</h1>
     </div>
 
       <p class="lead">Copy topics from one project to another, or delete all topics from a project.</p>
       <div id="content">
       <h3>Copy all topics from a project to other project(s)</h3>
-      <form action="{{ url_for('copy_topics') }}" method='post' >
+      <form action="{{ url_for('topic_utils_copy') }}" method='post' >
         
         
-        <input type="text" name="accountID" class="form-control" placeholder="account ID: ie. admin" required autofocus>
-        <input type="text" name="projectID" class="form-control" placeholder="project ID: ie. 45kdh3" required>
-        <input type="text" name="projectID" class="form-control" placeholder="destination project ID(s): ie. s5kdh3, 34sdh3" required>
+        <input type="text" name="account" class="form-control" placeholder="account ID: ie. admin" required autofocus>
+        <input type="text" name="source_pid" class="form-control" placeholder="project ID: ie. 45kdh3" required>
+        <input type="text" name="dest_pids" class="form-control" placeholder="destination project ID(s): e.g. s5kdh3, 34sdh3" required>
         
         <input class="btn btn-lg btn-primary btn-block" type="submit" value="Copy"/>
         <br>
@@ -25,11 +25,11 @@
 
 
       
-      <h3>Delete all topics from a project</h3>
-      <form action="{{ url_for('delete_topics') }}" method='post'>
+      <h3>Delete all topics from project(s)</h3>
+      <form action="{{ url_for('topic_utils_delete') }}" method='post'>
      
-      	<input type="text" name="accountID" class="form-control" placeholder="account ID: ie. admin" required autofocus>
-        <input type="text" name="projectID" class="form-control" placeholder="project ID: ie. 45kdh3" required>
+      	<input type="text" name="account" class="form-control" placeholder="account ID: ie. admin" required autofocus>
+        <input type="text" name="pids" class="form-control" placeholder="project ID(s): e.g. s5kdh3, 34sdh3" required>
         
         <input class="btn btn-lg btn-primary btn-block" type="submit" value="Delete"/>
         <br>
