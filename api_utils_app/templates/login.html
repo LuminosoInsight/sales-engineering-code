@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+{% block head %}
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script type="text/javascript"
+  src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+<script type="text/javascript">
+  var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+</script>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+<!-- Custom style for this template -->
+<link href="/static/style/login.css" rel="stylesheet">
+
+<script src="/static/js/login.js"></script>
+
+<title>Luminoso API Webapps</title>
+
+{% endblock %}
+
+
+</head>
+
+ <body>
+
+    <div class="container">
+
+      <form action="{{ url_for('login') }}" method='post' class="form-signin">
+        <p class="text-center">
+        <img src={{ url_for('static', filename = 'images/lumi_logo.png') }} width='200px' alt="luminoso logo"/>
+        </p>
+        <h2 class="form-signin-heading"><p class='text-center'>Luminoso Web Application</p></h2>
+        <input type="email" name="username" class="form-control" placeholder="Username" required autofocus>
+        <input type="password" name="password" class="form-control" placeholder="Password" required>
+        
+        <input class="btn btn-lg btn-primary btn-block" type="submit" value="Login"/>
+        <br>
+        <span id="errorLogin">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+
+    </div> <!-- /container -->
+
+
+    <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+    <script src="../../assets/js/ie10-viewport-bug-workaround.js"></script>
+  </body>
+
+
+</html>

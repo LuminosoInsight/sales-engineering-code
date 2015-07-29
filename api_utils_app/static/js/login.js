@@ -1,7 +1,3 @@
-{% extends "base_layout.html" %}
-{% block content %}
-<script type="text/javascript">
-
 
   $(function() {
 
@@ -179,58 +175,3 @@
   }); //end of main function
 
 
-</script>
-
-
-
-
-
-
-  <p>
-  <div class="row">
-  <div class="col-xs-7">
-  <h4>Step 1: Enter your Qualtrics token</h4>
-  <input type="text" class="form-control" name="token" value="YGt8lpZHTOfbUip5puXwQVlARk2CfMaGeusxyPHD">
-  <br>
-  <input type="submit" class="btn btn-default btn-sm" name="sub_cred" value="Get Surveys"/>
-  </p>
-
-  <p>
-  
-  <span id="surveys"></span>
-
-  </p>
-
-  <p>
-
-  <span id="questions"></span>
-</p>
-
-<p>
-
-  <span id="text"></span>
-</p>
-<p>
-  <span id="subsets"></span>
-
-  <div id="status1" style="display:none">
-  Step 1 of 4: Downloading data from Qualtrics<br>
-  </div>
-  <div id="status2" style="display:none">
-  Step 2 of 4: Creating a Luminoso Project<br>
-  </div>
-  <div id="status3" style="display:none">
-  Step 3 of 4: Uploading data to Luminoso Project<br>
-  </div>
-  <div id="status4" style="display:none">
-  Step 4 of 4: Calculating Luminoso Project<br>
-  </div>
-
-   <span id="uploaded"></span>
-
-</p>
-
-</div></div>
-  
-
-{% endblock %}
