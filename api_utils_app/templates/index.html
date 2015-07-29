@@ -1,5 +1,20 @@
 {% extends "base_layout.html" %}
-{% block body %}
-  <h1>Overview</h1>
-  <p>Do you want to <a href="{{ url_for('login') }}">log in?</a>
+{% block navbar %}
+ <ul class="nav navbar-nav">
+    <li><a href="#">App1</a></li>
+    <li><a href="#">App2</a></li>
+    <li><a href="#">App3</a></li>
+        
+ </ul>
+{% endblock %}
+{% block content %}
+	<div class="page-header"><p>
+      
+      <h1>Welcome</h1>
+      </div>
+      
+      <p class="lead">Please select which app you would like to use.</p>
+      <div id="content">
+      </div>
+  
 {% endblock %}
