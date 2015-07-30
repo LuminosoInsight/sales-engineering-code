@@ -1,11 +1,4 @@
-<script type="text/javascript"
-  src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
-<script type="text/javascript">
-  var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
-</script>
-
-<script type="text/javascript" language="javascript">
-  $(function() {
+$(function() {
     //CODE FOR MERGE
     //CODE FOR TERM_UTILS_SEARCH STARTS HERE
     $('input[name=submitSearchMerge]').bind('click', function() {
@@ -53,11 +46,11 @@
             proj: $('input[name=proj]').val(),
             terms: terms_checkedStr
             }, function(data) {
-            console.log("data submitted");
+            console.log("data submitted, merged");
     
             var statusCode = '<h4>Completed.</h4>';
             
-            $('#step3').html(statusCode);
+            $('#MergeCompletedShow').html(statusCode);
             return false;
             }); //end of function(data) for Merge
             return false;
@@ -75,50 +68,3 @@
 
 
 
-
-</script>
-
-
-
-{% extends "index.html" %}
-
-{% block content %}
-  
-
-	<div class="page-header"><h1>Term Utils</h1></div>
-    <div id="content">
-      <h3>Merge terms</h3>
-
-      <span id="credentials">
-       <form name="mergeForm">
-          <input type="text" name="acct" class="form-control" placeholder="Enter your account ID: ie. admin" required autofocus>
-          <input type="text" name="proj" class="form-control" placeholder="Enter your project ID: ie. sd3djr" required>
-          <input type="text" name="query" class="form-control" placeholder="Enter your search term: ie. waffles" required>
-          <input class="btn btn-lg btn-primary btn-block" type="submit" name="submitSearchMerge" value="Go"/>
-        
-          <span id="errorSearch">
-              {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
-          </span>
-       </form>
-      </span>
-
-      <span id="selectTermsToMerge"></span>
-
-      <span id="step3"></span>
-
-      
-      <h3>Ignore terms</h3>
-      <form name="ignoreForm">
-          <input type="text" name="acct" class="form-control" placeholder="Enter your account ID: ie. admin" required autofocus>
-          <input type="text" name="proj" class="form-control" placeholder="Enter your project ID: ie. sd3djr" required>
-          <input type="text" name="query" class="form-control" placeholder="Enter your search term: ie. waffles" required>
-          <input class="btn btn-lg btn-primary btn-block" type="submit" name="submitSearchIgnore" value="Go"/>
-        
-          <span id="errorSearch">
-              {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
-          </span>
-      </form>
-    </div> 
-
-
-{% endblock %}
