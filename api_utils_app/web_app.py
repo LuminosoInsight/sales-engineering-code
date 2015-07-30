@@ -64,23 +64,36 @@ def topic_utils_delete():
 def term_utils():
 	return render_template('term_utils.html', urls=session['apps_to_show'])
 
-@app.route('/term_utils/search', methods=['POST'])
+@app.route('/term_utils/search', methods=['GET','POST'])
 def term_utils_search():
-	acct = request.form['account'].strip()
-	proj = request.form['project'].strip()
-	query = request.form['query'].strip()
+	acct = request.args.get('acct', 0, type=str)
+	proj = request.args.get('proj', 0, type=str)
+	query = request.args.get('query', 0, type=str)
 	cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,
 							username=session['username'],
 							password=session['password'])
 	return jsonify(search_terms(query, cli))
+	#results = [("pop", "tarts"),("chicken","wings")]
+	#return jsonify(results)
 
-@app.route('/term_utils/merge', methods=['POST'])
+@app.route('/term_utils/merge')
 def term_utils_merge():
-	acct = request.form['account'].strip()
-	proj = request.form['project'].strip()
-	terms = request.form.getlist('terms')
+	print("sent to server")
+	acct = request.args.get('acct', 0, type=str)
+	proj = request.args.get('proj', 0, type=str)
+	terms = eval(request.args.get('terms', 0, type=str))
+	print(acct)
+	print(proj)
+	print(terms)
+	cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,
+							username=session['username'],
+							password=session['password'])
+	print("calling merge now")
 	merge_terms(cli, terms)
-	return render_template('term_utils.html', urls=session['apps_to_show'])
+	print("finished merging")
+	#render_template('term_utils.html', urls=session['apps_to_show'])
+	results = [("pop", "tarts"),("chicken","wings")]
+	return jsonify(results)
 
 @app.route('/term_utils/ignore', methods=['POST'])
 def term_utils_ignore():
