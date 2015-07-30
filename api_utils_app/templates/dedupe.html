@@ -9,6 +9,14 @@
     //CODE FOR MERGE
     //CODE FOR TERM_UTILS_SEARCH STARTS HERE
     $('input[name=dedupe]').bind('click', function() {
+        $("#loading").show();
+        var statusCode = '<h4>Deduping...please wait</h4>';   
+        $('#progress').html(statusCode);
+        console.log("load bar started");
+        var spaceCode = '<br><br>';  
+        $('#space').html(statusCode);
+  
+
         console.log("sending over:" + $('input[name=acct]').val());
         console.log("sending over:" + $('input[name=proj]').val());
         console.log("sending over:" + $('input[name=copy]').attr('checked'));
@@ -19,6 +27,10 @@
         copy: $('input[name=copy]').attr('checked'),
         reconcile: $('input[name=reconcile]:checked').val()
       }, function(data) {
+         $("#progress").hide();
+        $("#loading").hide();
+     
+
         var ret = JSON.parse(JSON.stringify(data));
 
        dupe_num = ret['num'];
@@ -84,7 +96,16 @@
            {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
         </span>
       </form>
+      <p class="text-center">
+      <span id="progress">
+      </span>
+      <span class="space">
+      </span>
+
+      <img id="loading" alt="spinning wheel" src={{ url_for('static', filename = 'images/ajax-loader.gif') }}  style="display:none">
+
       <span id="statusComplete"></span>
+      </p>
 
       </div>
 
