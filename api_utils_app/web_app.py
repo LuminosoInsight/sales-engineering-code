@@ -4,7 +4,7 @@ from collections import defaultdict, OrderedDict
 from luminoso_api import LuminosoClient
 from topic_utilities import copy_topics, del_topics
 from term_utilities import search_terms, ignore_terms, merge_terms
-#from deduper.py import Deduper, dedupe
+from deduper_utilities import dedupe
 
 app = Flask(__name__)
 app.secret_key = 'secret_key_that_we_need_to_have_to_use_sessions'
@@ -108,21 +108,16 @@ def deduper_page():
 	return render_template('dedupe.html', urls=session['apps_to_show'])
 
 @app.route('/dedupe')
-def dedupe():
+def dedupe_util():
 	acct = request.args.get('acct', 0, type=str)
 	proj = request.args.get('proj', 0, type=str)
-	batch_size = request.args.get('batch', 0, type=str)
-	print(acct)
-	print(proj)
-	print(batch_size)
-	username = session['username']
-	password = session['password']
-	print("calling deduper now")
-	#de = Deduper(acct,proj,username,password, batch_size)
-	#de.dedupe()
-	#print("finished deduping")
-	results = [("pop", "tarts"),("chicken","wings")]
-	return jsonify(results)
+	copy = (request.args.get('copy') == 'true')
+	reconcile = request.args.get('reconcile')
+	cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,
+							username=session['username'],
+							password=session['password'])
+	return jsonify(dedupe(acct=acct, proj=proj, cli=cli,
+					reconcile_func=reconcile, copy=copy))
 
 if __name__ == '__main__':
     app.run(debug=True)

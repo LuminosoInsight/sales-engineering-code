@@ -11,20 +11,28 @@
     $('input[name=dedupe]').bind('click', function() {
         console.log("sending over:" + $('input[name=acct]').val());
         console.log("sending over:" + $('input[name=proj]').val());
-        console.log("sending over:" + $('input[name=batch_size]').val());
+        console.log("sending over:" + $('input[name=copy]').attr('checked'));
+        console.log("sending over:" + $('input[name=reconcile]:checked').val());
       $.getJSON($SCRIPT_ROOT + '/dedupe', {
         acct: $('input[name=acct]').val(),
         proj: $('input[name=proj]').val(),
-        batch:  $('input[name=batch_size]').val()
+        copy: $('input[name=copy]').attr('checked'),
+        reconcile: $('input[name=reconcile]:checked').val()
       }, function(data) {
-       
+        var ret = JSON.parse(JSON.stringify(data));
 
+       dupe_num = ret['num'];
+       new_project = ret['url'];
        console.log("finished deduping");
 
         //$('#result').text(w);
+        if (new_project) {
+          url = 'The backup of your original project is located <a href="'+new_project+'">here</a>'
+        } else {
+          url = ''
+        };
       
-        var completedCode = '<h4>Project has finished deduing.</h4>';
-        
+        var completedCode = '<h4>Project has finished deduping and recalculating. There were '+dupe_num+' duplicates removed.<br>'+url+'</h4>';
 
         $('#statusComplete').html(completedCode);
 
@@ -46,22 +54,30 @@
 {% block content %}
 
 	<div class="page-header"><p>
-       <h1>Deduping a Project</h1>
+       <h1>Remove Duplicates from a Project</h1>
     </div>
 
       <div id="content">
-      <h3>Important Note:</h3>
+      <h3>Important Notes:</h3>
       <h4>
-      <ul>
-      <li>Expect 5-10 mins for projects with small volume (10k-200k), and 15-30 minutes for projects with large volume (300k+)</li>
-      <li>The deduplication process happens in batches, therefore if the batch size is too large the deduplication process may fail due to memory constraints. We recommend batch size of 40,000 - you may set it higher or lower depending on your computer's capacity.
-      </ul></h4>
-      <br><br>
+      <ul>  
+      <li>This utility will detect and remove duplicates as well as near-duplicates from a project.</li>
+      <li>If your project has more than 40,000 documents, the deduping process will be batched. In this case,
+          the deduper will miss many dupes unless your documents have a date field and dupes are likely to be
+          located near each other on a timeline. Please contact tobrien@luminoso.com if you have a need to
+          dedupe a project with >40,000 documents and does not meet the requirement that dupes are near each other in time.</li>
+      </ul>
+      </h4>
+      <br>
       <form>
         
         <input type="text" name="acct" class="form-control" placeholder="account ID: ie. admin" required autofocus>
-        <input type="text" name="proj" class="form-control" placeholder="project ID: ie. 45kdh3" required>
-        <input type="text" name="batch_size" class="form-control" placeholder="batch size: ie. 40000" required>
+        <input type="text" name="proj" class="form-control" placeholder="project ID: ie. 45kdh3" required><br>
+        <input type="checkbox" name="copy" checked> Create a backup copy of the project<br><br>
+        Select a method of choosing which single dupe to retain out of each set of near-dupes:<br>
+        <input type="radio" name="reconcile" value="random" checked> Random <br>
+        <input type="radio" name="reconcile" value="shortest"> Shortest Text <br>
+        <input type="radio" name="reconcile" value="longest"> Longest Text <br><br>
         <input class="btn btn-lg btn-primary btn-block" name="dedupe" type="submit" value="Dedupe"/>
         <br>
         <span id="errorLogin">
