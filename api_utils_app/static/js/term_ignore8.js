@@ -2,6 +2,11 @@
     //CODE FOR MERGE
     //CODE FOR TERM_UTILS_SEARCH STARTS HERE
     $('input[name=submitSearchIgnore]').bind('click', function() {
+         $("#loading3").show();
+          var statusCode3 = '<h4>Loading terms...please wait</h4>';   
+          $('#progress3').html(statusCode3);
+          console.log("load bar started");
+
         console.log("sending over:" + $('input[name=acct_ignore]').val());
         console.log("sending over:" + $('input[name=proj_ignore]').val());
         console.log("sending over:" + $('input[name=query_ignore]').val());
@@ -10,6 +15,11 @@
         proj: $('input[name=proj_ignore]').val(),
         query: $('input[name=query_ignore]').val()
       }, function(data) {
+
+        $("#loading3").hide();
+        $('#progress3').hide();
+        console.log("load bar hidden");
+
        console.log("data submitted:");
        var search = JSON.stringify(data);
         //$('#result').text(w);
@@ -32,6 +42,11 @@
         $('#selectTermsToIgnore').html(selectTermsCode);
 
         $('input[name=ignore]').bind('click', function() {
+            $("#loading4").show();
+            var statusCode4 = '<h4>Recalculating...please wait</h4>';   
+            $('#progress4').html(statusCode4);
+            console.log("load bar started");
+
             var terms_checked = [];   
             $('input[name="ignoreTerms[]"]:checked').each(function() {
                  terms_checked.push($(this).val());
@@ -46,11 +61,20 @@
             proj: $('input[name=proj_ignore]').val(),
             terms: terms_checkedStr
             }, function(data) {
+        
+            $("#progress4").hide();
+            $("#loading4").hide();
+
             console.log("data submitted, ignored");
-    
-            var statusCode = '<h4>Completed.</h4>';
+
+            var completionCode = '<h4>Completed. Terms shown below are included in the ignore list</h4>';
+          
+            var results =  JSON.stringify(data); //{"fullstring":["wll|en","baen|en","yer|en","dx|en","bezos|en","www|en","yr|en","since|en"],"substring":[]}
+            var obj = JSON.parse(results);
+            completionCode += results+'<br>';
+
             
-            $('#IgnoreCompletedShow').html(statusCode);
+            $('#IgnoreCompletedShow').html(completionCode);
             return false;
             }); //end of function(data) for Merge
             return false;

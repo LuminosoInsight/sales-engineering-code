@@ -20,17 +20,32 @@
           <input type="text" name="acct" class="form-control" placeholder="Enter your account ID: ie. admin" required autofocus>
           <input type="text" name="proj" class="form-control" placeholder="Enter your project ID: ie. sd3djr" required>
           <input type="text" name="query" class="form-control" placeholder="Enter your search term: ie. waffles" required>
-          <input class="btn btn-lg btn-primary btn-block" type="submit" name="submitSearchMerge" value="Go"/>
+          <input class="btn btn-lg btn-primary btn-block" type="submit" name="submitSearchMerge" value="Search for Term"/>
         
           <span id="errorSearch">
               {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
           </span>
        </form>
       </span>
+      <p class="text-center">
+      <span id="progress1">
+      </span>
+      </p>
+      <p class="text-center">
+      <img id="loading1" alt="spinning wheel" src={{ url_for('static', filename = 'images/ajax-loader.gif') }}  style="display:none">
+      </p>
 
       <span id="selectTermsToMerge"></span>
-
+      <p class="text-center">
+      <span id="progress2">
+      </span>
+      </p>
+      <p class="text-center">
+      <img id="loading2" alt="spinning wheel" src={{ url_for('static', filename = 'images/ajax-loader.gif') }}  style="display:none">
+      </p>
+      <p class="text-center">
       <span id="MergeCompletedShow"></span>
+      </p>
       <p>
       
       <h3>Ignore terms</h3>
@@ -38,22 +53,30 @@
           <input type="text" name="acct_ignore" class="form-control" placeholder="Enter your account ID: ie. admin" required autofocus>
           <input type="text" name="proj_ignore" class="form-control" placeholder="Enter your project ID: ie. sd3djr" required>
           <input type="text" name="query_ignore" class="form-control" placeholder="Enter your search term: ie. waffles" required>
-          <input class="btn btn-lg btn-primary btn-block" type="submit" name="submitSearchIgnore" value="Go"/>
+          <input class="btn btn-lg btn-primary btn-block" type="submit" name="submitSearchIgnore" value="Search for Term"/>
         
           <span id="errorSearch">
               {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
           </span>
       </form>
+      <p class="text-center">
+      <span id="progress3">
+      </span>
+      <img id="loading3" alt="spinning wheel" src={{ url_for('static', filename = 'images/ajax-loader.gif') }}  style="display:none">
+      </p>
 
       <span id="selectTermsToIgnore"></span>
-
+      <p class="text-center">
+      <span id="progress4">
+      </span>
+      <img id="loading4" alt="spinning wheel" src={{ url_for('static', filename = 'images/ajax-loader.gif') }}  style="display:none">
       <span id="IgnoreCompletedShow"></span>
-
+      </p>
     </div> 
     
 <!-- Note to Tim. Everytime making a change on the js files, it needs to be saved as a new file or else the changes don't appear on the html. I don't know why...-->
 
-<script src="/static/js/term_merge.js"></script>
+<script src="/static/js/term_merge10.js"></script>
 
-<script src="/static/js/term_ignore.js"></script>
+<script src="/static/js/term_ignore8.js"></script>
 {% endblock %}

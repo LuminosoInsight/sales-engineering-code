@@ -2,14 +2,26 @@ $(function() {
     //CODE FOR MERGE
     //CODE FOR TERM_UTILS_SEARCH STARTS HERE
     $('input[name=submitSearchMerge]').bind('click', function() {
+
+        $("#loading1").show();
+        var statusCode1 = '<h4>Loading terms...please wait</h4>';   
+        $('#progress1').html(statusCode1);
+        console.log("load bar started");
+
         console.log("sending over:" + $('input[name=acct]').val());
         console.log("sending over:" + $('input[name=proj]').val());
         console.log("sending over:" + $('input[name=query]').val());
+
       $.getJSON($SCRIPT_ROOT + '/term_utils/search', {
         acct: $('input[name=acct]').val(),
         proj: $('input[name=proj]').val(),
         query: $('input[name=query]').val()
       }, function(data) {
+
+       $("#loading1").hide();
+       $('#progress1').hide();
+       console.log("load bar hidden");
+
        console.log("data submitted:");
        var search = JSON.stringify(data);
         //$('#result').text(w);
@@ -32,6 +44,12 @@ $(function() {
         $('#selectTermsToMerge').html(selectTermsCode);
 
         $('input[name=merge]').bind('click', function() {
+
+            $("#loading2").show();
+            console.log("load bar started");
+            var statusCode2 = '<p class="text-center"><h4>Recalculating...please wait</h4></p>';
+            $('#progress2').html(statusCode2);
+
             var terms_checked = [];   
             $('input[name="mergeTerms[]"]:checked').each(function() {
                  terms_checked.push($(this).val());
@@ -46,11 +64,26 @@ $(function() {
             proj: $('input[name=proj]').val(),
             terms: terms_checkedStr
             }, function(data) {
+              
             console.log("data submitted, merged");
-    
-            var statusCode = '<h4>Completed.</h4>';
+            $("#progress2").hide();
+            $("#loading2").hide();
+            console.log("load bar hide");
+            var completionCode = '<h4>Completed. Below are the merged terms</h4>';
+            completionCode += '<table class="table">';
+            var results =  JSON.stringify(data);
+            var mergedTerms = JSON.parse(results);
+
+            for(var key in mergedTerms){
+              var list = mergedTerms[key];
+              console.log("key:" + key);
+              console.log("list:" + list);
+              completionCode += '<tr>';
+              completionCode += '<td>'+key+' '+list+'</td></tr>';
+             }
+            completionCode += '</table>';
             
-            $('#MergeCompletedShow').html(statusCode);
+            $('#MergeCompletedShow').html(completionCode);
             return false;
             }); //end of function(data) for Merge
             return false;
