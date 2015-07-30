@@ -74,8 +74,6 @@ def term_utils_search():
 							username=session['username'],
 							password=session['password'])
 	return jsonify(search_terms(query, cli))
-	#results = [("pop", "tarts"),("chicken","wings")]
-	#return jsonify(results)
 
 @app.route('/term_utils/merge')
 def term_utils_merge():
@@ -89,12 +87,7 @@ def term_utils_merge():
 	cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,
 							username=session['username'],
 							password=session['password'])
-	print("calling merge now")
-	merge_terms(cli, terms)
-	print("finished merging")
-	#render_template('term_utils.html', urls=session['apps_to_show'])
-	results = [("pop", "tarts"),("chicken","wings")]
-	return jsonify(results)
+	return jsonify(merge_terms(cli, terms))
 
 @app.route('/term_utils/ignore')
 def term_utils_ignore():
@@ -108,11 +101,7 @@ def term_utils_ignore():
 	cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,
 							username=session['username'],
 							password=session['password'])
-	print("calling ignore now")
-	ignore_terms(cli, terms)
-	print("finished merging")
-	results = [("pop", "tarts"),("chicken","wings")]
-	return jsonify(results)
+	return jsonify(ignore_terms(cli, terms))
 
 @app.route('/deduper_page')
 def deduper_page():
