@@ -4,6 +4,7 @@ from collections import defaultdict, OrderedDict
 from luminoso_api import LuminosoClient
 from topic_utilities import copy_topics, del_topics
 from term_utilities import search_terms, ignore_terms, merge_terms
+#from deduper.py import Deduper, dedupe
 
 app = Flask(__name__)
 app.secret_key = 'secret_key_that_we_need_to_have_to_use_sessions'
@@ -18,7 +19,7 @@ def login():
 	session['password'] = request.form['password']
 	session['apps_to_show'] = [('Topic Utilities',url_for('topic_utils')),
 							   ('Term Utilities',url_for('term_utils')),
-							   ('app3',url_for('topic_utils'))]
+							   ('Deduper',url_for('deduper_page'))]
 	try:
 		LuminosoClient.connect('/projects/', username=session['username'],
 											 password=session['password'])
@@ -110,6 +111,27 @@ def term_utils_ignore():
 	print("calling ignore now")
 	ignore_terms(cli, terms)
 	print("finished merging")
+	results = [("pop", "tarts"),("chicken","wings")]
+	return jsonify(results)
+
+@app.route('/deduper_page')
+def deduper_page():
+	return render_template('dedupe.html', urls=session['apps_to_show'])
+
+@app.route('/dedupe')
+def dedupe():
+	acct = request.args.get('acct', 0, type=str)
+	proj = request.args.get('proj', 0, type=str)
+	batch_size = request.args.get('batch', 0, type=str)
+	print(acct)
+	print(proj)
+	print(batch_size)
+	username = session['username']
+	password = session['password']
+	print("calling deduper now")
+	#de = Deduper(acct,proj,username,password, batch_size)
+	#de.dedupe()
+	#print("finished deduping")
 	results = [("pop", "tarts"),("chicken","wings")]
 	return jsonify(results)
 
