@@ -16,6 +16,10 @@ BASE_URI = 'https://co1.qualtrics.com/API/v1/'
 lumi_token = 'JWsmYfNCyqz2-nkbXY1aeggioGfQNN-N'
 lumi_account = 'admin'
 
+def __get_token(cli):
+    cli2 = cli.change_path('/')
+    return cli2.get('/user/tokens/')[0]['token']
+
 def chunks(l, n):
     n = max(1, n)
     return [l[i:i + n] for i in range(0, len(l), n)]

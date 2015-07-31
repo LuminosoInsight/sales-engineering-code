@@ -45,6 +45,7 @@ $(function() {
         $('#selectTermsToMerge').html(selectTermsCode);
 
         $('#term_select1').multiselect({
+          nonSelectedText: 'Select Terms to Merge',
           enableCaseInsensitiveFiltering: true,
           includeSelectAllOption: true,
           maxHeight: 400,

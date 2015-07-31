@@ -43,6 +43,7 @@
         $('#selectTermsToIgnore').html(selectTermsCode);
 
         $('#term_select2').multiselect({
+          nonSelectedText: 'Select Terms to Ignore',
           enableCaseInsensitiveFiltering: true,
           includeSelectAllOption: true,
           maxHeight: 400,
