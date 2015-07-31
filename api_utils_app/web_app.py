@@ -18,7 +18,7 @@ def home():
 def login():
 	session['username'] = request.form['username']
 	session['password'] = request.form['password']
-	session['apps_to_show'] = [('Topic',('Copy Topics',url_for('topic_utils')),('Delete Topics',url_for('topic_utils'))),
+	session['apps_to_show'] = [('Topic',('Copy Topics',url_for('copy_topics_page')),('Delete Topics',url_for('delete_topics_page'))),
            					('Term',('Merge Terms',url_for('term_merge_page')),('Ignore Terms',url_for('term_ignore_page'))),
            					('Cleaning',('Deduper',url_for('deduper_page')),('Cleaning2',url_for('deduper_page'))),
            					('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('deduper_page'))),
@@ -51,7 +51,7 @@ def topic_utils_copy():
 	for dest_proj in dests:
 		copy_topics(cli, from_acct=acct, from_proj=source, to_acct=acct, to_proj=dest_proj)
 	#NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
-	return render_template('topic_utils.html', urls=session['apps_to_show'])
+	return render_template('copy_topics.html', urls=session['apps_to_show'])
 
 
 @app.route('/topic_utils/delete', methods=['POST'])
@@ -63,7 +63,7 @@ def topic_utils_delete():
 	for dest_proj in dests:
 		del_topics(cli, acct_id=acct, proj_id=dest_proj)
 	#NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
-	return render_template('topic_utils.html', urls=session['apps_to_show'])
+	return render_template('delete_topics.html', urls=session['apps_to_show'])
 
 @app.route('/term_utils')
 def term_utils():
@@ -76,6 +76,14 @@ def term_merge_page():
 @app.route('/term_ignore')
 def term_ignore_page():
 	return render_template('term_ignore.html', urls=session['apps_to_show'])
+
+@app.route('/copy_topics_page')
+def copy_topics_page():
+	return render_template('copy_topics.html', urls=session['apps_to_show'])
+
+@app.route('/delete_topics_page')
+def delete_topics_page():
+	return render_template('delete_topics.html', urls=session['apps_to_show'])
 
 @app.route('/term_utils/search', methods=['GET','POST'])
 def term_utils_search():

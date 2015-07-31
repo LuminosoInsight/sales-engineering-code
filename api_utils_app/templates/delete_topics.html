@@ -1,0 +1,29 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+	<div class="page-header"><p>
+       <h1>Delete all topics from project(s)</h1>
+    </div>
+
+      
+      <div id="content">
+      
+
+
+      
+      
+      <form action="{{ url_for('topic_utils_delete') }}" method='post'>
+     
+      	<input type="text" name="account" class="form-control" placeholder="account ID: ie. admin" required autofocus>
+        <input type="text" name="pids" class="form-control" placeholder="project ID(s): e.g. s5kdh3, 34sdh3" required>
+        
+        <input class="btn btn-lg btn-primary btn-block" type="submit" value="Delete"/>
+        <br>
+        <span id="errorLogin">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+      </div>
+
+{% endblock %}
