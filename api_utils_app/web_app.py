@@ -5,6 +5,7 @@ from luminoso_api import LuminosoClient
 from topic_utilities import copy_topics, del_topics
 from term_utilities import search_terms, ignore_terms, merge_terms
 from deduper_utilities import dedupe
+from qualtrics_utilities import *
 
 app = Flask(__name__)
 app.secret_key = 'secret_key_that_we_need_to_have_to_use_sessions'
@@ -17,14 +18,11 @@ def home():
 def login():
 	session['username'] = request.form['username']
 	session['password'] = request.form['password']
-
-	"""session['apps_to_show'] = [('Topic Utilities',url_for('topic_utils')),
-							   ('Term Utilities',url_for('term_utils')),
-							   ('Cleaning Utilities',url_for('deduper_page'))]"""
-
 	session['apps_to_show'] = [('Topic',('Copy Topics',url_for('topic_utils')),('Delete Topics',url_for('topic_utils'))),
            					('Term',('Merge Terms',url_for('term_utils')),('Ignore Terms',url_for('term_utils'))),
-           					('Cleaning',('Deduper',url_for('deduper_page')),('Cleaning2',url_for('deduper_page')))]
+           					('Cleaning',('Deduper',url_for('deduper_page')),('Cleaning2',url_for('deduper_page'))),
+           					('Import/Export',('Qualtrics',url_for('qualtrics')),('Compass -> Analytics',url_for('qualtrics')))]
+	print(session['apps_to_show'])
 	try:
 		LuminosoClient.connect('/projects/', username=session['username'],
 											 password=session['password'])
@@ -123,6 +121,38 @@ def dedupe_util():
 							password=session['password'])
 	return jsonify(dedupe(acct=acct, proj=proj, cli=cli,
 					reconcile_func=reconcile, copy=copy))
+
+# Qualtrics routes
+@app.route('/qualtrics')
+def qualtrics():
+    return render_template('qual_simple.html', urls=session['apps_to_show'])
+
+@app.route('/qualtrics_step1')
+def step1():
+    """From the given token, get name and id of surveys"""
+    token = request.args.get('token', 0, type=str)
+    info = get_name_id(token) #returns a dictionary
+    return jsonify(**info)
+
+@app.route('/qualtrics_step2')
+def step2():
+    """Given sid and token, return the question info"""
+    sid = request.args.get('sid', 0, type=str)
+    token = request.args.get('token', 0, type=str)
+    return jsonify(get_question_descriptions(sid, token))
+
+@app.route('/qualtrics_step3')
+def step3():
+    """Given sid, token, text question ID, subset question IDs,
+       a luminoso account and token, create a proj in Analytics"""
+    sid = request.args.get('sid', 0, type=str)
+    token = request.args.get('token', 0, type=str)
+    text_qs = eval(request.args.get('text_qs', 0, type=str))
+    subset_qs = eval(request.args.get('subset_qs', 0, type=str))
+    title = request.args.get('title', 0, type=str)
+    proj_url = build_analytics_project(sid, token, text_qs, subset_qs,
+                                       lumi_account, lumi_token, title+" (Imported from Qualtrics)")
+    return jsonify({"url":proj_url})
 
 if __name__ == '__main__':
     app.run(debug=True, threaded=True)
