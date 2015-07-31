@@ -21,6 +21,7 @@ def login():
 	session['apps_to_show'] = [('Topic',('Copy Topics',url_for('topic_utils')),('Delete Topics',url_for('topic_utils'))),
            					('Term',('Merge Terms',url_for('term_utils')),('Ignore Terms',url_for('term_utils'))),
            					('Cleaning',('Deduper',url_for('deduper_page')),('Cleaning2',url_for('deduper_page'))),
+           					('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('deduper_page'))),
            					('Import/Export',('Qualtrics',url_for('qualtrics')),('Compass -> Analytics',url_for('qualtrics')))]
 	print(session['apps_to_show'])
 	try:
@@ -121,6 +122,19 @@ def dedupe_util():
 							password=session['password'])
 	return jsonify(dedupe(acct=acct, proj=proj, cli=cli,
 					reconcile_func=reconcile, copy=copy))
+
+@app.route('/compass_export_page')
+def compass_export_page():
+	return render_template('compass_export.html', urls=session['apps_to_show'])
+
+@app.route('/compass_export')
+def compass_export():
+	proj = request.args.get('proj', 0, type=str)
+	staging = (request.args.get('staging') == 'true')
+	spams = (request.args.get('spams') == 'true')
+	#code here
+	results={"hello":"testing"}
+	return jsonify(results)
 
 # Qualtrics routes
 @app.route('/qualtrics')

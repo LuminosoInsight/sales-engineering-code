@@ -1,0 +1,100 @@
+<script type="text/javascript"
+  src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+<script type="text/javascript">
+  var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+</script>
+
+<script type="text/javascript">
+ $(function() {
+    //CODE FOR MERGE
+    //CODE FOR TERM_UTILS_SEARCH STARTS HERE
+    $('input[name=dedupe]').bind('click', function() {
+        $("#loading").show();
+        var statusCode = '<h4>Retrieving messages from Compass, writing CSV file...please wait</h4>';   
+        $('#progress').html(statusCode);
+        console.log("load bar started");
+        var spaceCode = '<br><br>';  
+        $('#space').html(statusCode);
+  
+
+        
+        console.log("sending over:" + $('input[name=proj]').val());
+        console.log("sending over:" + $('input[name=staging]').attr('checked'));
+        console.log("sending over:" + $('input[name=spams]').attr('checked'));
+      
+      $.getJSON($SCRIPT_ROOT + '/compass_export', {
+   
+        proj: $('input[name=proj]').val(),
+        staging: $('input[name=staging]').attr('checked'),
+        spams: $('input[name=spams]').attr('checked')
+ 
+      }, function(data) {
+         $("#progress").hide();
+        $("#loading").hide();
+     
+
+        var ret = JSON.parse(JSON.stringify(data));
+        var completedCode = "<h4>Finished exporting. You should see your csv file on desktop!</h4>";
+
+
+      
+        $('#statusComplete').html(completedCode);
+
+       
+      }); //end of function(data) for submitSearchMerge
+  
+        return false;
+      }); 
+
+  });  //end of function document
+
+
+
+</script>
+
+
+{% extends "index.html" %}
+
+{% block content %}
+
+	<div class="page-header"><p>
+       <h1>Pull Compass Messages into Analytics</h1>
+    </div>
+
+      <div id="content">
+      <h3>Important Notes:</h3>
+      <h4>
+      <ul>  
+      <li>This utility will export messages from a Compass Project into a CSV file.</li>
+      <li>The compass API allows for only 20 messages to be retrieved at a time. Therefore, a Compass project with large volume of messages will take a very long 
+      time for the process to complete.</li>
+      </ul>
+      </h4>
+      <br>
+      <form>
+        
+      
+        <input type="text" name="proj" class="form-control" placeholder="compass project ID: ie. 45kdh3" required autofocus><br>
+        <input type="checkbox" name="staging" checked> Is this Compass project from staging?<br><br>
+        <input type="checkbox" name="spams" checked> Inlcude spams/outliers in the project?<br><br>
+        
+        <input class="btn btn-lg btn-primary btn-block" name="dedupe" type="submit" value="Export CSV from Compass"/>
+        <br>
+        <span id="errorLogin">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+      <p class="text-center">
+      <span id="progress">
+      </span>
+      <span class="space">
+      </span>
+
+      <img id="loading" alt="spinning wheel" src={{ url_for('static', filename = 'images/ajax-loader.gif') }}  style="display:none">
+
+      <span id="statusComplete"></span>
+      </p>
+
+      </div>
+
+{% endblock %}
