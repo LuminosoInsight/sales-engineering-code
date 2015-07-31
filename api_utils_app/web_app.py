@@ -17,9 +17,14 @@ def home():
 def login():
 	session['username'] = request.form['username']
 	session['password'] = request.form['password']
-	session['apps_to_show'] = [('Topic Utilities',url_for('topic_utils')),
+
+	"""session['apps_to_show'] = [('Topic Utilities',url_for('topic_utils')),
 							   ('Term Utilities',url_for('term_utils')),
-							   ('Deduper',url_for('deduper_page'))]
+							   ('Cleaning Utilities',url_for('deduper_page'))]"""
+
+	session['apps_to_show'] = [('Topic',('Copy Topics',url_for('topic_utils')),('Delete Topics',url_for('topic_utils'))),
+           					('Term',('Merge Terms',url_for('term_utils')),('Ignore Terms',url_for('term_utils'))),
+           					('Cleaning',('Deduper',url_for('deduper_page')),('Cleaning2',url_for('deduper_page')))]
 	try:
 		LuminosoClient.connect('/projects/', username=session['username'],
 											 password=session['password'])
@@ -120,19 +125,4 @@ def dedupe_util():
 					reconcile_func=reconcile, copy=copy))
 
 if __name__ == '__main__':
-    app.run(debug=True)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    app.run(debug=True, threaded=True)
