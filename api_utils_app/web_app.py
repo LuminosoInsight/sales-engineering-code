@@ -19,7 +19,7 @@ def login():
 	session['username'] = request.form['username']
 	session['password'] = request.form['password']
 	session['apps_to_show'] = [('Topic',('Copy Topics',url_for('topic_utils')),('Delete Topics',url_for('topic_utils'))),
-           					('Term',('Merge Terms',url_for('term_utils')),('Ignore Terms',url_for('term_utils'))),
+           					('Term',('Merge Terms',url_for('term_merge_page')),('Ignore Terms',url_for('term_ignore_page'))),
            					('Cleaning',('Deduper',url_for('deduper_page')),('Cleaning2',url_for('deduper_page'))),
            					('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('deduper_page'))),
            					('Import/Export',('Qualtrics',url_for('qualtrics')),('Compass -> Analytics',url_for('qualtrics')))]
@@ -68,6 +68,14 @@ def topic_utils_delete():
 @app.route('/term_utils')
 def term_utils():
 	return render_template('term_utils.html', urls=session['apps_to_show'])
+
+@app.route('/term_merge_page')
+def term_merge_page():
+	return render_template('term_merge.html', urls=session['apps_to_show'])
+
+@app.route('/term_ignore')
+def term_ignore_page():
+	return render_template('term_ignore.html', urls=session['apps_to_show'])
 
 @app.route('/term_utils/search', methods=['GET','POST'])
 def term_utils_search():
