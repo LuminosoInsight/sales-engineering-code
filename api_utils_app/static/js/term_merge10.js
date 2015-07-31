@@ -29,29 +29,36 @@ $(function() {
         var obj = JSON.parse(search);
 
         var selectTermsCode = '<h4>Select which terms you would like to merge:</h4>';
-        selectTermsCode += '<form>';
+        selectTermsCode += '<form><select id="term_select1" multiple="multiple">';
         
         for(var key in obj){
           if (obj.hasOwnProperty(key)){
            var value=obj[key];
            //console.log("key:" + key);
            //console.log("value:" + value);
-           selectTermsCode += '<input type="checkbox" name="mergeTerms[]" value="'+value+'"/>'+key;
+           selectTermsCode += '<option name="mergeTerms[]" value="'+value+'">'+key+'</option>';
           }
         }
-        selectTermsCode += '<input type="submit" class="btn btn-lg btn-primary btn-block" name="merge" value="Merge"/></form>'
+        selectTermsCode += '</select>'
+        selectTermsCode += '<br><br><input type="submit" class="btn btn-lg btn-primary btn-block" name="merge" value="Merge"/></form>'
 
         $('#selectTermsToMerge').html(selectTermsCode);
 
-        $('input[name=merge]').bind('click', function() {
+        $('#term_select1').multiselect({
+          enableCaseInsensitiveFiltering: true,
+          includeSelectAllOption: true,
+          maxHeight: 400,
+          buttonWidth: '300px',
+        });
 
+        $('input[name=merge]').bind('click', function() {
             $("#loading2").show();
             console.log("load bar started");
             var statusCode2 = '<p class="text-center"><h4>Recalculating...please wait</h4></p>';
             $('#progress2').html(statusCode2);
 
             var terms_checked = [];   
-            $('input[name="mergeTerms[]"]:checked').each(function() {
+            $('option[name="mergeTerms[]"]:selected').each(function() {
                  terms_checked.push($(this).val());
               });
             var terms_checkedStr = JSON.stringify(terms_checked);

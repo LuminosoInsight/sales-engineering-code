@@ -1,34 +1,10 @@
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+
 {% extends "index.html" %}
-<!-- <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script> -->
-
-<script type="text/javascript">
-    $(function() {
-        $('#demo').multiselect({
-          enableFiltering: true,
-          includeSelectAllOption: true,
-          maxHeight: 400
-        });
-      });
-</script>
-
-
-
 {% block content %}
-  
 
 	<div class="page-header"><h1>Term Utilities</h1></div>
     <div id="content">
-
-    <!-- Testing Multiselect -->
-    <select id="demo" multiple="multiple">
-
-      <option value="Javascript">Javascript</option>
-      <option value="Python">Python</option>
-      <option value="LISP">LISP</option>
-      <option value="C++">C++</option>
-      <option value="jQuery">jQuery</option>
-      <option value="Ruby">Ruby</option>
-    </select>
     
 <!-- Actual stuff -->
 

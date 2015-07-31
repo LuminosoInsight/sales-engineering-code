@@ -27,19 +27,27 @@
         var obj = JSON.parse(search);
 
         var selectTermsCode = '<h4>Select which terms you would like to ignore:</h4>';
-        selectTermsCode += '<form>';
+        selectTermsCode += '<form><select id="term_select2" multiple="multiple">';
         
         for(var key in obj){
           if (obj.hasOwnProperty(key)){
            var value=obj[key];
            //console.log("key:" + key);
            //console.log("value:" + value);
-           selectTermsCode += '<input type="checkbox" name="ignoreTerms[]" value="'+value+'"/>'+key;
+           selectTermsCode += '<option name="ignoreTerms[]" value="'+value+'">'+key+'</option>';
           }
         }
-        selectTermsCode += '<input type="submit" class="btn btn-lg btn-primary btn-block" name="ignore" value="Ignore"/></form>'
+        selectTermsCode += '</select>'
+        selectTermsCode += '<br><br><input type="submit" class="btn btn-lg btn-primary btn-block" name="ignore" value="Ignore"/></form>'
 
         $('#selectTermsToIgnore').html(selectTermsCode);
+
+        $('#term_select2').multiselect({
+          enableCaseInsensitiveFiltering: true,
+          includeSelectAllOption: true,
+          maxHeight: 400,
+          buttonWidth: '300px',
+        });
 
         $('input[name=ignore]').bind('click', function() {
             $("#loading4").show();
@@ -48,7 +56,7 @@
             console.log("load bar started");
 
             var terms_checked = [];   
-            $('input[name="ignoreTerms[]"]:checked').each(function() {
+            $('option[name="ignoreTerms[]"]:selected').each(function() {
                  terms_checked.push($(this).val());
               });
             var terms_checkedStr = JSON.stringify(terms_checked);
