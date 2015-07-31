@@ -1,26 +1,17 @@
-<script type="text/javascript"
-  src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
-<script type="text/javascript">
-  var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
-</script>
-
-<!-- Needed??: -->
-<link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css">
-<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
-<script src="http://netdna.bootstrapcdn.com/bootstrap/3.0.2/js/bootstrap.min.js"></script>
- 
-<!-- Include the plugin's CSS and JS: -->
-<script src="/static/js/bootstrap-multiselect.js"></script>
-<link rel="stylesheet" href="/static/style/bootstrap-multiselect.css" type="text/css"/>
-
-<script type="text/javascript">
-    $(document).ready(function() {
-        $('#demo').multiselect();
-</script>
-
-
-
 {% extends "index.html" %}
+<!-- <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script> -->
+
+<script type="text/javascript">
+    $(function() {
+        $('#demo').multiselect({
+          enableFiltering: true,
+          includeSelectAllOption: true,
+          maxHeight: 400
+        });
+      });
+</script>
+
+
 
 {% block content %}
   
