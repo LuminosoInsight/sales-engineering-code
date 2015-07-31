@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+<head>
+{% block head %}
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script type="text/javascript"
+  src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+<script type="text/javascript">
+  var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+</script>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
+<!-- Custom styles for this template -->
+
+
+<title>Qualtrics Project Upload</title>
+
+
+<style type="text/css">
+/* Sticky footer styles
+-------------------------------------------------- */
+html {
+  position: relative;
+  min-height: 100%;
+}
+body {
+  /* Margin bottom by footer height */
+  margin-bottom: 60px;
+}
+.footer {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  /* Set the fixed height of the footer here */
+  height: 60px;
+  background-color: #f5f5f5;
+}
+/* Custom page CSS
+-------------------------------------------------- */
+/* Not required for template or sticky footer method. */
+
+
+.container .text-muted {
+  margin: 20px 0;
+}
+
+{% endblock %}
+</style>
+</head>
+
+
+<body>
+    <!-- Fixed navbar -->
+    
+<!-- Begin page content -->
+    <div class="container">
+   
+      <div class="page-header"><p>
+      <img src={{ url_for('static', filename = 'images/lumi_logo.png') }} width='150px' alt="luminoso logo"/> 
+      <h1>Qualtrics Surveys Upload</h1>
+      </div>
+      
+      <p class="lead">This is an application that allows you to easily upload Qualtrics surveys as projects into Luminoso Analytics.</p>
+      <div id="content">{% block content %}{% endblock %}</div>
+    </div>
+
+    <footer class="footer">
+      <div class="container">
+        <p class="text-muted">Contact tobrien@luminoso.com with questions or comments</p>
+      </div>
+    </footer>
+
+
+    
+</body>
+</html>
