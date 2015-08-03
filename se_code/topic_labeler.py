@@ -55,6 +55,9 @@ def collect_topic_mapping(client):
         doc_dict['related_topics'] = set()
         for topic_dict in topic_dicts:
             topic_id = topic_dict['_id']
+
+            # Look for intersections between this document's terms and those
+            # that define the topic.
             if terms & topic_dict['exact_terms']:
                 # This document has an exact match for this topic
                 doc_dict['exact_topics'].add(topic_id)
