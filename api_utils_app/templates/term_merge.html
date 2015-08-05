@@ -11,10 +11,8 @@
 
       <span id="credentials">
        <form name="mergeForm">
-          <input type="text" name="acct" class="form-control" placeholder="Enter your account ID: ie. admin" required autofocus>
-          <input type="text" name="proj" class="form-control" placeholder="Enter your project ID: ie. sd3djr" required>
-          <input type="text" name="query" class="form-control" placeholder="Enter your search term: ie. waffles" required>
-          <input class="btn btn-lg btn-primary btn-block" type="submit" name="submitSearchMerge" value="Search for Term"/>
+          <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
+          <input class="btn btn-lg btn-primary btn-block" type="submit" name="submitSearchMerge" value="Get Terms"/>
         
           <span id="errorSearch">
               {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}

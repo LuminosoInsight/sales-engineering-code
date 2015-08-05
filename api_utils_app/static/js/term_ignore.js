@@ -3,17 +3,10 @@
     //CODE FOR TERM_UTILS_SEARCH STARTS HERE
     $('input[name=submitSearchIgnore]').bind('click', function() {
          $("#loading3").show();
-          var statusCode3 = '<h4>Loading terms...please wait</h4>';   
+          var statusCode3 = '<h4>Loading terms... please wait</h4>';   
           $('#progress3').html(statusCode3);
-          console.log("load bar started");
-
-        console.log("sending over:" + $('input[name=acct_ignore]').val());
-        console.log("sending over:" + $('input[name=proj_ignore]').val());
-        console.log("sending over:" + $('input[name=query_ignore]').val());
       $.getJSON($SCRIPT_ROOT + '/term_utils/search', {
-        acct: $('input[name=acct_ignore]').val(),
-        proj: $('input[name=proj_ignore]').val(),
-        query: $('input[name=query_ignore]').val()
+        url: $('input[name=url]').val()
       }, function(data) {
 
         $("#loading3").hide();
@@ -61,13 +54,9 @@
                  terms_checked.push($(this).val());
               });
             var terms_checkedStr = JSON.stringify(terms_checked);
-            console.log("sending over:" + $('input[name=acct_ignore]').val());
-            console.log("sending over:" + $('input[name=proj_ignore]').val());
-            console.log("terms_checkedStr: " + terms_checkedStr);
             
             $.getJSON($SCRIPT_ROOT + '/term_utils/ignore', {
-            acct: $('input[name=acct_ignore]').val(),
-            proj: $('input[name=proj_ignore]').val(),
+            url: $('input[name=url]').val(),
             terms: terms_checkedStr
             }, function(data) {
         

@@ -15,15 +15,8 @@
         console.log("load bar started");
         var spaceCode = '<br><br>';  
         $('#space').html(statusCode);
-  
-
-        console.log("sending over:" + $('input[name=acct]').val());
-        console.log("sending over:" + $('input[name=proj]').val());
-        console.log("sending over:" + $('input[name=copy]').attr('checked'));
-        console.log("sending over:" + $('input[name=reconcile]:checked').val());
       $.getJSON($SCRIPT_ROOT + '/dedupe', {
-        acct: $('input[name=acct]').val(),
-        proj: $('input[name=proj]').val(),
+        url: $('input[name=url]').val(),
         copy: $('input[name=copy]').attr('checked'),
         reconcile: $('input[name=reconcile]:checked').val()
       }, function(data) {
@@ -83,8 +76,7 @@
       <br>
       <form>
         
-        <input type="text" name="acct" class="form-control" placeholder="account ID: ie. admin" required autofocus>
-        <input type="text" name="proj" class="form-control" placeholder="project ID: ie. 45kdh3" required><br>
+        <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
         <input type="checkbox" name="copy" checked> Create a backup copy of the project<br><br>
         Select a method of choosing which single dupe to retain out of each set of near-dupes:<br>
         <input type="radio" name="reconcile" value="random" checked> Random <br>

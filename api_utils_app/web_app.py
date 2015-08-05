@@ -3,7 +3,7 @@ import json
 from collections import defaultdict, OrderedDict
 from luminoso_api import LuminosoClient
 from topic_utilities import copy_topics, del_topics, parse_url
-from term_utilities import search_terms, ignore_terms, merge_terms
+from term_utilities import get_terms, ignore_terms, merge_terms
 from deduper_utilities import dedupe
 from qualtrics_utilities import *
 
@@ -20,9 +20,9 @@ def login():
 	session['password'] = request.form['password']
 	session['apps_to_show'] = [('Topic',('Copy Topics',url_for('copy_topics_page')),('Delete Topics',url_for('delete_topics_page'))),
            					('Term',('Merge Terms',url_for('term_merge_page')),('Ignore Terms',url_for('term_ignore_page'))),
-           					('Cleaning',('Deduper',url_for('deduper_page')),('Cleaning2',url_for('deduper_page'))),
+           					('Cleaning',('Deduper',url_for('deduper_page'))),
            					('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('deduper_page'))),
-           					('Import/Export',('Qualtrics',url_for('qualtrics')),('Compass -> Analytics',url_for('qualtrics')))]
+           					('Import/Export',('Qualtrics',url_for('qualtrics')))]
 	print(session['apps_to_show'])
 	try:
 		LuminosoClient.connect('/projects/', username=session['username'],
@@ -88,23 +88,18 @@ def delete_topics_page():
 
 @app.route('/term_utils/search', methods=['GET','POST'])
 def term_utils_search():
-	acct = request.args.get('acct', 0, type=str)
-	proj = request.args.get('proj', 0, type=str)
-	query = request.args.get('query', 0, type=str)
+	url = request.args.get('url', 0, type=str).strip()
+	acct, proj = parse_url(url)
 	cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,
 							username=session['username'],
 							password=session['password'])
-	return jsonify(search_terms(query, cli))
+	return jsonify(get_terms(cli))
 
 @app.route('/term_utils/merge')
 def term_utils_merge():
-	print("sent to server")
-	acct = request.args.get('acct', 0, type=str)
-	proj = request.args.get('proj', 0, type=str)
+	url = request.args.get('url', 0, type=str)
+	acct, proj = parse_url(url)
 	terms = eval(request.args.get('terms', 0, type=str))
-	print(acct)
-	print(proj)
-	print(terms)
 	cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,
 							username=session['username'],
 							password=session['password'])
@@ -112,13 +107,9 @@ def term_utils_merge():
 
 @app.route('/term_utils/ignore')
 def term_utils_ignore():
-	print("sent to server")
-	acct = request.args.get('acct', 0, type=str)
-	proj = request.args.get('proj', 0, type=str)
+	url = request.args.get('url', 0, type=str).strip()
+	acct, proj = parse_url(url)
 	terms = eval(request.args.get('terms', 0, type=str))
-	print(acct)
-	print(proj)
-	print(terms)
 	cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,
 							username=session['username'],
 							password=session['password'])
@@ -130,8 +121,8 @@ def deduper_page():
 
 @app.route('/dedupe')
 def dedupe_util():
-	acct = request.args.get('acct', 0, type=str)
-	proj = request.args.get('proj', 0, type=str)
+	url = request.args.get('url', 0, type=str)
+	acct, proj = parse_url(url)
 	copy = (request.args.get('copy') == 'true')
 	reconcile = request.args.get('reconcile')
 	cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,

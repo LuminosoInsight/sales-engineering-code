@@ -1,9 +1,8 @@
 from luminoso_api import LuminosoClient
 from networkx import Graph, connected_components
 
-def search_terms(query, cli):
-    results = cli.get('/terms/search/', text=query, limit=100)['search_results']
-    return [(r[0]['text'],r[0]['term']) for r in results]
+def get_terms(cli):
+    return [(t['text'], t['term']) for t in cli.get('terms', limit=750)]
 
 def get_term_to_text_mapping(cli):
     terms = cli.get('terms', limit=50000)

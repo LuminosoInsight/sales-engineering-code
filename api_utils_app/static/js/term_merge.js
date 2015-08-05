@@ -4,18 +4,10 @@ $(function() {
     $('input[name=submitSearchMerge]').bind('click', function() {
 
         $("#loading1").show();
-        var statusCode1 = '<h4>Loading terms...please wait</h4>';   
+        var statusCode1 = '<h4>Loading terms... please wait</h4>';   
         $('#progress1').html(statusCode1);
-        console.log("load bar started");
-
-        console.log("sending over:" + $('input[name=acct]').val());
-        console.log("sending over:" + $('input[name=proj]').val());
-        console.log("sending over:" + $('input[name=query]').val());
-
       $.getJSON($SCRIPT_ROOT + '/term_utils/search', {
-        acct: $('input[name=acct]').val(),
-        proj: $('input[name=proj]').val(),
-        query: $('input[name=query]').val()
+        url: $('input[name=url]').val()
       }, function(data) {
 
        $("#loading1").hide();
@@ -63,13 +55,9 @@ $(function() {
                  terms_checked.push($(this).val());
               });
             var terms_checkedStr = JSON.stringify(terms_checked);
-            console.log("sending over:" + $('input[name=acct]').val());
-            console.log("sending over:" + $('input[name=proj]').val());
-            console.log("terms_checkedStr: " + terms_checkedStr);
-            
+
             $.getJSON($SCRIPT_ROOT + '/term_utils/merge', {
-            acct: $('input[name=acct]').val(),
-            proj: $('input[name=proj]').val(),
+            url: $('input[name=url]').val(),
             terms: terms_checkedStr
             }, function(data) {
               
