@@ -2,7 +2,7 @@ from flask import Flask, jsonify, render_template, request, session, url_for
 import json
 from collections import defaultdict, OrderedDict
 from luminoso_api import LuminosoClient
-from topic_utilities import copy_topics, del_topics
+from topic_utilities import copy_topics, del_topics, parse_url
 from term_utilities import search_terms, ignore_terms, merge_terms
 from deduper_utilities import dedupe
 from qualtrics_utilities import *
@@ -43,25 +43,26 @@ def topic_utils():
 @app.route('/topic_utils/copy', methods=['POST'])
 def topic_utils_copy():
 	#NOTE: Should add a checkbox for if the existing topics should be deleted first
-	acct = request.form['account'].strip()
-	source = request.form['source_pid'].strip()
-	dests = [p_id.strip() for p_id in request.form['dest_pids'].split(',')]
+	url = request.form['url'].strip()
+	from_acct, from_proj = parse_url(url)
+	dests = [parse_url(url.strip()) for url in request.form['dest_urls'].split(',')]
 	cli = LuminosoClient.connect('/projects/', username=session['username'],
 											password=session['password'])
 	for dest_proj in dests:
-		copy_topics(cli, from_acct=acct, from_proj=source, to_acct=acct, to_proj=dest_proj)
+		to_acct, to_proj = dest_proj
+		copy_topics(cli, from_acct=from_acct, from_proj=from_proj,
+						to_acct=to_acct, to_proj=to_proj)
 	#NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
 	return render_template('copy_topics.html', urls=session['apps_to_show'])
 
-
 @app.route('/topic_utils/delete', methods=['POST'])
 def topic_utils_delete():
-	acct = request.form['account'].strip()
-	dests = [p_id.strip() for p_id in request.form['pids'].split(',')]
+	dests = [parse_url(url.strip()) for url in request.form['urls'].split(',')]
 	cli = LuminosoClient.connect('/projects/', username=session['username'],
 									   		password=session['password'])
 	for dest_proj in dests:
-		del_topics(cli, acct_id=acct, proj_id=dest_proj)
+		acct, proj = dest_proj
+		del_topics(cli, acct_id=acct, proj_id=proj)
 	#NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
 	return render_template('delete_topics.html', urls=session['apps_to_show'])
 

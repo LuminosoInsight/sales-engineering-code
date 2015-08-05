@@ -1,4 +1,5 @@
 from luminoso_api import LuminosoClient
+import re
 
 def del_topics(cli, acct_id, proj_id):
     """ Delete all topics in a project """
@@ -21,3 +22,8 @@ def copy_topics(cli, from_acct, from_proj, to_acct, to_proj):
     src_topics = src_proj.get('/topics') #get topics from source project
     for topic in reversed(src_topics): 
         __post_topic(dest_proj, topic)
+
+def parse_url(url):
+    acct = re.search("\?account=(.*)&", url).group(1)
+    proj = re.search("&projectId=(.*)", url).group(1)
+    return (acct, proj)
