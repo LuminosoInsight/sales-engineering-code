@@ -21,8 +21,8 @@ def login():
 	session['apps_to_show'] = [('Topic',('Copy Topics',url_for('copy_topics_page')),('Delete Topics',url_for('delete_topics_page'))),
            					('Term',('Merge Terms',url_for('term_merge_page')),('Ignore Terms',url_for('term_ignore_page'))),
            					('Cleaning',('Deduper',url_for('deduper_page'))),
-           					('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('deduper_page'))),
-           					('Import/Export',('Qualtrics',url_for('qualtrics')))]
+           					('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('compass_export_page'))),
+           					('Import/Export',('Qualtrics Survey Export',url_for('qualtrics')))]
 	print(session['apps_to_show'])
 	try:
 		LuminosoClient.connect('/projects/', username=session['username'],
@@ -173,7 +173,9 @@ def step3():
     subset_qs = eval(request.args.get('subset_qs', 0, type=str))
     title = request.args.get('title', 0, type=str)
     proj_url = build_analytics_project(sid, token, text_qs, subset_qs,
-                                       lumi_account, lumi_token, title+" (Imported from Qualtrics)")
+                                       user=session['username'],
+                                       passwd=session['password'],
+                                       name=title+" (Imported from Qualtrics)")
     return jsonify({"url":proj_url})
 
 if __name__ == '__main__':

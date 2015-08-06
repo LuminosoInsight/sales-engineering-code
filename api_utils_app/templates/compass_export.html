@@ -14,14 +14,7 @@
         $('#progress').html(statusCode);
         console.log("load bar started");
         var spaceCode = '<br><br>';  
-        $('#space').html(statusCode);
-  
-
-        
-        console.log("sending over:" + $('input[name=proj]').val());
-        console.log("sending over:" + $('input[name=staging]').attr('checked'));
-        console.log("sending over:" + $('input[name=spams]').attr('checked'));
-      
+        $('#space').html(statusCode);      
       $.getJSON($SCRIPT_ROOT + '/compass_export', {
    
         proj: $('input[name=proj]').val(),
@@ -73,7 +66,7 @@
       <form>
         
       
-        <input type="text" name="proj" class="form-control" placeholder="compass project ID: ie. 45kdh3" required autofocus><br>
+        <input type="text" name="url" class="form-control" placeholder="Compass Project URL, e.g. https://compass.luminoso.com/topics.html#%2Fapi%2Fprojects%2F4bcj8vtj%2F" required autofocus><br>
         <input type="checkbox" name="staging" checked> Is this Compass project from staging?<br><br>
         <input type="checkbox" name="spams" checked> Inlcude spams/outliers in the project?<br><br>
         

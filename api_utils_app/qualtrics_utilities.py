@@ -13,12 +13,15 @@ import arrow
 from luminoso_api import LuminosoClient
 
 BASE_URI = 'https://co1.qualtrics.com/API/v1/'
-lumi_token = 'JWsmYfNCyqz2-nkbXY1aeggioGfQNN-N'
 lumi_account = 'admin'
 
 def __get_token(cli):
     cli2 = cli.change_path('/')
     return cli2.get('/user/tokens/')[0]['token']
+
+def __get_account(cli):
+    cli2 = cli.change_path('/')
+    return cli2.get('user/profile')['default_account']
 
 def chunks(l, n):
     n = max(1, n)
@@ -79,8 +82,10 @@ def get_survey_json(sid, token):
         newest = max(glob.iglob(foldername+'/*.json'), key=os.path.getctime)
         return json.load(open(newest, 'r'))
 
-def _create_project(acct, token, name, docs):
-    cli = LuminosoClient.connect('/projects/'+acct, token = lumi_token)
+def _create_project(user, passwd, name, docs):
+    cli = LuminosoClient.connect('/', username=user, password=passwd)
+    acct = __get_account(cli)
+    cli = LuminosoClient.connect('/projects/'+acct, username=user, password=passwd)
     pid = cli.post('/', name = name)['project_id']
     cli = cli.change_path(pid)
     batches = chunks(docs, 1000)
@@ -89,7 +94,7 @@ def _create_project(acct, token, name, docs):
     cli.wait_for(cli.post('/docs/recalculate/'))
     return 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+pid
 
-def build_analytics_project(sid, token, text_q_ids, subset_q_ids, acct, lumi_token, name):
+def build_analytics_project(sid, token, text_q_ids, subset_q_ids, user, passwd, name):
     def make_subset_mapping(survey):
         survey = survey['result']['questions']
         ret = {}
@@ -106,5 +111,5 @@ def build_analytics_project(sid, token, text_q_ids, subset_q_ids, acct, lumi_tok
         docs.append({"text":' ¶ '.join([r[q] for q in text_q_ids]),
                      "date":arrow.get(r['EndDate']).timestamp,
                      "subsets":subsets})
-    proj_url = _create_project(acct, lumi_token, name, docs)
+    proj_url = _create_project(user, passwd, name, docs)
     return proj_url
