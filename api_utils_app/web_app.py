@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, request, session, url_for
+from flask import Flask, jsonify, render_template, request, session, url_for, Response
 import json
 from collections import defaultdict, OrderedDict
 from luminoso_api import LuminosoClient
@@ -6,6 +6,7 @@ from topic_utilities import copy_topics, del_topics, parse_url
 from term_utilities import get_terms, ignore_terms, merge_terms
 from deduper_utilities import dedupe
 from qualtrics_utilities import *
+#from boilerplate_utilities import run
 
 app = Flask(__name__)
 app.secret_key = 'secret_key_that_we_need_to_have_to_use_sessions'
@@ -20,7 +21,7 @@ def login():
 	session['password'] = request.form['password']
 	session['apps_to_show'] = [('Topic',('Copy Topics',url_for('copy_topics_page')),('Delete Topics',url_for('delete_topics_page'))),
            					('Term',('Merge Terms',url_for('term_merge_page')),('Ignore Terms',url_for('term_ignore_page'))),
-           					('Cleaning',('Deduper',url_for('deduper_page'))),
+           					('Cleaning',('Deduper',url_for('deduper_page')), ('Boilerplate Cleaner',url_for('boilerplate_page'))),
            					('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('compass_export_page'))),
            					('Import/Export',('Qualtrics Survey Export',url_for('qualtrics')))]
 	print(session['apps_to_show'])
@@ -178,5 +179,67 @@ def step3():
                                        name=title+" (Imported from Qualtrics)")
     return jsonify({"url":proj_url})
 
+###
+# BEGIN Boilerplate code, some of which will be moved to separate file
+###
+
+def stream_template(template_name, **context):
+    # http://flask.pocoo.org/docs/patterns/streaming/#streaming-from-templates
+    app.update_template_context(context)
+    t = app.jinja_env.get_template(template_name)
+    rv = t.stream(context)
+    # uncomment if you don't need immediate reaction
+    ##rv.enable_buffering(5)
+    return rv
+
+
+@app.route('/boilerplate_page')
+def boilerplate_page():
+    def g():
+        for i, c in enumerate("hello"*10):
+            time.sleep(.1)  # an artificial delay
+            yield i, c
+    return Response(stream_template('boilerplate.html', data=g())) #urls=session['apps_to_show'])
+
+"""
+@app.route('/boilerplate_stream')
+def boilerplate_stream():
+	threshold = request.args.get('threshold', 0, type=str)
+	window_size = request.args.get('window_size', 0, type=str)
+	use_gaps = request.args.get('use_gaps', 0, type=str)
+    bp = BPDetector()
+    bp.threshold = threshold
+    bp.use_gaps = use_gaps
+    return flask.Response(bp.run(input='list_of_json_docs', output='path_to_output_file',
+       							output_ngrams='path_to_output_file_ngrams', train=True,
+       							tokens_to_scan=1000000, verbose=True),
+                          mimetype="text/event-stream")
+"""
+
+
+###
+# END Boilerplate code, some of which will be moved to separate file
+###
+
+
+
 if __name__ == '__main__':
     app.run(debug=True, threaded=True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
