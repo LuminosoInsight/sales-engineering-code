@@ -77,6 +77,7 @@ class BPDetector(object):
         Another way to create a BPDetector is to load it from a JSON file with
         `BPDetector.load_data(filename)`.
         """
+        self.reader_name = 'ssr'
         self.reader = SpaceSplittingReader()
         self.counts = defaultdict(float)
         self.gap_fillers = defaultdict(set)
@@ -300,7 +301,7 @@ class BPDetector(object):
                 count += 1
                 removed_spans = self.remove_boilerplate(doc)
                 print(json.dumps(doc, ensure_ascii=False), file=out)
-                if verbose and count % 10000 == 0:
+                if verbose and count % 1000 == 0:
                     text_to_show = doc['original_text']
                     for start, end in removed_spans:
                         text_to_show = (
@@ -352,11 +353,8 @@ def highlight(text):
     """
     return '\x1b[91m{%s}\x1b[39m' % text
 
-
+"""
 def main():
-    """
-    Handle options for using this boilerplate detector at the command line.
-    """
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-i', '--input-ngrams', type=str, metavar='FILENAME',
@@ -393,3 +391,4 @@ def main():
            train=True,
            tokens_to_scan=1000000,
            verbose=True)
+"""

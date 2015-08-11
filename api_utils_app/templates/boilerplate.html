@@ -1,14 +1,42 @@
-<!doctype html>
-<title>Send javascript with template demo</title>
+{% extends "index.html" %}
+
+{% block content %}
+
+<input name="start" type="submit" value="Start">
+
 <style>
   #data {
     text-align: center;
   }
 </style>
+
 <script src="http://code.jquery.com/jquery-latest.js"></script>
-<div id="data">nothing received yet</div>
-{% for i, c in data: %}
+
 <script>
-  $("#data").text("{{ i }} {{ c }}")
+ $(function() {
+    //CODE FOR MERGE
+    //CODE FOR TERM_UTILS_SEARCH STARTS HERE
+    $('input[name=start]').bind('click', function() {
+    	var source = new EventSource('/boilerplate_stream');
+    	source.onmessage = function(e) {
+    		console.log("11111")
+    		$("#data").text(e.data);
+  		}
+  });
+});
+
 </script>
-{% endfor %}
+
+
+<script>
+if (!!window.EventSource) {
+  var source = new EventSource('/');
+  source.onmessage = function(e) {
+    $("#data").text(e.data);
+  }
+}
+</script>
+
+<div id="data">nothing received yet</div>
+
+{% endblock %}
