@@ -13,16 +13,37 @@
 <script src="http://code.jquery.com/jquery-latest.js"></script>
 
 <script>
- $(function() {
+if (typeof String.prototype.startsWith != 'function') {
+  // see below for better implementation!
+  String.prototype.startsWith = function (str){
+    return this.indexOf(str) === 0;
+  };
+}
+</script>
+
+<script>
+$(function() {
     //CODE FOR MERGE
     //CODE FOR TERM_UTILS_SEARCH STARTS HERE
     $('input[name=start]').bind('click', function() {
     	var source = new EventSource('/boilerplate_stream');
     	source.onmessage = function(e) {
-    		console.log("11111")
-    		$("#data").text(e.data);
+    		var str = e.data.slice(2)
+    		if (str.startsWith("[")) {
+    			$("#progress").text(str)
+    		}
+    		else {
+    			$("#data").append(str);
+    		}
   		}
-  });
+	});
+    $('input[name=start]').bind('click', function() {
+    	console.log("Starting Boilerplate Remover")
+      $.getJSON($SCRIPT_ROOT + '/boilerplate_run', {
+      }, function(data) {
+      	console.log("Finished Boilerplate Remover")
+      });
+  	});
 });
 
 </script>
@@ -37,6 +58,8 @@ if (!!window.EventSource) {
 }
 </script>
 
-<div id="data">nothing received yet</div>
+<div id="progress"></div>
+
+<div id="data"></div>
 
 {% endblock %}

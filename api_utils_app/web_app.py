@@ -189,16 +189,28 @@ def step3():
 #       the pubsub messages for each user, if red is shared for all sessions.
 ###
 
+###TODO: pass red to the bp.run() and then have the sample docs published to red.
+
+def event_stream():
+    pubsub = red.pubsub()
+    pubsub.subscribe('boilerplate')
+    # TODO: handle client disconnection.
+    for message in pubsub.listen():
+        if message['type'] == 'subscribe':
+            pass
+        else:    
+            yield str('data: %s\n\n' % message['data'])
+
 @app.route('/boilerplate_page')
 def boilerplate_page():
     return render_template('boilerplate.html', urls=session['apps_to_show'])
 
 @app.route('/boilerplate_stream')
 def boilerplate_stream():
-    def events():
-        for i, c in enumerate(itertools.cycle('\|/-')):
-            yield "data: %s %d\n\n" % (c, i)
-            time.sleep(.1)  # an artificial delay
+    return Response(event_stream(), content_type='text/event-stream')
+
+@app.route('/boilerplate_run')
+def bp_run():
     #threshold = request.args.get('threshold', 0, type=str)
     #window_size = request.args.get('window_size', 0, type=str)
     #use_gaps = request.args.get('use_gaps', 0, type=str)
@@ -208,42 +220,15 @@ def boilerplate_stream():
     bp.run(input='/users/tobrien/Desktop/archive/staples_transcripts_10k.json',
             output='/users/tobrien/Desktop/webapp_bp_test.json',
             output_ngrams='/users/tobrien/Desktop/webapp_bp_test_ngrams.json',
+            redis=red,
             train=True,
             tokens_to_scan=1000000,
-            verbose=True,
-            redis=red)
-    return Response(events(), content_type='text/event-stream')
-
-def event_stream():
-    pubsub = red.pubsub()
-    pubsub.subscribe('boilerplate')
-    # TODO: handle client disconnection.
-    for message in pubsub.listen():
-        print(message)
-        yield 'data: %s\n\n' % message['data']
-
-
-"""
-@app.route('/boilerplate_stream')
-def boilerplate_stream():
-    threshold = request.args.get('threshold', 0, type=str)
-    window_size = request.args.get('window_size', 0, type=str)
-    use_gaps = request.args.get('use_gaps', 0, type=str)
-    bp = BPDetector()
-    bp.threshold = threshold
-    bp.use_gaps = use_gaps
-    return flask.Response(bp.run(input='list_of_json_docs', output='path_to_output_file',
-                                output_ngrams='path_to_output_file_ngrams', train=True,
-                                tokens_to_scan=1000000, verbose=True),
-                          mimetype="text/event-stream")
-"""
-
+            verbose=True)
+    return jsonify({'status': 'finished'})
 
 ###
 # END Boilerplate code
 ###
-
-
 
 if __name__ == '__main__':
     app.run(debug=True, threaded=True, host= '0.0.0.0')

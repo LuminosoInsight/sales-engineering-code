@@ -92,7 +92,7 @@ class BPDetector(object):
         self.bp_replacement = bp_replacement
         self.threshold = threshold
 
-    def train(self, docs, tokens_to_scan=DEFAULT_TOKENS_TO_SCAN, verbose=False):
+    def train(self, docs, redis, tokens_to_scan=DEFAULT_TOKENS_TO_SCAN, verbose=False):
         """
         Scan through a sequence of documents, counting their n-grams of length
         `self.window_size`, including versions with gaps in them if appropriate.
@@ -105,11 +105,13 @@ class BPDetector(object):
             if n_tokens >= tokens_to_scan:
                 if verbose:
                     print('[100%] Collecting ngrams.')
+                    redis.publish('boilerplate', '[100%] Collecting ngrams.')
                 break
             if verbose:
                 proportion = n_tokens * 100 // tokens_to_scan
                 if proportion > prev_proportion:
                     print('[%d%%] Collecting ngrams.' % proportion, end='\r')
+                    redis.publish('boilerplate', '[%d%%] Collecting ngrams.' % proportion)
                     prev_proportion = proportion
 
         self._find_bp_in_ngrams()
@@ -289,7 +291,7 @@ class BPDetector(object):
         obj._find_bp_in_ngrams()
         return obj
 
-    def handle_docs(self, docs, output, verbose=False):
+    def handle_docs(self, docs, output, redis, verbose=False):
         """
         Remove boilerplate from a sequence of documents, modifying them
         in place. If verbose=True, every 10000th document will be displayed
@@ -309,9 +311,9 @@ class BPDetector(object):
                             + highlight(text_to_show[start:end])
                             + text_to_show[end:]
                         )
-                    print('Document %d: %s' % (count, text_to_show))
+                    redis.publish('boilerplate', 'Document %d: %s <br><br>' % (count, text_to_show))
 
-    def run(self, input, output, train=False, output_ngrams=None, verbose=False,
+    def run(self, input, output, redis, train=False, output_ngrams=None, verbose=False,
             tokens_to_scan=DEFAULT_TOKENS_TO_SCAN):
         """
         Run a sequence of operations for fixing boilerplate in a file.
@@ -325,14 +327,14 @@ class BPDetector(object):
         docs = open_json_or_csv_somehow(input)
         if train:
             docs, train_docs = itertools.tee(docs)
-            self.train(train_docs, tokens_to_scan=tokens_to_scan, verbose=verbose)
+            self.train(train_docs, redis=redis, tokens_to_scan=tokens_to_scan, verbose=verbose)
         if output_ngrams:
             self.save_data(output_ngrams)
 
         if not self.counts:
             raise RuntimeError("No boilerplate data has been loaded.")
 
-        self.handle_docs(docs, output, verbose=verbose)
+        self.handle_docs(docs, output, redis=redis, verbose=verbose)
 
 
 def add_gap(words):
@@ -351,7 +353,7 @@ def highlight(text):
     Future work might involve outputting results in HTML so we can show them
     on a Web page.
     """
-    return '\x1b[91m{%s}\x1b[39m' % text
+    return '<span style="color:red">{%s}</span>' % text
 
 """
 def main():
