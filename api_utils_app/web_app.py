@@ -211,15 +211,20 @@ def boilerplate_stream():
 
 @app.route('/boilerplate_run')
 def bp_run():
-    #threshold = request.args.get('threshold', 0, type=str)
-    #window_size = request.args.get('window_size', 0, type=str)
-    #use_gaps = request.args.get('use_gaps', 0, type=str)
+    thresh = request.args.get('thresh', 6, type=int)
+    window_size = request.args.get('window_size', 7,  type=int)
+    use_gaps = request.args.get('use_gaps', "on", type=str)
+    sample_docs = request.args.get('sample_docs', 10, type=int)
+    url = request.args.get('url', type=str)
+    print(thresh, window_size, use_gaps, sample_docs, url)
     bp = BPDetector()
-    #bp.threshold = threshold
-    #bp.use_gaps = use_gaps
+    bp.threshold = thresh
+    bp.window_size = window_size
+    bp.use_gaps = use_gaps == "on"
     bp.run(input='/users/tobrien/Desktop/archive/staples_transcripts_10k.json',
             output='/users/tobrien/Desktop/webapp_bp_test.json',
             output_ngrams='/users/tobrien/Desktop/webapp_bp_test_ngrams.json',
+            sample_docs=sample_docs,
             redis=red,
             train=True,
             tokens_to_scan=1000000,
@@ -232,18 +237,6 @@ def bp_run():
 
 if __name__ == '__main__':
     app.run(debug=True, threaded=True, host= '0.0.0.0')
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

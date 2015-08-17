@@ -1,5 +1,6 @@
 from luminoso_api.json_stream import open_json_or_csv_somehow
 from collections import defaultdict
+from math import floor
 import argparse
 import itertools
 import json
@@ -18,7 +19,6 @@ def get_ngrams(seq, window_size):
     """
     return [((i, i + window_size), seq[i:(i + window_size)])
             for i in range(len(seq) - window_size + 1)]
-
 
 class SpaceSplittingReader:
     '''
@@ -48,7 +48,6 @@ class SpaceSplittingReader:
         '''
         return [(self.normalize(m.group()), None, (m.start(), m.end()))
                 for m in self.WORD_RE.finditer(text)]
-
 
 class BPDetector(object):
     def __init__(self, window_size=7, bp_replacement=SEPARATOR,
@@ -291,7 +290,7 @@ class BPDetector(object):
         obj._find_bp_in_ngrams()
         return obj
 
-    def handle_docs(self, docs, output, redis, verbose=False):
+    def handle_docs(self, docs, output, redis, print_every_x, verbose=False):
         """
         Remove boilerplate from a sequence of documents, modifying them
         in place. If verbose=True, every 10000th document will be displayed
@@ -303,7 +302,7 @@ class BPDetector(object):
                 count += 1
                 removed_spans = self.remove_boilerplate(doc)
                 print(json.dumps(doc, ensure_ascii=False), file=out)
-                if verbose and count % 1000 == 0:
+                if verbose and count % print_every_x == 0:
                     text_to_show = doc['original_text']
                     for start, end in removed_spans:
                         text_to_show = (
@@ -313,8 +312,8 @@ class BPDetector(object):
                         )
                     redis.publish('boilerplate', 'Document %d: %s <br><br>' % (count, text_to_show))
 
-    def run(self, input, output, redis, train=False, output_ngrams=None, verbose=False,
-            tokens_to_scan=DEFAULT_TOKENS_TO_SCAN):
+    def run(self, input, output, redis, sample_docs=10, train=False, output_ngrams=None,
+            verbose=False, tokens_to_scan=DEFAULT_TOKENS_TO_SCAN):
         """
         Run a sequence of operations for fixing boilerplate in a file.
         - If `train` is True, learn boilerplate by reading `tokens_to_scan` tokens
@@ -325,6 +324,7 @@ class BPDetector(object):
           results to an output file.
         """
         docs = open_json_or_csv_somehow(input)
+        print_every_x = floor(len(docs)/sample_docs)
         if train:
             docs, train_docs = itertools.tee(docs)
             self.train(train_docs, redis=redis, tokens_to_scan=tokens_to_scan, verbose=verbose)
@@ -334,8 +334,7 @@ class BPDetector(object):
         if not self.counts:
             raise RuntimeError("No boilerplate data has been loaded.")
 
-        self.handle_docs(docs, output, redis=redis, verbose=verbose)
-
+        self.handle_docs(docs, output, print_every_x=print_every_x, redis=redis, verbose=verbose)
 
 def add_gap(words):
     """
@@ -345,7 +344,6 @@ def add_gap(words):
     for gap_slot in range(1, len(words) - 1):
         gapped = words[:gap_slot] + (GAP,) + words[gap_slot + 1:]
         yield gapped, words[gap_slot]
-
 
 def highlight(text):
     """
