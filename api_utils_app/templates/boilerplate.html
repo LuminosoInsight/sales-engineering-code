@@ -1,13 +1,7 @@
-{% extends "index.html" %}
-
-{% block content %}
-
-<input name="start" type="submit" value="Start">
-
-<style>
-  #data {
-    text-align: center;
-  }
+<style> 
+ .tooltip-inner {
+    text-align:left;
+}
 </style>
 
 <script src="http://code.jquery.com/jquery-latest.js"></script>
@@ -28,14 +22,14 @@ $(function() {
     $('input[name=start]').bind('click', function() {
     	var source = new EventSource('/boilerplate_stream');
     	source.onmessage = function(e) {
-    		var str = e.data.slice(2)
-    		if (str.startsWith("[")) {
+    		var str = e.data.slice(2).slice(0,-1)
+   			if (str.startsWith("[")) {
     			$("#progress").text(str)
     		}
     		else {
     			$("#data").append(str);
     		}
-  		}
+		}
 	});
     $('input[name=start]').bind('click', function() {
     	console.log("Starting Boilerplate Remover")
@@ -58,8 +52,59 @@ if (!!window.EventSource) {
 }
 </script>
 
-<div id="progress"></div>
+<script>
+$(document).ready(function(){
+    $('[data-toggle="tooltip"]').tooltip(); 
+});
+</script>
 
+{% extends "index.html" %}
+
+{% block content %}
+
+<div class="page-header"><h1>Boilerplate Remover</h1></div>
+
+<div id="content">
+<h4>
+This utility will detect and remove boilerplate phrases from a corpus of documents.<br><br>
+When run, a sample of detected boilerplate will be displayed on the screen.
+You may then choose to create a new project with the boilerplate removed, or instead change the
+parameters and run it again to improve the boilerplate detection for your documents.
+</h4>
+<br>
+Classification Threshold <a href="#" data-toggle="tooltip" title="The number of times a phrase has to appear in the tokens that are scanned to be considered boilerplate."><img src={{ url_for('static', filename = 'images/questionmark.png') }} width='25px' alt="What is this?"/></a> <br> <input class="form-control" type="number" min="2" max="20" id="thresh" name="thresh" value="6"/>
+<br><br>
+Window Size <a href="#" data-toggle="tooltip" title="The minimum number of words a phrase has to have in order to be boilerplate. If this is set too high, it may miss things, but if it's set too low, it'll catch common phrases like 'this is' or 'he did not' or the like."><img src={{ url_for('static', filename = 'images/questionmark.png') }} width='25px' alt="What is this?"/></a> <br> <input class="form-control" type="number" min="2" max="50" id="window_size" name="window_size" value="7"/>
+<br><br>
+<input class="checkbox-inline" type="checkbox" id="use_gaps" name="use_gaps" checked/> Allow a gap? <a href="#" data-toggle="tooltip" title="Whether to allow boilerplate phrases to contain gaps: a single word out of each sequence of `window_size` boilerplate words will be allowed to vary instead of matching exactly, but phrases with gaps will have to match more often."><img src={{ url_for('static', filename = 'images/questionmark.png') }} width='25px' alt="What is this?"/></a>
+<br><br>
+<input name="start" value="Start" type="submit" class="btn btn-default btn-sm" >
+
+<span id="progress"></span>
+<br><br>
 <div id="data"></div>
-
+<br><br>
+</div>
 {% endblock %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
