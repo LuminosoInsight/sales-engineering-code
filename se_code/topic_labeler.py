@@ -11,7 +11,8 @@ def get_doc_dicts(client, batch_size=25000):
     docs = []
     offset = 0
     while True:
-        found = client.get('docs', limit=batch_size, offset=offset, doc_fields=['_id', 'text', 'terms', 'fragments'])
+        found = client.get('docs', limit=batch_size, offset=offset,
+                           doc_fields=['_id', 'text', 'terms', 'fragments'])
         if len(found) == 0:
             break
         docs.extend(found)
@@ -91,18 +92,21 @@ def write_csv(topic_dicts, doc_dicts, out_filename):
         # topics with their names.
         topic_ids = [t['_id'] for t in topic_dicts]
         topic_names = [t['name'] for t in topic_dicts]
-        padding = len(topic_ids) - 1
         padding = (len(topic_ids) - 1) * ['']
-        header1 = ['', 'Exact matches'] + padding + ['Conceptual matches'] + padding + ['']
+        header1 = (['', 'Exact matches'] + padding +
+                   ['Conceptual matches'] + padding + [''])
         header2 = ['id'] + topic_names + topic_names + ['text']
         writer.writerow(header1)
         writer.writerow(header2)
 
         for doc_dict in doc_dicts:
-            exact_matches = ['1' if tid in doc_dict['exact_topics'] else '' for tid in topic_ids]
-            conceptual_matches = ['1' if tid in doc_dict['related_topics'] else '' for tid in topic_ids]
+            exact_matches = ['1' if tid in doc_dict['exact_topics']
+                             else '' for tid in topic_ids]
+            conceptual_matches = ['1' if tid in doc_dict['related_topics']
+                                  else '' for tid in topic_ids]
             text = doc_dict['text'].replace('\n', ' ')
-            doc_row = [doc_dict['_id']] + exact_matches + conceptual_matches + [text]
+            doc_row = ([doc_dict['_id']] + exact_matches +
+                       conceptual_matches + [text])
             writer.writerow(doc_row)
 
 
