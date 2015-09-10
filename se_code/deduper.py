@@ -135,6 +135,10 @@ class Deduper(object):
 
             # upload the dupes we have chosen to keep
             self.cli.upload('docs', dupes_to_retain)
+
+            #calculate number deleted
+            num_deleted = len(dupe_ids) - len(dupes_to_retain)
         
         print("Deduping finished. Project is now recalculating.")
         self.cli.post('docs/recalculate')
+        return num_deleted

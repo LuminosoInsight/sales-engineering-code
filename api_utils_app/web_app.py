@@ -9,7 +9,8 @@ from boilerplate_utilities import BPDetector
 from qualtrics_utilities import *
 import itertools
 import redis
-#from boilerplate_utilities import run
+
+#Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
 
 app = Flask(__name__)
 app.secret_key = 'secret_key_that_we_need_to_have_to_use_sessions'
@@ -32,6 +33,7 @@ def login():
     try:
         LuminosoClient.connect('/projects/', username=session['username'],
                                              password=session['password'])
+
         return render_template('welcome.html', urls=session['apps_to_show'])
     except:
         error = 'Invalid_credentials'
@@ -189,8 +191,6 @@ def step3():
 #       the pubsub messages for each user, if red is shared for all sessions.
 ###
 
-###TODO: pass red to the bp.run() and then have the sample docs published to red.
-
 def event_stream():
     pubsub = red.pubsub()
     pubsub.subscribe('boilerplate')
@@ -216,27 +216,27 @@ def bp_run():
     use_gaps = request.args.get('use_gaps', "on", type=str)
     sample_docs = request.args.get('sample_docs', 10, type=int)
     url = request.args.get('url', type=str)
-    print(thresh, window_size, use_gaps, sample_docs, url)
+    acct, proj = parse_url(url)
     bp = BPDetector()
     bp.threshold = thresh
     bp.window_size = window_size
     bp.use_gaps = use_gaps == "on"
-    bp.run(input='/users/tobrien/Desktop/archive/staples_transcripts_10k.json',
-            output='/users/tobrien/Desktop/webapp_bp_test.json',
-            output_ngrams='/users/tobrien/Desktop/webapp_bp_test_ngrams.json',
+    output_fp = bp.run(acct=acct, proj=proj,
+            user=session['username'],
+            passwd=session['password'],
             sample_docs=sample_docs,
             redis=red,
             train=True,
             tokens_to_scan=1000000,
             verbose=True)
-    return jsonify({'status': 'finished'})
+    return jsonify({'output': output_fp})
 
 ###
 # END Boilerplate code
 ###
 
 if __name__ == '__main__':
-    app.run(debug=True, threaded=True, host= '0.0.0.0')
+    app.run(debug=True, threaded=True, host= '0.0.0.0')#, ssl_context='adhoc')
 
 
 

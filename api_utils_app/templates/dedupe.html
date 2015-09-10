@@ -17,10 +17,10 @@
         $('#space').html(statusCode);
       $.getJSON($SCRIPT_ROOT + '/dedupe', {
         url: $('input[name=url]').val(),
-        copy: $('input[name=copy]').attr('checked'),
+        copy: $('input[name=copy]').is(':checked'),
         reconcile: $('input[name=reconcile]:checked').val()
       }, function(data) {
-         $("#progress").hide();
+        $("#progress").hide();
         $("#loading").hide();
      
 
@@ -48,8 +48,6 @@
       }); 
 
   });  //end of function document
-
-
 
 </script>
 

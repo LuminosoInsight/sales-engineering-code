@@ -13,7 +13,6 @@ import arrow
 from luminoso_api import LuminosoClient
 
 BASE_URI = 'https://co1.qualtrics.com/API/v1/'
-lumi_account = 'admin'
 
 def __get_token(cli):
     cli2 = cli.change_path('/')

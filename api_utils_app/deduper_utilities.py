@@ -15,7 +15,7 @@ def __retain_longest(docs):
 
 def dedupe(acct, proj, cli, reconcile_func=None, copy=False):
     if copy:
-        new_proj = cli.post('copy')    
+        new_proj = cli.post('copy')
     initial_count = len(cli.get('docs/ids'))
     if reconcile_func == 'shortest':
         reconcile_func = __retain_shortest
@@ -30,9 +30,7 @@ def dedupe(acct, proj, cli, reconcile_func=None, copy=False):
     else:
         deduper = Deduper(acct=acct, proj=proj, token=token,
                     reconcile_func=reconcile_func)
-    deduper.dedupe()
-    final_count = len(cli.get('docs/ids'))
-    num_deleted = str(initial_count - final_count)
+    num_deleted = deduper.dedupe()
     if copy:
         pid = new_proj['project_id']
         url = 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+pid

@@ -1,7 +1,9 @@
 from luminoso_api.json_stream import open_json_or_csv_somehow
+from luminoso_api import LuminosoClient
 from collections import defaultdict
-from math import floor
+from math import floor, ceil
 import argparse
+import time
 import itertools
 import json
 import re
@@ -10,7 +12,36 @@ import re
 SEPARATOR = '¶'
 GAP = '___'
 DEFAULT_TOKENS_TO_SCAN = 1000000
+FILE_PATH = './boilerplate_download/'
 
+def all_docs(cli, fields, redis):
+    """ Fetches all documents from a project """
+    num_docs = len(cli.get('docs/ids'))
+    limit = 10000
+    offset = 0
+    batch_num = 1
+    batches = str(ceil(num_docs/limit))
+    docs = []
+    while True:
+        print('[Batch {0} of {1}] Downloading documents'.format(str(batch_num), batches))
+        redis.publish('boilerplate', '[Batch {0} of {1}] Downloading documents'.format(str(batch_num), batches))
+        batch = cli.get('docs', limit=limit, offset=offset, doc_fields=fields)
+        docs.extend(batch)
+        if len(batch) < limit:
+            return docs
+        batch_num += 1
+        offset += limit
+
+def download_docs_and_save_to_file(acct, proj, user, passwd, filepath, redis):
+    """
+    Downloads all the documents from a project and saves them to a .jsons 
+    file to be used as input to the method `run`
+    """
+    cli = LuminosoClient.connect('/projects/'+acct+'/'+proj, username=user, password=passwd)
+    docs = all_docs(cli, fields=['text', 'date', 'source', 'subsets', 'language', 'predict'], redis=redis)
+    with open(filepath, 'w') as f:
+        json.dump(docs, f)
+    return filepath
 
 def get_ngrams(seq, window_size):
     """
@@ -97,22 +128,24 @@ class BPDetector(object):
         `self.window_size`, including versions with gaps in them if appropriate.
         The ones that occur often enough will go into the boilerplate set.
         """
+        ###NOTE: If there are fewer than DEFAULT_TOKENS_TO_SCAN tokens in the corpus,
+        #        then the progress meter will be off.
         n_tokens = 0
         prev_proportion = 0
         for doc in docs:
             n_tokens += self.collect_ngrams_from_doc(doc)
             if n_tokens >= tokens_to_scan:
-                if verbose:
-                    print('[100%] Collecting ngrams.')
-                    redis.publish('boilerplate', '[100%] Collecting ngrams.')
                 break
             if verbose:
                 proportion = n_tokens * 100 // tokens_to_scan
                 if proportion > prev_proportion:
-                    print('[%d%%] Collecting ngrams.' % proportion, end='\r')
-                    redis.publish('boilerplate', '[%d%%] Collecting ngrams.' % proportion)
+                    print('[%d%%] Collecting ngrams' % proportion, end='\r')
+                    redis.publish('boilerplate', '[%d%%] Collecting ngrams' % proportion)
                     prev_proportion = proportion
 
+        if verbose:
+            print('[100%] Collecting ngrams')
+            redis.publish('boilerplate', '[100%] Collecting ngrams')
         self._find_bp_in_ngrams()
 
     def collect_ngrams_from_doc(self, doc):
@@ -301,6 +334,7 @@ class BPDetector(object):
             for doc in docs:
                 count += 1
                 removed_spans = self.remove_boilerplate(doc)
+                redis.publish('boilerplate', '[Printing sample documents]')
                 print(json.dumps(doc, ensure_ascii=False), file=out)
                 if verbose and count % print_every_x == 0:
                     text_to_show = doc['original_text']
@@ -312,7 +346,8 @@ class BPDetector(object):
                         )
                     redis.publish('boilerplate', 'Document %d: %s <br><br>' % (count, text_to_show))
 
-    def run(self, input, output, redis, sample_docs=10, train=False, output_ngrams=None,
+    def run(self, acct, proj, user, passwd, redis,
+            sample_docs=10, train=False, output_ngrams=None,
             verbose=False, tokens_to_scan=DEFAULT_TOKENS_TO_SCAN):
         """
         Run a sequence of operations for fixing boilerplate in a file.
@@ -323,6 +358,10 @@ class BPDetector(object):
         - Iterate through the input file, removing boilerplate and writing the
           results to an output file.
         """
+        time_ms = str(time.time()).replace('.','')
+        input_f = FILE_PATH+time_ms+'_input.json'
+        output_f = FILE_PATH+time_ms+'_output.json'
+        input = download_docs_and_save_to_file(acct, proj, user, passwd, input_f, redis)
         docs = open_json_or_csv_somehow(input)
         print_every_x = floor(len(docs)/sample_docs)
         if train:
@@ -334,7 +373,8 @@ class BPDetector(object):
         if not self.counts:
             raise RuntimeError("No boilerplate data has been loaded.")
 
-        self.handle_docs(docs, output, print_every_x=print_every_x, redis=redis, verbose=verbose)
+        self.handle_docs(docs, output_f, print_every_x=print_every_x, redis=redis, verbose=verbose)
+        return output_f
 
 def add_gap(words):
     """
@@ -352,43 +392,3 @@ def highlight(text):
     on a Web page.
     """
     return '<span style="color:red">{%s}</span>' % text
-
-"""
-def main():
-    parser = argparse.ArgumentParser()
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('-i', '--input-ngrams', type=str, metavar='FILENAME',
-                       help="An existing JSON file of boilerplate ngrams to apply")
-    group.add_argument('-o', '--output-ngrams', type=str, metavar='FILENAME',
-                       help="A file to write boilerplate ngrams to, so they can be reused")
-    parser.add_argument('-t', '--threshold', type=int,
-                        help="The minimum number of occurrences of an n-gram to remove")
-    parser.add_argument('-e', '--exact', action='store_true',
-                        help="Boilerplate matches must be exact (no gaps that may vary)")
-    parser.add_argument('-s', '--scan', type=int, default=1000000,
-                        help="Number of tokens to learn ngrams from (default 1,000,000)")
-    parser.add_argument('-q', '--quiet', action='store_true',
-                        help="Don't print progress and examples while running")
-    parser.add_argument('input', help='A JSON stream or CSV file of input documents')
-    parser.add_argument('output', help='A JSON stream of output documents')
-    args = parser.parse_args()
-
-    # Create a BPDetector with either the defaults or its saved values
-    if args.input_ngrams:
-        bp = BPDetector.load_data(args.input_ngrams)
-    else:
-        bp = BPDetector()
-
-    # Override the threshold if asked
-    if args.threshold:
-        bp.threshold = args.threshold
-
-    # Set use_gaps based on the --exact parameter
-    bp.use_gaps = (not args.exact)
-
-    bp.run(input='list_of_json_docs', output='path_to_output_file',
-           output_ngrams='path_to_output_file_ngrams',
-           train=True,
-           tokens_to_scan=1000000,
-           verbose=True)
-"""

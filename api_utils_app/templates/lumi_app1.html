@@ -2,7 +2,6 @@
 {% block content %}
 <script type="text/javascript">
 
-
   $(function() {
 
     var submit_form = function(e) {
@@ -41,21 +40,20 @@
           token: $('input[name=token]').val()
           }, function(data) {
 
-            questions = JSON.stringify(data);
-            var apple = JSON.parse(questions);
+            questions = JSON.parse(JSON.stringify(data));
 
-            for(var key in apple){ //Create selections for Documents
-              if (apple.hasOwnProperty(key)){
-                 var value=apple[key];
+            for(var key in questions){ //Create selections for Documents
+              if (questions.hasOwnProperty(key)){
+                 var value=questions[key];
 
                  if (key == 'text'){
                   var selectTextCode = '<br><h4>Step 3: Select which questions to have as documents:</h4><p>';
                   selectTextCode += '<table class="table table-striped"><tr><th>Select</th><th>Question ID</th><th>Question</th></tr>';
-                  for (var i = 0; i < apple.text.length; i++){
+                  for (var i = 0; i < questions.text.length; i++){
                      selectTextCode += '<tr>';
-                     selectTextCode += '<td><input type="checkbox" name="docSelect[]" value="'+apple.text[i][0]+'"/></td>';
-                     selectTextCode += '<td>' + apple.text[i][0] + '</td><td>' + apple.text[i][1] + '</td></tr>';
-                     console.log("this value is: " + apple.text[i][0]);
+                     selectTextCode += '<td><input type="checkbox" name="docSelect[]" value="'+questions.text[i][0]+'"/></td>';
+                     selectTextCode += '<td>' + questions.text[i][0] + '</td><td>' + questions.text[i][1] + '</td></tr>';
+                     console.log("this value is: " + questions.text[i][0]);
                   } 
                   selectTextCode += '</table>';
                   
@@ -64,14 +62,14 @@
                  if (key == 'subsets'){ //Create selections for Subsets
                   var selectSubsetCode = '<br><h4>Step 4: Select which questions to have as subsets:</h4><br>';
                   selectSubsetCode += '<table class="table table-striped"><tr><th>Select</th><th>Question ID</th><th>Question</th></tr>';
-                  for (var i = 0; i < apple.subsets.length; i++){
+                  for (var i = 0; i < questions.subsets.length; i++){
                      selectSubsetCode += '<tr>';
-                     selectSubsetCode += '<td><input type="checkbox" class="checkbox" name="subSelect[]" value="'+apple.subsets[i][0]+'"/></td>';
-                     selectSubsetCode += '<td>' + apple.subsets[i][0] + '</td><td>' + apple.subsets[i][1] + '</td></tr>';
+                     selectSubsetCode += '<td><input type="checkbox" class="checkbox" name="subSelect[]" value="'+questions.subsets[i][0]+'"/></td>';
+                     selectSubsetCode += '<td>' + questions.subsets[i][0] + '</td><td>' + questions.subsets[i][1] + '</td></tr>';
                   }
                   selectSubsetCode += '</table>';
                   selectSubsetCode += '<br><h4>Step 5: Click below to create a new project.</h4>A project url will appear below once the project is completed.<br><br><input type="submit" class="btn btn-primary" name="formSubmit" value="Create Project"/>';
-                  selectSubsetCode += ' <img id="loading" padding-left="50px" alt="spinning wheel" src={{ url_for('static', filename = 'images/ajax-loader.gif') }}  style="display:none"><br>';
+                  selectSubsetCode += '<img id="loading" padding-left="50px" alt="spinning wheel" src={{ url_for("static", filename = "images/ajax-loader.gif") }}  style="display:none"><br>';
                  }
                  
               }
@@ -167,24 +165,9 @@
       }
     });
 
-    
-
-
-
-    
-    
-
-
-
   }); //end of main function
 
-
 </script>
-
-
-
-
-
 
   <p>
   <div class="row">
@@ -231,6 +214,5 @@
 </p>
 
 </div></div>
-  
 
 {% endblock %}

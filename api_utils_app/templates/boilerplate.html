@@ -11,6 +11,7 @@ if (typeof String.prototype.startsWith != 'function') {
 
 <script>
 $(function() {
+	$("#loading").hide();
     //CODE FOR MERGE
     //CODE FOR TERM_UTILS_SEARCH STARTS HERE
     $('input[name=start]').bind('click', function() {
@@ -18,6 +19,7 @@ $(function() {
     	source.onmessage = function(e) {
     		var str = e.data.slice(2).slice(0,-1)
    			if (str.startsWith("[")) {
+   				$("#loading").show();
     			$("#progress").text(str)
     		}
     		else {
@@ -27,6 +29,7 @@ $(function() {
 	});
     $('input[name=start]').bind('click', function() {
     	console.log("Starting Boilerplate Remover")
+    	$('input[name=start]').attr("disabled", true);
     	$("#data").text("");
       $.getJSON($SCRIPT_ROOT + '/boilerplate_run', {
       	url: $('input[name=url]').val(),
@@ -36,6 +39,11 @@ $(function() {
     	sample_docs: $('input[name=sample_docs]').val()
       }, function(data) {
       	console.log("Finished Boilerplate Remover")
+      	var output_fp = data['output']
+      	console.log(output_fp)
+      	$('input[name=start]').attr("disabled", false);
+      	$("#progress").hide();
+      	$("#loading").hide();
       });
   	});
 });
@@ -69,7 +77,7 @@ parameters and run it again to improve the boilerplate detection for your docume
 </h4>
 <br>
 Enter an Analytics project URL (will not be modified; a new cleaned project will be created)
-<input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
+<input type="text" name="url" class="form-control" placeholder="Analytics Project URL" value="https://dashboard.luminoso.com/v4/explore.html?account=admin&projectId=ws9hn" required autofocus>
 <br><br>
 Choose how many sample documents to print
 <a href="#" data-toggle="tooltip" title="A number of sample documents will be printed with the detected boilerplate highlighted in red. This will help you configure the other parameters to catch all of the boilerplate."><img src={{ url_for('static', filename = 'images/questionmark.png') }} width='25px' alt="What is this?"/></a> <br> <input class="form-control" type="number" id="sample_docs" name="sample_docs" value="10"/>
@@ -80,8 +88,8 @@ Window Size <a href="#" data-toggle="tooltip" title="The minimum number of words
 <br><br>
 <input class="checkbox-inline" type="checkbox" id="use_gaps" name="use_gaps" checked/> Allow a gap? <a href="#" data-toggle="tooltip" title="Whether to allow boilerplate phrases to contain gaps: a single word out of each sequence of boilerplate words will be allowed to vary instead of matching exactly, but phrases with gaps will have to match more often."><img src={{ url_for('static', filename = 'images/questionmark.png') }} width='25px' alt="What is this?"/></a>
 <br><br>
-<input name="start" value="Start" type="submit" class="btn btn-default btn-lg" >
-
+<input name="start" value="Detect Boilerplate" type="submit" class="btn btn-default btn-lg">
+<img id="loading" height="25px" alt="" src={{ url_for('static', filename = 'images/ajaxSpinner.gif') }}  style="display:none">
 <span id="progress"></span>
 <br><br>
 <div id="data" style="overflow:auto; max-height:300px"></div>
