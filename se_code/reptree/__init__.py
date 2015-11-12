@@ -1,7 +1,6 @@
 import logging
 from scipy.cluster.hierarchy import linkage
-from operator import itemgetter, attrgetter
-from collections import defaultdict
+from operator import attrgetter
 from abc import abstractmethod
 import numpy as np
 
@@ -297,13 +296,7 @@ class RepTree(RepNode):
         Build a line-by-line text representation of the tree, showing only
         the nodes that meet certain criteria.
         """
-        # Show our label, if we have one, as a string.
-        termtext = ''
-        if self.term is not None:
-            termtext = self.term['text']
-
         # Keep track of whether anything from our children is visible.
-        recursed = False
         lines = []
 
         # We can descend into any child with a high enough tree_score, as
@@ -316,12 +309,10 @@ class RepTree(RepNode):
                 more = self.left._show_tree_lines(max_depth - 1, min_score)
                 if more:
                     lines.extend(more)
-                    recursed = True
             if self.right.tree_score >= min_score:
                 more = self.right._show_tree_lines(max_depth - 1, min_score)
                 if more:
                     lines.extend(more)
-                    recursed = True
 
         # Should we show this node itself? There are some intermediate nodes
         # that we want to skip because their own score is too low. This will
