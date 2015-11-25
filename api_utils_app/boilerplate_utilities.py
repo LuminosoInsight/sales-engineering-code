@@ -362,7 +362,7 @@ class BPDetector(object):
         input_f = FILE_PATH+time_ms+'_input.json'
         output_f = FILE_PATH+time_ms+'_output.json'
         input = download_docs_and_save_to_file(acct, proj, user, passwd, input_f, redis)
-        docs = open_json_or_csv_somehow(input)
+        docs = list(open_json_or_csv_somehow(input))
         print_every_x = floor(len(docs)/sample_docs)
         if train:
             docs, train_docs = itertools.tee(docs)
