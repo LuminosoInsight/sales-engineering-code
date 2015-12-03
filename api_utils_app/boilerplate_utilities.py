@@ -38,10 +38,30 @@ def download_docs_and_save_to_file(acct, proj, user, passwd, filepath, redis):
     file to be used as input to the method `run`
     """
     cli = LuminosoClient.connect('/projects/'+acct+'/'+proj, username=user, password=passwd)
+    name = cli.get('/')['name']
     docs = all_docs(cli, fields=['text', 'date', 'source', 'subsets', 'language', 'predict'], redis=redis)
     with open(filepath, 'w') as f:
         json.dump(docs, f)
-    return filepath
+    return filepath, name
+
+def chunks(l, n):
+    n = max(1, n)
+    return [l[i:i + n] for i in range(0, len(l), n)]
+
+def boilerplate_create_proj(docs_path, name, acct, recalc, username, password):
+    with open(FILE_PATH + docs_path, 'r') as f:
+        new_docs = [json.loads(line) for line in f]
+    lang = new_docs[0]['language']
+    cli = LuminosoClient.connect('/projects/'+acct,
+                    username=username, password=password)
+    cli = cli.change_path(cli.post('/', name='(Boilerplate cleaned) '+name)['project_id'])
+    for docs in chunks(new_docs, 10000):
+        cli.upload('docs', docs)
+    job_num = cli.post('docs/recalculate', language=lang)
+    if recalc:
+        cli.wait_for(job_num)
+    proj = cli.get('/')['project_id']
+    return acct, proj
 
 def get_ngrams(seq, window_size):
     """
@@ -360,8 +380,8 @@ class BPDetector(object):
         """
         time_ms = str(time.time()).replace('.','')
         input_f = FILE_PATH+time_ms+'_input.json'
-        output_f = FILE_PATH+time_ms+'_output.json'
-        input = download_docs_and_save_to_file(acct, proj, user, passwd, input_f, redis)
+        output_f = time_ms+'_output.json'
+        input, name = download_docs_and_save_to_file(acct, proj, user, passwd, input_f, redis)
         docs = list(open_json_or_csv_somehow(input))
         print_every_x = floor(len(docs)/sample_docs)
         if train:
@@ -373,8 +393,8 @@ class BPDetector(object):
         if not self.counts:
             raise RuntimeError("No boilerplate data has been loaded.")
 
-        self.handle_docs(docs, output_f, print_every_x=print_every_x, redis=redis, verbose=verbose)
-        return output_f
+        self.handle_docs(docs, FILE_PATH+output_f, print_every_x=print_every_x, redis=redis, verbose=verbose)
+        return output_f, name, acct
 
 def add_gap(words):
     """

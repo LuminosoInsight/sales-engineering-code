@@ -5,7 +5,7 @@ from luminoso_api import LuminosoClient
 from topic_utilities import copy_topics, del_topics, parse_url
 from term_utilities import get_terms, ignore_terms, merge_terms
 from deduper_utilities import dedupe
-from boilerplate_utilities import BPDetector
+from boilerplate_utilities import BPDetector, boilerplate_create_proj
 from qualtrics_utilities import *
 import itertools
 import redis
@@ -194,11 +194,10 @@ def step3():
 def event_stream():
     pubsub = red.pubsub()
     pubsub.subscribe('boilerplate')
-    # TODO: handle client disconnection.
     for message in pubsub.listen():
         if message['type'] == 'subscribe':
             pass
-        else:    
+        else:
             yield str('data: %s\n\n' % message['data'])
 
 @app.route('/boilerplate_page')
@@ -221,7 +220,7 @@ def bp_run():
     bp.threshold = thresh
     bp.window_size = window_size
     bp.use_gaps = use_gaps == "on"
-    output_fp = bp.run(acct=acct, proj=proj,
+    output_fp, name, acct = bp.run(acct=acct, proj=proj,
             user=session['username'],
             passwd=session['password'],
             sample_docs=sample_docs,
@@ -229,7 +228,21 @@ def bp_run():
             train=True,
             tokens_to_scan=1000000,
             verbose=True)
-    return jsonify({'output': output_fp})
+    return jsonify({'output': output_fp, 'name': name, 'acct': acct})
+
+@app.route('/boilerplate_new_proj')
+def bp_create_proj():
+    filepath = request.args.get('docs_path', type=str)
+    name = request.args.get('name', type=str)
+    acct = request.args.get('acct', type=str)
+    recalc = (request.args.get('recalc') == 'true')
+    acct, proj = boilerplate_create_proj(filepath, name, acct, recalc,
+                            username = session['username'],
+                            password = session['password'])
+    url = 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+proj
+    return jsonify({'proj_url': url})
+
+
 
 ###
 # END Boilerplate code
@@ -237,6 +250,19 @@ def bp_run():
 
 if __name__ == '__main__':
     app.run(debug=True, threaded=True, host= '0.0.0.0')#, ssl_context='adhoc')
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
