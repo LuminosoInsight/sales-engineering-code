@@ -1,0 +1,51 @@
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+
+{% extends "index.html" %}
+{% block content %}
+
+	<div class="page-header"><h1>Merge Terms</h1></div>
+    <div id="content">
+    
+<!-- Actual stuff -->
+
+
+      <span id="credentials">
+       <form name="mergeForm">
+          <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
+          <input class="btn btn-lg btn-primary btn-block" type="submit" name="submitSearchMerge" value="Get Terms"/>
+        
+          <span id="errorSearch">
+              {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+          </span>
+       </form>
+      </span>
+      <p class="text-center">
+      <span id="progress1">
+      </span>
+      </p>
+      <p class="text-center">
+      <img id="loading1" alt="spinning wheel" src={{ url_for('static', filename = 'images/ajax-loader.gif') }}  style="display:none">
+      </p>
+
+      <span id="selectTermsToMerge"></span>
+      <p class="text-center">
+      <span id="progress2">
+      </span>
+      </p>
+      <p class="text-center">
+      <img id="loading2" alt="spinning wheel" src={{ url_for('static', filename = 'images/ajax-loader.gif') }}  style="display:none">
+      </p>
+      <p class="text-center">
+      <span id="MergeCompletedShow"></span>
+      </p>
+      <p>
+      
+     
+    </div> 
+    
+<!-- Note to Tim. Everytime making a change on the js files, it needs to be saved as a new file or else the changes don't appear on the html. I don't know why...-->
+
+<script src="/static/js/term_merge.js"></script>
+
+
+{% endblock %}

@@ -1,0 +1,3 @@
+#exclude downloaded data files
+/boilerplate_download/*
+/qualtrics_download/*

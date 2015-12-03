@@ -1,0 +1,30 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+	<div class="page-header"><p>
+       <h1>Copy all topics from a project to other project(s)</h1>
+    </div>
+
+     
+      <div id="content">
+      <h3>Copy all topics from a project to other project(s)</h3>
+      <form action="{{ url_for('topic_utils_copy') }}" method='post' >
+        
+        
+        <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
+        <input type="text" name="dest_urls" class="form-control" placeholder="Destination Project URL(s) (comma-separated if multiple)" required>
+        
+        <input class="btn btn-lg btn-primary btn-block" type="submit" value="Copy"/>
+        <br>
+        <span id="errorLogin">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+
+
+      
+      
+      </div>
+
+{% endblock %}

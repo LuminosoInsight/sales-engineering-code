@@ -1,0 +1,28 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+	<div class="page-header"><p>
+       <h1>Delete all topics from project(s)</h1>
+    </div>
+
+      
+      <div id="content">
+      
+
+
+      
+      
+      <form action="{{ url_for('topic_utils_delete') }}" method='post'>
+     
+      	<input type="text" name="urls" class="form-control" placeholder="Analytics Project URL(s) (comma-separated if multiple)" required autofocus>
+
+        <input class="btn btn-lg btn-primary btn-block" type="submit" value="Delete"/>
+        <br>
+        <span id="errorLogin">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+      </div>
+
+{% endblock %}
