@@ -1,5 +1,6 @@
 import random
 import sys
+import time
 sys.path.insert(0, '../se_code/')
 from deduper import Deduper
 
@@ -13,7 +14,7 @@ def __retain_shortest(docs):
 def __retain_longest(docs):
     return sorted(docs, key = lambda d: len(d['text']))[-1]
 
-def dedupe(acct, proj, cli, reconcile_func=None, copy=False):
+def dedupe(acct, proj, cli, recalc=True, reconcile_func=None, copy=False):
     if copy:
         new_proj = cli.post('copy')
     initial_count = len(cli.get('docs/ids'))
@@ -31,8 +32,7 @@ def dedupe(acct, proj, cli, reconcile_func=None, copy=False):
         deduper = Deduper(acct=acct, proj=proj, token=token,
                     reconcile_func=reconcile_func)
     num_deleted = deduper.dedupe()
-    if copy:
-        pid = new_proj['project_id']
-        url = 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+pid
-        return {'num':num_deleted, 'url':url}
-    return {'num':num_deleted, 'url':''}
+    url = 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+proj
+    while recalc and cli.get('jobs'):
+        time.sleep(1)
+    return {'num':num_deleted, 'url':url}

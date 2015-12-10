@@ -10,15 +10,14 @@
     //CODE FOR TERM_UTILS_SEARCH STARTS HERE
     $('input[name=dedupe]').bind('click', function() {
         $("#loading").show();
-        var statusCode = '<h4>Deduping...please wait</h4>';   
+        var statusCode = 'Deduping...please wait';   
         $('#progress').html(statusCode);
         console.log("load bar started");
-        var spaceCode = '<br><br>';  
-        $('#space').html(statusCode);
       $.getJSON($SCRIPT_ROOT + '/dedupe', {
         url: $('input[name=url]').val(),
         copy: $('input[name=copy]').is(':checked'),
-        reconcile: $('input[name=reconcile]:checked').val()
+        reconcile: $('input[name=reconcile]:checked').val(),
+        recalc: $('input[name=recalc]').is(':checked')
       }, function(data) {
         $("#progress").hide();
         $("#loading").hide();
@@ -30,13 +29,7 @@
        new_project = ret['url'];
        console.log("finished deduping");
 
-        //$('#result').text(w);
-        if (new_project) {
-          url = 'The backup of your original project is located <a href="'+new_project+'">here</a>'
-        } else {
-          url = ''
-        };
-      
+        url = 'The deduped project is located <a href="'+new_project+'">here</a>'      
         var completedCode = '<h4>Project has finished deduping and recalculating. There were '+dupe_num+' duplicates removed.<br>'+url+'</h4>';
 
         $('#statusComplete').html(completedCode);
@@ -80,20 +73,17 @@
         <input type="radio" name="reconcile" value="random" checked> Random <br>
         <input type="radio" name="reconcile" value="shortest"> Shortest Text <br>
         <input type="radio" name="reconcile" value="longest"> Longest Text <br><br>
-        <input class="btn btn-lg btn-primary btn-block" name="dedupe" type="submit" value="Dedupe"/>
+        <input class="btn btn-primary btn-lg" name="dedupe" type="submit" value="Dedupe"/>
+        <img id="loading" height="25px" alt="" src={{ url_for('static', filename = 'images/ajaxSpinner.gif') }}  style="display:none">
+        <span id="progress"></span>
+        <br>
+        <input type="checkbox" name="recalc" id="recalc" checked> Wait for project to recalculate<br>
         <br>
         <span id="errorLogin">
            {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
         </span>
       </form>
       <p class="text-center">
-      <span id="progress">
-      </span>
-      <span class="space">
-      </span>
-
-      <img id="loading" alt="spinning wheel" src={{ url_for('static', filename = 'images/ajax-loader.gif') }}  style="display:none">
-
       <span id="statusComplete"></span>
       </p>
 

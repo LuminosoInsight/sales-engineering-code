@@ -130,14 +130,14 @@ $(document).ready(function(){
   <br><br>
   <input class="checkbox-inline" type="checkbox" id="use_gaps" name="use_gaps" checked/> Allow a gap? <a href="#" data-toggle="tooltip" title="Whether to allow boilerplate phrases to contain gaps: a single word out of each sequence of boilerplate words will be allowed to vary instead of matching exactly, but phrases with gaps will have to match more often."><img src={{ url_for('static', filename = 'images/questionmark.png') }} width='25px' alt="What is this?"/></a>
   <br><br>
-  <input name="start" value="Detect Boilerplate" type="submit" class="btn btn-default btn-lg">
+  <input name="start" value="Detect Boilerplate" type="submit" class="btn btn-primary btn-lg">
   <img id="loading" height="25px" alt="" src={{ url_for('static', filename = 'images/ajaxSpinner.gif') }}  style="display:none">
   <span id="progress"></span>
   <br><br>
   <div id="data" style="overflow:auto; max-height:300px; border-style: solid; border-width: 1px; padding: 5px 5px 5px 5px"></div>
   <br>
   <div id="step2"><h4>Step 2: Create a new project with the boilerplate removed</h4>
-    <div id="create_new_project" style="vertical-align: bottom;"><input name="new_proj" value="Create New Project" type="submit" class="btn btn-default btn-lg"> <img id="loading2" height="25px" alt="" src={{ url_for('static', filename = 'images/ajaxSpinner.gif') }}  style="display:none"> (or go back to step 1)</div>
+    <div id="create_new_project" style="vertical-align: bottom;"><input name="new_proj" value="Create New Project" type="submit" class="btn btn-primary btn-lg"> <img id="loading2" height="25px" alt="" src={{ url_for('static', filename = 'images/ajaxSpinner.gif') }}  style="display:none"> (or go back to step 1)</div>
     <input type="checkbox" name="recalc" id="recalc" checked> Wait for project to recalculate<br>
     <span id="progress"></span>
     <h3><div id="new_proj_link"></div></h3>

@@ -131,12 +131,13 @@ def dedupe_util():
     url = request.args.get('url', 0, type=str)
     acct, proj = parse_url(url)
     copy = (request.args.get('copy') == 'true')
+    recalc = (request.args.get('recalc') == 'true')
     reconcile = request.args.get('reconcile')
     cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,
                             username=session['username'],
                             password=session['password'])
     return jsonify(dedupe(acct=acct, proj=proj, cli=cli,
-                    reconcile_func=reconcile, copy=copy))
+            recalc=recalc, reconcile_func=reconcile, copy=copy))
 
 @app.route('/compass_export_page')
 def compass_export_page():
