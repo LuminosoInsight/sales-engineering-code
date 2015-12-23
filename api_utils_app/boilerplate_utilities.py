@@ -40,7 +40,7 @@ def download_docs_and_save_to_file(acct, proj, user, passwd, filepath, redis):
     cli = LuminosoClient.connect('/projects/'+acct+'/'+proj, username=user, password=passwd)
     name = cli.get('/')['name']
     docs = all_docs(cli, fields=['text', 'date', 'source', 'subsets', 'language', 'predict'], redis=redis)
-    with open(filepath, 'w') as f:
+    with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(docs, f)
     return filepath, name
 
@@ -49,7 +49,7 @@ def chunks(l, n):
     return [l[i:i + n] for i in range(0, len(l), n)]
 
 def boilerplate_create_proj(docs_path, name, acct, recalc, username, password):
-    with open(FILE_PATH + docs_path, 'r') as f:
+    with open(FILE_PATH + docs_path, 'r', encoding='utf-8') as f:
         new_docs = [json.loads(line) for line in f]
     lang = new_docs[0]['language']
     cli = LuminosoClient.connect('/projects/'+acct,
@@ -328,7 +328,7 @@ class BPDetector(object):
         Create a BPDetector by loading its data from a JSON file.
         """
         obj = cls()
-        with open(filename) as file:
+        with open(filename, encoding='utf-8') as file:
             data = json.load(file)
             obj = cls(
                 reader=data['options']['reader'],

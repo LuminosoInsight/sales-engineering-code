@@ -296,7 +296,7 @@ class BPDetector(object):
         Create a BPDetector by loading its data from a JSON file.
         """
         obj = cls()
-        with open(filename) as file:
+        with open(filename, encoding='utf-8') as file:
             data = json.load(file)
             obj = cls(
                 reader=data['options']['reader'],
