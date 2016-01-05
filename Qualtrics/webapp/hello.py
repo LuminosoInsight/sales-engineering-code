@@ -74,7 +74,7 @@ def get_survey_json(sid, token):
     with zipfile.ZipFile('./'+foldername+'/'+sid+"_"+timestamp+".zip", "r") as z:
         z.extractall(path=foldername)
         newest = max(glob.iglob(foldername+'/*.json'), key=os.path.getctime)
-        return json.load(open(newest, 'r'))
+        return json.load(open(newest, 'r', encoding='utf-8'))
 
 def _create_project(acct, token, name, docs):
     cli = LuminosoClient.connect('/projects/'+acct, token = lumi_token)

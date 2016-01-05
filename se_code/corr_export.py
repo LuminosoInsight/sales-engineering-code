@@ -30,7 +30,7 @@ topics = project.get('topics')
 corrs = project.get('docs/correlations')
 header = ['title', 'text'] + [topic['name'] for topic in topics]
 
-with open(project_info['name'] + '_corrs.csv', 'w') as f:
+with open(project_info['name'] + '_corrs.csv', 'w', encoding='utf-8') as f:
     writer = csv.writer(f)
     writer.writerow(header)
     i = 0
