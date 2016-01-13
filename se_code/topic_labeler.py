@@ -117,7 +117,7 @@ def run(account_id, project_id, username, out_filename):
     Write the results in CSV form to `out_filename`.
     """
     client = LuminosoClient.connect(
-        'https://api.luminoso.com/v4/projects/%s/%s' % (account_id, project_id),
+        'https://analytics.luminoso.com/api/v4/projects/%s/%s' % (account_id, project_id),
         username=username
     )
 

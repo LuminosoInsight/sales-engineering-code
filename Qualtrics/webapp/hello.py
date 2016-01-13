@@ -84,7 +84,7 @@ def _create_project(acct, token, name, docs):
     for b in batches:
         cli.upload('/docs/', b)
     cli.wait_for(cli.post('/docs/recalculate/'))
-    return 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+pid
+    return 'https://analytics.luminoso.com/explore.html?account='+acct+'&projectId='+pid
 
 def build_analytics_project(sid, token, text_q_ids, subset_q_ids, acct, lumi_token, name):
     def make_subset_mapping(survey):

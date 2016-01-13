@@ -240,7 +240,7 @@ def bp_create_proj():
     acct, proj = boilerplate_create_proj(filepath, name, acct, recalc,
                             username = session['username'],
                             password = session['password'])
-    url = 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+proj
+    url = 'https://analytics.luminoso.com/explore.html?account='+acct+'&projectId='+proj
     return jsonify({'proj_url': url})
 
 
