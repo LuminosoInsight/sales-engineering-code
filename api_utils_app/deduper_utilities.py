@@ -1,4 +1,3 @@
-import random
 import sys
 import time
 sys.path.insert(0, '../se_code/')

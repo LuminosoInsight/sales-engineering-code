@@ -1,13 +1,11 @@
 import requests
 import json
-import urllib
 import zipfile
 import os
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 import time
 import glob
 from urllib.request import urlretrieve
-import zipfile
 import re
 import arrow
 from luminoso_api import LuminosoClient
