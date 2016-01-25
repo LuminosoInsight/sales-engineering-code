@@ -8,19 +8,19 @@ TOKEN = 'UyCWnoF7z5fVk5TYVMcIKjU2RAMBfUJs'
 # Simple function to make get and post requests to the API
 api_call = function(type, path, params = list()) {
   if (type == "get") {
-    resp = GET(paste(c('https://api.luminoso.com/v4',path), collapse=''),
+    resp = GET(paste(c('https://analytics.luminoso.com/api/v4',path), collapse=''),
                add_headers(Authorization = paste('Token', TOKEN)),
                query = if (length(params)) params else '')
     return(content(resp))
   }
   else if (type == "post") {
-    resp = POST(paste(c('https://api.luminoso.com/v4',path), collapse=''),
+    resp = POST(paste(c('https://analytics.luminoso.com/api/v4',path), collapse=''),
                 add_headers("Authorization" = paste('Token', TOKEN)),
                 body = params)
     return(content(resp))
   }
   else if (type == "upload") {
-    resp = POST(paste(c('https://api.luminoso.com/v4',path), collapse=''),
+    resp = POST(paste(c('https://analytics.luminoso.com/api/v4',path), collapse=''),
                 add_headers("Authorization" = paste('Token', TOKEN),
                             "Content-Type" = "application/json"),
                 body = params)
@@ -162,7 +162,7 @@ top_top_assoc = api_call('get',
                          params=list(format='json'))
 
 # download a CSV file of the topic-topic association scores
-download.file("https://api.luminoso.com/v4/projects/v43y563b/3x7cp/topics/correlation/",
+download.file("https://analytics.luminoso.com/api/v4/projects/v43y563b/3x7cp/topics/correlation/",
               '/Users/tobrien/Downloads/Staples_topic_associations.csv',
               'curl',
               extra=paste('-H', '"Authorization:', 'Token', TOKEN, '"'))

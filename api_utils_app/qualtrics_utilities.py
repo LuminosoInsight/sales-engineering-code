@@ -1,13 +1,11 @@
 import requests
 import json
-import urllib
 import zipfile
 import os
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 import time
 import glob
 from urllib.request import urlretrieve
-import zipfile
 import re
 import arrow
 from luminoso_api import LuminosoClient
@@ -91,7 +89,7 @@ def _create_project(user, passwd, name, docs):
     for b in batches:
         cli.upload('/docs/', b)
     cli.wait_for(cli.post('/docs/recalculate/'))
-    return 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+pid
+    return 'https://analytics.luminoso.com/explore.html?account='+acct+'&projectId='+pid
 
 def build_analytics_project(sid, token, text_q_ids, subset_q_ids, user, passwd, name):
     def make_subset_mapping(survey):

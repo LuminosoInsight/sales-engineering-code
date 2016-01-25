@@ -1,13 +1,10 @@
-from flask import Flask, jsonify, render_template, request, session, url_for, Response, stream_with_context
-import json
-from collections import defaultdict, OrderedDict
+from flask import Flask, jsonify, render_template, request, session, url_for, Response
 from luminoso_api import LuminosoClient
 from topic_utilities import copy_topics, del_topics, parse_url
 from term_utilities import get_terms, ignore_terms, merge_terms
 from deduper_utilities import dedupe
 from boilerplate_utilities import BPDetector, boilerplate_create_proj
 from qualtrics_utilities import *
-import itertools
 import redis
 
 #Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
@@ -240,7 +237,7 @@ def bp_create_proj():
     acct, proj = boilerplate_create_proj(filepath, name, acct, recalc,
                             username = session['username'],
                             password = session['password'])
-    url = 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+proj
+    url = 'https://analytics.luminoso.com/explore.html?account='+acct+'&projectId='+proj
     return jsonify({'proj_url': url})
 
 

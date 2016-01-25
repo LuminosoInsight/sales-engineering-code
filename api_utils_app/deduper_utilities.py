@@ -1,4 +1,3 @@
-import random
 import sys
 import time
 sys.path.insert(0, '../se_code/')
@@ -32,7 +31,7 @@ def dedupe(acct, proj, cli, recalc=True, reconcile_func=None, copy=False):
         deduper = Deduper(acct=acct, proj=proj, token=token,
                     reconcile_func=reconcile_func)
     num_deleted = deduper.dedupe()
-    url = 'https://dashboard.luminoso.com/v4/explore.html?account='+acct+'&projectId='+proj
+    url = 'https://analytics.luminoso.com/explore.html?account='+acct+'&projectId='+proj
     while recalc and cli.get('jobs'):
         time.sleep(1)
     return {'num':num_deleted, 'url':url}
