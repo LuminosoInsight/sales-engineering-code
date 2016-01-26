@@ -347,8 +347,11 @@ class RepTree(RepNode):
         return disjoint_subtrees(topics)
 
     def describe(self, list_items=3):
+        return ', '.join(self.term_texts(list_items))
+
+    def term_texts(self, list_items=3):
         shown_terms = [self.term['text']] + [term['text'] for term in self.filtered_termlist[:list_items - 1]]
-        return ', '.join(shown_terms)
+        return shown_terms[:list_items]
 
     def __str__(self):
         return '%s (score=%2.2f)' % (self.describe(), self.score)
