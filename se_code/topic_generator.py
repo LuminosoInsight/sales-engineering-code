@@ -86,7 +86,7 @@ def run(account_id, project_id, username, num_groups, topics_per_group,
     return selected_topic_groups
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(
         description='Automatically find representative topics for a Luminoso project.'
     )
@@ -98,4 +98,9 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--api-url', default='https://analytics.luminoso.com/api/v4', help="The base URL for the Luminoso API (defaults to the production API, https://analytics.luminoso.com/api/v4)")
     parser.add_argument('-c', '--create', action='store_true', help="Actually create the topics, marking them as (auto) and deleting previous auto-topics")
     args = parser.parse_args()
-    run(args.account_id, args.project_id, args.username, args.num_colors, args.topics_per_color, args.api_url, args.create)
+    run(args.account_id, args.project_id, args.username, args.num_colors,
+        args.topics_per_color, args.api_url, args.create)
+
+
+if __name__ == '__main__':
+    main()
