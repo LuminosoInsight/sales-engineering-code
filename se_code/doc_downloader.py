@@ -5,8 +5,6 @@ import json
 from luminoso_api import LuminosoClient
 
 import logging
-handler = logging.StreamHandler()
-logging.root.addHandler(handler)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -46,6 +44,9 @@ def write_jsons(docs, filename):
 
 
 def main():
+    handler = logging.StreamHandler()
+    logging.root.addHandler(handler)
+    
     parser = argparse.ArgumentParser(
         description='Download documents from a Luminoso Analytics project.'
     )
