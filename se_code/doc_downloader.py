@@ -10,6 +10,8 @@ logging.root.addHandler(handler)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+FIELDS = ['text']
+
 
 def download_docs(project, batch_size=25000):
     """
@@ -21,25 +23,20 @@ def download_docs(project, batch_size=25000):
     batch = []
     logger.info('Beginning download')
     while offset == 0 or len(batch) == batch_size:
-        batch = project.get('docs', limit=batch_size, offset=offset)
+        batch = project.get(
+            'docs', limit=batch_size, offset=offset, doc_fields=FIELDS
+        )
         docs += batch
         offset += batch_size
         logger.info('Downloaded %s docs' % len(docs))
     return docs
 
 
-def convert_doc(doc, fieldnames):
-    for field in set(doc.keys()) - set(fieldnames):
-        doc.pop(field)
-
-
 def write_csv(docs, filename):
     with open(filename, 'w', encoding='utf-8') as f:
-        fieldnames = ['text']
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=FIELDS)
         writer.writeheader()
         for doc in docs:
-            convert_doc(doc, fieldnames)
             writer.writerow(doc)
 
 
