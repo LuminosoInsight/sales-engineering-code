@@ -62,11 +62,11 @@ def main():
     parser.add_argument(
         '-a', '--api-url', default='https://analytics.luminoso.com/api/v4',
         help="The base URL for the Luminoso API (defaults to the production"
-             " API, https://analytics.luminoso.com/api/v4)"
+             " API, %(default)s)"
     )
     parser.add_argument(
         '-f', '--format', default='csv', choices=('csv', 'jsons'),
-        help="Output file format (defaults to .csv)"
+        help="Output file format (defaults to %(default)s)"
     )
     parser.add_argument(
         '-n', '--name', help="Name of output file (defaults to project name)"
