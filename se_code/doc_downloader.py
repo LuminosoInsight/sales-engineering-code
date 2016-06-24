@@ -18,16 +18,14 @@ def download_docs(project, batch_size=25000):
     Download all of the documents from a given project, given a LuminosoClient
     object pointed at that project.
     """
-    offset = 0
     docs = []
     batch = []
     logger.info('Beginning download')
-    while offset == 0 or len(batch) == batch_size:
+    while len(docs) == 0 or len(batch) == batch_size:
         batch = project.get(
-            'docs', limit=batch_size, offset=offset, doc_fields=FIELDS
+            'docs', limit=batch_size, offset=len(docs), doc_fields=FIELDS
         )
         docs += batch
-        offset += batch_size
         logger.info('Downloaded %s docs' % len(docs))
     return docs
 
