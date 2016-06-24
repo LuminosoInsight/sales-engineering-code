@@ -16,6 +16,7 @@ setup(
         ],
     entry_points={
         'console_scripts': [
+            'lumi-doc-download = se_code.doc_downloader:main',
             'lumi-topic-copier = se_code.topic_copier:main',
             'lumi-copy-project = se_code.project_copier:main',
             'lumi-topic-generator = se_code.topic_generator:main',
