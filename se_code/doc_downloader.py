@@ -8,10 +8,8 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-FIELDS = ['text']
 
-
-def download_docs(project, batch_size=25000):
+def download_docs(project, batch_size=25000, doc_fields=None):
     """
     Download all of the documents from a given project, given a LuminosoClient
     object pointed at that project.
@@ -21,7 +19,7 @@ def download_docs(project, batch_size=25000):
     logger.info('Beginning download')
     while len(docs) == 0 or len(batch) == batch_size:
         batch = project.get(
-            'docs', limit=batch_size, offset=len(docs), doc_fields=FIELDS
+            'docs', limit=batch_size, offset=len(docs), doc_fields=doc_fields
         )
         docs += batch
         logger.info('Downloaded %s docs' % len(docs))
@@ -30,9 +28,12 @@ def download_docs(project, batch_size=25000):
 
 def write_csv(docs, filename):
     with open(filename, 'w', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDS)
+        doc_fields = ['text']
+        writer = csv.DictWriter(f, fieldnames=doc_fields)
         writer.writeheader()
         for doc in docs:
+            for field in set(doc.keys()) - set(doc_fields):
+                doc.pop(field)
             writer.writerow(doc)
 
 
@@ -46,7 +47,6 @@ def write_jsons(docs, filename):
 def main():
     handler = logging.StreamHandler()
     logging.root.addHandler(handler)
-    
     parser = argparse.ArgumentParser(
         description='Download documents from a Luminoso Analytics project.'
     )
@@ -79,14 +79,15 @@ def main():
     project_name = project.get()['name']
     logger.info('Connected to project %s' % project_name)
 
-    docs = download_docs(project)
     if args.name:
         filename = args.name
     else:
         filename = '%s.%s' % (project_name, args.format)
 
     if args.format == 'csv':
+        docs = download_docs(project, doc_fields=['text'])
         write_csv(docs, filename)
     else:
+        docs = download_docs(project)
         write_jsons(docs, filename)
     logger.info('Wrote docs to %s' % filename)
