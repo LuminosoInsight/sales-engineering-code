@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-def download_docs(project, batch_size=25000, doc_fields=None):
+def download_docs(project, batch_size=25000,
+                  doc_fields=('title', 'text', 'subsets', 'predict', 'date')):
     """
     Download all of the documents from a given project, given a LuminosoClient
     object pointed at that project.
@@ -88,8 +89,6 @@ def main():
         docs = download_docs(project, doc_fields=['text'])
         write_csv(docs, filename)
     else:
-        docs = download_docs(
-            project, doc_fields=['title', 'text', 'subsets', 'predict', 'date']
-        )
+        docs = download_docs(project)
         write_jsons(docs, filename)
     logger.info('Wrote docs to %s' % filename)
