@@ -29,7 +29,7 @@ def fetch_terms_from_project(client, count=500):
                  text=rt['text'],
                  vector=unpack64(rt['vector']),
                  relevance=rt['score'])
-            for rt in raw_terms]
+            for rt in raw_terms if rt['vector'] is not None]
 
 
 def find_topics(client, num_topics):
