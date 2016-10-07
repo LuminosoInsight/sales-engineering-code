@@ -23,10 +23,10 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=100):
 
     The cutoff p-value is adjusted according to `scan_terms`, to somewhat
     compensate for running so many statistical tests. The expected number of
-    spurious results is .01 per subset.
+    spurious results is .05 per subset.
     """
     subset_counts = client.get()['counts']
-    pvalue_cutoff = 1 / scan_terms / 100
+    pvalue_cutoff = 1 / scan_terms / 20
 
     results = []
 
