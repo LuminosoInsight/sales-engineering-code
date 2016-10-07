@@ -4,7 +4,7 @@ from scipy.stats import fisher_exact
 import argparse
 
 
-def subset_key_terms(client, terms_per_subset=10, scan_terms=100):
+def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
     """
     Find 'key terms' for a subset, those that appear disproportionately more
     inside a subset than outside of it. We determine this using Fisher's
