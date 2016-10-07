@@ -33,20 +33,18 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
     for subset in sorted(subset_counts):
         subset_terms = client.get('terms', subset=subset, limit=scan_terms)
         termlist = [term['term'] for term in subset_terms]
-        subset_text_dict = {term['term']: term['text'] for term in subset_terms}
-        subset_term_dict = {term['term']: term['distinct_doc_count'] for term in subset_terms}
         all_terms = client.get('terms', terms=termlist)
         all_term_dict = {term['term']: term['distinct_doc_count'] for term in all_terms}
 
         subset_scores = []
-        for term in termlist:
+        for term in subset_terms:
             table = np.array([
-                [subset_term_dict[term], all_term_dict[term]],
+                [term['distinct_doc_count'], all_term_dict[term['term']]],
                 [subset_counts[subset], subset_counts['__all__']]
             ])
-            fisher, pvalue = fisher_exact(table, alternative='greater')
+            odds_ratio, pvalue = fisher_exact(table, alternative='greater')
             if pvalue < pvalue_cutoff:
-                subset_scores.append((subset, subset_text_dict[term], fisher, pvalue))
+                subset_scores.append((subset, term['text'], odds_ratio, pvalue))
 
         subset_scores.sort(key=lambda x: (x[0], -x[2], x[1]))
         results.extend(subset_scores[:terms_per_subset])
