@@ -39,9 +39,9 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
         subset_scores = []
         for term in subset_terms:
             term_in_subset = term['distinct_doc_count']
-            term_outside_subset = all_term_dict[term['term']] - term_in_subset
+            term_outside_subset = all_term_dict[term['term']] - term_in_subset + 1
             docs_in_subset = subset_counts[subset]
-            docs_outside_subset = subset_counts['__all__'] - subset_counts[subset]
+            docs_outside_subset = subset_counts['__all__'] - subset_counts[subset] + 1
             table = np.array([
                 [term_in_subset, term_outside_subset],
                 [docs_in_subset, docs_outside_subset]
@@ -71,7 +71,7 @@ def run(account_id, project_id, username, terms_per_subset,
 
     print('Subset\tText\tOdds ratio\tUncorrected p-value')
     for subset, text, fisher, pvalue in key_terms:
-        print('%s\t%s\t%s\t%s' % (subset, text, fisher, pvalue))
+        print('%s\t%s\t%6.5g\t%6.5g' % (subset, text, fisher, pvalue))
 
 
 
