@@ -38,9 +38,13 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
 
         subset_scores = []
         for term in subset_terms:
+            term_in_subset = term['distinct_doc_count']
+            term_outside_subset = all_term_dict[term['term']] - term_in_subset
+            docs_in_subset = subset_counts[subset]
+            docs_outside_subset = subset_counts['__all__'] - subset_counts[subset]
             table = np.array([
-                [term['distinct_doc_count'], all_term_dict[term['term']]],
-                [subset_counts[subset], subset_counts['__all__']]
+                [term_in_subset, term_outside_subset],
+                [docs_in_subset, docs_outside_subset]
             ])
             odds_ratio, pvalue = fisher_exact(table, alternative='greater')
             if pvalue < pvalue_cutoff:
