@@ -1,3 +1,4 @@
+from __future__ import division
 from luminoso_api import LuminosoClient
 import numpy as np
 from scipy.stats import fisher_exact
