@@ -27,7 +27,7 @@ def run(account_id, project_id, username, num_clusters, num_cluster_terms,
     )
     print("\nSelected clusters:")
     for cluster in selected_clusters:
-        print(', '.join([term['text'] for term in cluster]))
+        print(', '.join([term['text'] for term in cluster['terms']]))
 
     if create:
         existing_topics = client.get('topics/')
@@ -43,7 +43,7 @@ def run(account_id, project_id, username, num_clusters, num_cluster_terms,
                 color = COLORS[i]
             else:
                 color = '#808080'
-            for term in cluster:
+            for term in cluster['terms']:
                 print("Creating topic: %s" % term['text'])
                 client.post(
                     'topics/',
