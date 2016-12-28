@@ -117,7 +117,7 @@ def test_classifier(train_client, test_client, classifiers, vectorizers, subset_
     
     test_docs, labels = get_all_docs(test_client, subset_field)
     if project_type == 'combined':
-        _,test_docs,_,_labels = split_train_test(test_docs, labels)
+        _,test_docs,_,labels = split_train_test(test_docs, labels)
         
     test_docs = train_client.upload('docs/vectors', test_docs)
     simple_vecs = vectorizers['simple'].transform([doc['text'] for doc in test_docs])
