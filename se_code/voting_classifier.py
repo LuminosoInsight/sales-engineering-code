@@ -7,6 +7,7 @@ from pack64 import pack64, unpack64
 import numpy as np
 import argparse
 import math
+import csv
     
 def sigmoid(x):
     '''Map distance to hyperplane to a range 0-1. Approximation of "likelihood" that the prediction is correct.'''
@@ -131,7 +132,6 @@ def test_classifier(train_client, test_client, classifiers, vectorizers, subset_
             len(classifiers['simple'].classes_))
         
     if save_results:
-        import csv
         results_dict = [merge_two_dicts({'text': z[0]['text'],'truth': z[1]},dict(zip(list(classifiers['simple'].classes_),z[2]))) for z in zip(test_docs,labels,classification)]
         writer = csv.DictWriter(open('results.csv','w',encoding='utf-8'),['text','truth']+list(classifiers['simple'].classes_))
         writer.writeheader()
