@@ -99,7 +99,7 @@ def train_classifier(client, subset_field, project_type):
             intercept_scaling=1, loss='squared_hinge', max_iter=1000, multi_class='ovr',
             penalty='l1', random_state=None, tol=0.0001, verbose=0
         )
-        for style in ('simple', 'term', 'vector', 'new_vects')
+        for style in ('simple', 'term', 'vector')
     }
     
     simple_vecs = vectorizers['simple'].fit_transform([doc['text'] for doc in docs])
