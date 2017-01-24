@@ -11,11 +11,13 @@ import csv
     
 def sigmoid(x):
     '''Map distance to hyperplane to a range 0-1. Approximation of "likelihood" that the prediction is correct.'''
-    
+    ''' x being a list of lists, aka list of the output the from decision_function for each sample '''
     return [[1 / (1 + math.exp(-y)) for y in z] for z in x]
 
 def combine_decision_functions(cls_dfuncs, classes, weights=None):
     '''Combine outputs from multiple classifiers. Apply weights. Take sum of result across classifiers.'''
+    
+    '''The weighting ability of this function has yet to show meaningful improvements in accuracy... remove?'''
  
     if classes == 2:
         cls_dfuncs = [[(-b,b) for b in a] for a in cls_dfuncs]
@@ -25,7 +27,7 @@ def combine_decision_functions(cls_dfuncs, classes, weights=None):
     
     classification = np.dstack(cls_dfuncs)
     
-    classification = np.sum(classification, axis=2)
+    classification = np.mean(classification, axis=2)  
     
     return sigmoid(classification)
   
@@ -42,11 +44,22 @@ def strip_term(term):
     words = [word[:-3] for word in term.split() if word.endswith('|en')]
     return '_'.join(words)
 
-def sklearn_text(doc):
-    '''Return lumi-fied text for vectorization'''
-    
-    stripped_terms = [strip_term(term) for (term, _, _) in doc['terms']]
-    return ' '.join(stripped_terms)
+def sklearn_text(termlist, lang='en'):
+    """
+    Convert a list of Luminoso terms, possibly multi-word terms, into text that
+    the tokenizer we get from `make_term_vectorizer` below will tokenize into
+    those terms.
+
+    Yes, the tokenizer will basically be undoing what this function does, but it
+    means we also get the benefit of sklearn's TF-IDF.
+    """
+    langtag = '|' + lang
+    fixed_terms = [
+        term.replace(langtag, '').replace(' ', '_')
+        for term, _tag, _span in termlist
+        if '\N{PILCROW SIGN}' not in term
+    ]
+    return ' '.join(fixed_terms)
 
 def get_all_docs(client, subset_field, batch_size=20000):
     '''Pull all docs from project'''
@@ -111,6 +124,36 @@ def train_classifier(client, subset_field, project_type):
     classifiers['vector'].fit(luminoso_vecs, labels)
     
     return (classifiers, vectorizers)
+
+def get_test_reviews_from_file(filename, max_docs=1000):
+    """
+    Test data consists of dictionaries with 'text' and 'label' values. It doesn't
+    need other fields. This means it can come from outside of a Luminoso project
+    if necessary.
+
+    For reference, here's the data source Rob used when testing on a particular
+    dataset of Amazon reviews.
+    """
+    all_docs = []
+    with open(filename) as infile:
+        n_docs = 0
+        for i, line in enumerate(infile):
+            doc = json.loads(line.rstrip())
+
+            # Specific to this data set: there are two classes. The class is
+            # 'pos' if the rating is greater than 3, and 'neg' if less than 3.
+            # Reviews with a rating of exactly 3 are skipped.
+            label = binary_rating_labeler(doc)
+            if label is None:
+                continue
+
+            all_docs.append({
+                'text': doc['text'],
+                'label': label
+            })
+            if len(all_docs) >= max_docs:
+                break
+    return all_docs
 
 def test_classifier(train_client, test_client, classifiers, vectorizers, subset_field, project_type, save_results=False):
     '''Test classification using reserved training set'''
