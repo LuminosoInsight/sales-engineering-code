@@ -10,15 +10,18 @@ import math
 import csv
     
 def sigmoid(x):
-    '''Map distance to hyperplane to a range 0-1. Approximation of "likelihood" that the prediction is correct.'''
-    ''' x being a list of lists, aka list of the output the from decision_function for each sample '''
+    '''
+    Map distance to hyperplane to a range 0-1. Approximation of "likelihood" that the prediction is correct.
+    x being a list of lists, aka list of the output the from decision_function for each sample 
+    '''
     
     return [[1 / (1 + math.exp(-y)) for y in z] for z in x]
 
 def combine_decision_functions(cls_dfuncs, classes, weights=None):
-    '''Combine outputs from multiple classifiers. Apply weights. Take mean of result across classifiers.'''
-    
-    '''The weighting ability of this function has yet to show meaningful improvements in accuracy... remove?'''
+    '''
+    Combine outputs from multiple classifiers. Apply weights. Take mean of result across classifiers.
+    The weighting ability of this function has yet to show meaningful improvements in accuracy... remove?
+    '''
  
     if classes == 2:
         cls_dfuncs = [[(-b,b) for b in a] for a in cls_dfuncs]
@@ -33,21 +36,23 @@ def combine_decision_functions(cls_dfuncs, classes, weights=None):
     return sigmoid(classification)
   
 def merge_two_dicts(x, y):
-    '''Given two dicts, merge them into a new dict as a shallow copy.'''
+    '''
+    Given two dicts, merge them into a new dict as a shallow copy.
+    '''
     
     z = x.copy()
     z.update(y)
     return z
 
 def sklearn_text(termlist, lang='en'):
-    """
+    '''
     Convert a list of Luminoso terms, possibly multi-word terms, into text that
     the tokenizer we get from `make_term_vectorizer` below will tokenize into
     those terms.
 
     Yes, the tokenizer will basically be undoing what this function does, but it
     means we also get the benefit of sklearn's TF-IDF.
-    """
+    '''
     langtag = '|' + lang
     fixed_terms = [
         term.replace(langtag, '').replace(' ', '_')
@@ -57,7 +62,9 @@ def sklearn_text(termlist, lang='en'):
     return ' '.join(fixed_terms)
 
 def get_all_docs(client, subset_field, batch_size=20000):
-    '''Pull all docs from project, using a particular subset as the LABEL'''
+    '''
+    Pull all docs from project, using a particular subset as the LABEL
+    '''
     
     docs = []
     offset = 0
@@ -73,7 +80,9 @@ def get_all_docs(client, subset_field, batch_size=20000):
         offset += batch_size
         
 def split_train_test(docs, labels, split=0.3):
-    '''Split documents & labels into a single dict each for both testing and training'''
+    '''
+    Split documents & labels into a single dict each for both testing and training
+    '''
     
     labels_without_enough_samples = [label for label in set(labels) if labels.count(label)==1]
     if labels_without_enough_samples:
@@ -83,26 +92,26 @@ def split_train_test(docs, labels, split=0.3):
     return train_test_split(np.array(docs), np.array(labels), test_size=split, random_state=32, stratify=np.array(labels))
         
 def make_term_vectorizer():
-    """
+    '''
     Return a sklearn vectorizer whose tokenizer only splits on whitespace.
     This is for text that we have already tokenized, in the Luminoso way, and
     then stuck together with whitespace.
-    """
+    '''
     
     # Consider using min_df?
     return TfidfVectorizer(sublinear_tf=True, max_df=0.5, stop_words=None, token_pattern=r'\S+')
 
 def make_simple_vectorizer():
-    """
+    '''
     Return a sklearn vectorizer that does sklearn's usual thing with arbitrary
     English text.
-    """
+    '''
     
     # Consider using min_df?
     return TfidfVectorizer(sublinear_tf=True, max_df=0.5, stop_words='english')
 
 def train_classifier(client, train_docs, train_labels):
-    """
+    '''
     Train a classifier.
 
     Input: a list of training documents, and a list of labels.
@@ -111,7 +120,7 @@ def train_classifier(client, train_docs, train_labels):
     The returned items represent three different sklearn classifiers and their
     corresponding vectorizers. These should be passed on to the `test_classifier`
     function.
-    """
+    '''
     
     assert len(train_docs) > 0
     
@@ -139,26 +148,26 @@ def train_classifier(client, train_docs, train_labels):
     return (classifiers, vectorizers)
 
 def binary_rating_labeler(rating):
-    """
+    '''
     An example that produces labels from Amazon book reviews.
 
     The classes it produces are 'pos' or 'neg' depending on whether the
     document has a 'rating' of more or less than 3. It returns None for a rating
     of exactly 3, saying to skip that document.
-    """
+    '''
     
     if rating == 3:
         return None
     return ('pos' if rating > 3 else 'neg')
 
 def get_test_docs_from_file(filename, max_docs=1000, label_func=None):
-    """
+    '''
     Test data consists of dictionaries with 'text' and 'label' values. It doesn't
     need other fields. This means it can come from outside of a Luminoso project
     if necessary.
     
     label_func specifies a transformation function applied to inbound labels
-    """
+    '''
     
     all_docs = []
     with open(filename) as infile:
@@ -183,7 +192,7 @@ def get_test_docs_from_file(filename, max_docs=1000, label_func=None):
     return all_docs
 
 def test_classifier(train_client, test_docs, test_labels, classifiers, vectorizers, save_results=False):
-    """
+    '''
     Inputs:
 
     * `train_client`: a LuminosoClient pointing to the root of a project, which will
@@ -196,7 +205,7 @@ def test_classifier(train_client, test_docs, test_labels, classifiers, vectorize
 
     Returns a list of classes assigned to the documents in order, and the
     decision matrix, whose dimensions are (n_docs, n_classes).
-    """
+    '''
         
     test_docs = train_client.upload('docs/vectors', test_docs)
     simple_vecs = vectorizers['simple'].transform([doc['text'] for doc in test_docs])
@@ -219,8 +228,10 @@ def test_classifier(train_client, test_docs, test_labels, classifiers, vectorize
     return classification
 
 def return_label(new_text, classifiers, vectorizers, train_client):
-    '''Return label function for operating in a live demo'''
-    '''Returns best class and "confidence score"'''
+    '''
+    Return label function for operating in a live demo
+    Returns best class and "confidence score"
+    '''
     
     test_doc = train_client.upload('docs/vectors', [{'text':new_text}])[0]
     simple_vecs = vectorizers['simple'].transform([test_doc['text']])
@@ -238,7 +249,9 @@ def return_label(new_text, classifiers, vectorizers, train_client):
     return classifiers['simple'].classes_[best_class],classification[0][best_class]
 
 def score_results(test_labels, classifiers, classification):
-    '''Return the overall accuracy of the classifier on the test set'''
+    '''
+    Return the overall accuracy of the classifier on the test set
+    '''
     
     best_class = np.argmax(classification, axis=1)
     gold = np.array([list(classifiers['simple'].classes_).index(label) for label in test_labels])
@@ -246,7 +259,9 @@ def score_results(test_labels, classifiers, classification):
     return accuracy
 
 def main(args):
-    '''Collect required arguments if not supplied'''
+    '''
+    Collect required arguments if not supplied
+    '''
     
     if not args.account_id:
         args.account_id = input('Enter the account id: ')
@@ -261,8 +276,10 @@ def main(args):
         
     train_client = client.change_path('/projects/{}/{}'.format(args.account_id,args.training_project_id))
     
-    '''For demo purposes, a single project can be used for both training/testing, 
-        for POC purposes, projects should be split into training & test.'''
+    '''
+    For demo purposes, a single project can be used for both training/testing, 
+    for POC purposes, projects should be split into training & test.
+    '''
     if args.test_file:
         test_docs,labels = get_test_docs_from_file(args.testing_data)
     else:
@@ -292,12 +309,13 @@ def main(args):
         print('Accuracy:{}%'.format(score_results(test_labels, classifiers, classification)))
     
 if __name__ == '__main__':      
-    '''BENCHMARK PROJECTS
+    '''
+    BENCHMARK PROJECTS
     USAA: (-a a53y655v -tr 54hdb -td 9b2fw -f "Label: ") Accuracy:0.6997713165632147%
     Pandora: (-a h82y756m -tr vnfzx -td vnfzx -f "Category Tag: ") Accuracy:0.8111111111111111%
     Fidelity: (-a a53y655v -tr sv5pn -td sv5pn -f "CED: ") Accuracy:0.8308142940831869%
-    Fidelity: (-a a53y655v -tr sv5pn -td sv5pn -f "COSMO_SEMANTIC_TAG: ") 
-    SuperCell: (-a a53y655v -tr 6bsv2 -td 6bsv2 -f "Type: ") 
+    Fidelity: (-a a53y655v -tr sv5pn -td sv5pn -f "COSMO_SEMANTIC_TAG: ") Accuracy:0.80199179847686%
+    SuperCell: (-a a53y655v -tr 6bsv2 -td 6bsv2 -f "Type: ") Accuracy:0.833%
     '''
     
     parser = argparse.ArgumentParser(
