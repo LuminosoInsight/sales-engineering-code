@@ -8,6 +8,7 @@ import numpy as np
 import argparse
 import math
 import csv
+import json
     
 def sigmoid(x):
     '''
@@ -170,6 +171,7 @@ def get_test_docs_from_file(filename, max_docs=1000, label_func=None):
     '''
     
     all_docs = []
+    all_labels = []
     with open(filename) as infile:
         n_docs = 0
         for i, line in enumerate(infile):
@@ -184,12 +186,13 @@ def get_test_docs_from_file(filename, max_docs=1000, label_func=None):
                 continue
 
             all_docs.append({
-                'text': doc['text'],
-                'label': label
-            })
+                'text': doc['text']})
+            
+            all_labels.append(label)
+            
             if len(all_docs) >= max_docs:
                 break
-    return all_docs
+    return all_docs, all_labels
 
 def test_classifier(train_client, test_docs, test_labels, classifiers, vectorizers, save_results=False):
     '''
@@ -254,7 +257,7 @@ def score_results(test_labels, classifiers, classification):
     '''
     
     best_class = np.argmax(classification, axis=1)
-    gold = np.array([list(classifiers['simple'].classes_).index(label) for label in test_labels])
+    gold = np.array([list(classifiers['simple'].classes_).index(label) for label in test_labels]) #Fails if test labels don't match training labels
     accuracy = (gold == best_class).sum() / len(gold)
     return accuracy
 
@@ -281,16 +284,16 @@ def main(args):
     for POC purposes, projects should be split into training & test.
     '''
     if args.test_file:
-        test_docs,labels = get_test_docs_from_file(args.testing_data)
-    else:
-        test_client = client.change_path('/projects/{}/{}'.format(args.account_id,args.testing_data))
-    
-    if args.testing_data==args.training_project_id:
-        docs,labels = get_all_docs(train_client, args.subset_field)
-        train_docs,test_docs,train_labels,test_labels = split_train_test(docs,labels)
-    else:
+        test_docs, test_labels = get_test_docs_from_file(args.testing_data)
         train_docs, train_labels = get_all_docs(train_client, args.subset_field)
-        test_docs, test_labels = get_all_docs(test_client, args.subset_field)
+    else:
+        if args.testing_data==args.training_project_id:
+            docs,labels = get_all_docs(train_client, args.subset_field)
+            train_docs,test_docs,train_labels,test_labels = split_train_test(docs,labels)
+        else:
+            test_client = client.change_path('/projects/{}/{}'.format(args.account_id,args.testing_data))
+            train_docs, train_labels = get_all_docs(train_client, args.subset_field)
+            test_docs, test_labels = get_all_docs(test_client, args.subset_field)
     
     # Allows for live demo-ing in Python notebook
     if args.live:
@@ -316,6 +319,7 @@ if __name__ == '__main__':
     Fidelity: (-a a53y655v -tr sv5pn -td sv5pn -f "CED: ") Accuracy:0.8308142940831869%
     Fidelity: (-a a53y655v -tr sv5pn -td sv5pn -f "COSMO_SEMANTIC_TAG: ") Accuracy:0.80199179847686%
     SuperCell: (-a a53y655v -tr 6bsv2 -td 6bsv2 -f "Type: ") Accuracy:0.833%
+    Subaru: (-a a53y655v -tr fpdxb -td fpdxb -f "Site: ") 
     '''
     
     parser = argparse.ArgumentParser(
