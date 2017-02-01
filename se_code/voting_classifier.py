@@ -161,7 +161,7 @@ def binary_rating_labeler(rating):
         return None
     return ('pos' if rating > 3 else 'neg')
 
-def get_test_docs_from_file(filename, max_docs=1000, label_func=None):
+def get_test_docs_from_file(filename, label_func=None):
     '''
     Test data consists of dictionaries with 'text' and 'label' values. It doesn't
     need other fields. This means it can come from outside of a Luminoso project
@@ -190,8 +190,6 @@ def get_test_docs_from_file(filename, max_docs=1000, label_func=None):
             
             all_labels.append(label)
             
-            if len(all_docs) >= max_docs:
-                break
     return all_docs, all_labels
 
 def test_classifier(train_client, test_docs, test_labels, classifiers, vectorizers, save_results=False):
