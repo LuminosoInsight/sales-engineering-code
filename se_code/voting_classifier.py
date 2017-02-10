@@ -44,16 +44,6 @@ def combine_decision_functions(cls_dfuncs, classes, weights=None):
     return sigmoid(classification)
 
 
-def merge_two_dicts(x, y):
-    '''
-    Given two dicts, merge them into a new dict as a shallow copy.
-    '''
-
-    z = x.copy()
-    z.update(y)
-    return z
-
-
 def sklearn_text(termlist, lang='en'):
     '''
     Convert a list of Luminoso terms, possibly multi-word terms, into text that
