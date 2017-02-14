@@ -299,7 +299,8 @@ def score_results(test_labels, classifiers, classification):
     Return the overall accuracy of the classifier on the test set
     '''
 
-    if not any([label in classifiers['simple'].classes_ for label in set(test_labels)]):
+    if not any([label in classifiers['simple'].classes_ 
+                for label in set(test_labels)]):
         raise ValueError("Test labels do not match training labels")
 
     best_class = np.argmax(classification, axis=1)
