@@ -23,6 +23,22 @@ def sigmoid(x):
     return [[1 / (1 + math.exp(-y)) for y in z] for z in x]
 
 
+def extract_labels(labels):
+    '''
+    Given a list of subset names, extract label value.
+    Subset names must separate prefix and value with a colon.
+    '''
+
+    extracted_labels = []
+    for label in labels:
+        if label.index(':') > 0:
+            extracted_labels.append(label[label.index(':'):].strip())
+        else:
+            raise ValueError("Subset prefix must contain colon between prefix and value.")
+
+    return extracted_labels
+
+
 def combine_decision_functions(cls_dfuncs, classes, weights=None):
     '''
     Combine outputs from multiple classifiers. Apply weights.
@@ -66,21 +82,20 @@ def get_all_docs(client, subset_field, batch_size=20000):
     '''
     Pull all docs from project, using a particular subset as the LABEL
     '''
-
+    subset_field = subset_field.lower()
     docs = []
     offset = 0
     while True:
         newdocs = client.get('docs', offset=offset, limit=batch_size)
 
         if not newdocs:
-            labels = [doc['subsets'][i][doc['subsets'][i].find(':')+1:].strip()
-                      for doc in docs
-                      for i, s in enumerate(doc['subsets'])
-                      if subset_field.lower() in doc['subsets'][i].lower()]
-            docs = [doc
-                    for doc in docs
-                    if any(subset_field.lower() in s.lower()
-                           for s in doc['subsets'])]
+
+            docs, labels = zip(*[(doc, s)
+                                 for doc in docs
+                                 for s in doc['subsets']
+                                 if s.lower().startswith(subset_field)])
+
+            labels = extract_labels(labels)
 
             return docs, labels
 
@@ -412,7 +427,7 @@ if __name__ == '__main__':
         )
     parser.add_argument(
         '-f', '--subset_field',
-        help="The prefix of the subset field being classified against, such as 'label:'"
+        help="Prefix of the subset containing the label. Subset must split prefix/value using colon"
         )
     parser.add_argument(
         '-l', '--live', default=False, action='store_true',
