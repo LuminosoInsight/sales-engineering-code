@@ -73,13 +73,13 @@ def get_all_docs(client, subset_field, batch_size=20000):
         newdocs = client.get('docs', offset=offset, limit=batch_size)
 
         if not newdocs:
-            labels = [doc['subsets'][i][len(subset_field):]
+            labels = [doc['subsets'][i][doc['subsets'][i].find(':')+1:].strip()
                       for doc in docs
                       for i, s in enumerate(doc['subsets'])
-                      if subset_field in doc['subsets'][i]]
+                      if subset_field.lower() in doc['subsets'][i].lower()]
             docs = [doc
                     for doc in docs
-                    if any(subset_field in s
+                    if any(subset_field.lower() in s.lower()
                            for s in doc['subsets'])]
 
             return docs, labels
@@ -152,7 +152,7 @@ def train_classifier(client, train_docs, train_labels):
         raise ValueError("Training documents cannot be empty")
 
     term_vectorizer = make_term_vectorizer()
-    simple_vectorizer = make_simple_vectorizer()
+    simple_vectorizer = make_term_vectorizer()
     vectorizers = {'simple': simple_vectorizer, 'term': term_vectorizer}
 
     classifiers = {
@@ -212,7 +212,7 @@ def get_test_docs_from_file(filename, label_func=None):
             if label_func:
                 label = label_func(doc['label'])
             else:
-                label = doc['label']
+                label = doc['label'].strip()
 
             if label is None:
                 continue
@@ -328,13 +328,13 @@ def main(args):
     if not args.testing_data:
         args.testing_data = input('Enter the id of the testing project: ')
     if not args.subset_field:
-        args.subset_field = input('Subset field holding the label("Category label"): ')
+        args.subset_field = input('Subset field prefix holding the label("Category label"): ')
 
-    client = LuminosoClient.connect(url=args.url, username=args.username)
+    client = LuminosoClient.connect(url=args.api_url, username=args.username)
 
     train_client = client.change_path('/projects/{}/{}'.format(args.account_id, args.training_project_id))
 
-    if args.test_file:
+    if args.csv_file:
         test_docs, test_labels = get_test_docs_from_file(args.testing_data)
         train_docs, train_labels = get_all_docs(train_client, args.subset_field)
     elif args.testing_data == args.training_project_id:
@@ -375,44 +375,44 @@ def main(args):
 if __name__ == '__main__':
     '''
     BENCHMARK PROJECTS
-    USAA: (-a a53y655v -tr 54hdb -td 9b2fw -f "Label: ") Accuracy:69.98%
-    Pandora: (-a h82y756m -tr vnfzx -td vnfzx -f "Category Tag: ") Accuracy:81.11%
-    Fidelity: (-a a53y655v -tr sv5pn -td sv5pn -f "CED: ") Accuracy:83.08%
-    Fidelity: (-a a53y655v -tr sv5pn -td sv5pn -f "COSMO_SEMANTIC_TAG: ") Accuracy:80.20%
-    SuperCell: (-a a53y655v -tr 6bsv2 -td 6bsv2 -f "Type: ") Accuracy:83.30%
-    Subaru: (-a a53y655v -tr fpdxb -td fpdxb -f "Site: ") 
+    USAA: (a53y655v 54hdb 9b2fw -f "Label: ") Accuracy:69.98%
+    Pandora: (h82y756m vnfzx vnfzx -f "Category Tag: ") Accuracy:81.11%
+    Fidelity: (a53y655v sv5pn sv5pn -f "CED: ") Accuracy:83.08%
+    Fidelity: (a53y655v sv5pn sv5pn -f "COSMO_SEMANTIC_TAG: ") Accuracy:80.20%
+    SuperCell: (a53y655v 6bsv2 6bsv2 -f "Type: ") Accuracy:83.30%
+    Subaru: (a53y655v fpdxb fpdxb -f "Site: ") 
     '''
 
     parser = argparse.ArgumentParser(
         description='Create a classification model based on an existing project using subsets as labels.'
     )
     parser.add_argument(
+        'account_id',
+        help="The ID of the account that owns the project, such as 'demo'"
+        )
+    parser.add_argument(
+        'training_project_id',
+        help="The ID of the project that contains the training data"
+        )
+    parser.add_argument(
+        'testing_data',
+        help="The ID of the project, or name of the CSV containing testing data"
+        )
+    parser.add_argument(
         '-u', '--username',
         help='Username (email) of Luminoso account'
         )
     parser.add_argument(
-        '-url', '--url',
+        '-a', '--api_url',
         help='URL of Luminoso API endpoint (https://eu-analytics.luminoso.com/api/v4)'
         )
     parser.add_argument(
-        '-a', '--account_id',
-        help="The ID of the account that owns the project, such as 'demo'"
-        )
-    parser.add_argument(
-        '-tr', '--training_project_id',
-        help="The ID of the project that contains the training data"
-        )
-    parser.add_argument(
-        '-td', '--testing_data',
-        help="The ID of the project, or filename that contains the testing data"
-        )
-    parser.add_argument(
-        '-file', '--test_file', default=False, action='store_true',
+        '-c', '--csv_file', default=False, action='store_true',
         help="CSV file with testing data: (text,label) columns"
         )
     parser.add_argument(
         '-f', '--subset_field',
-        help="The name of the subset field being classified against, such as 'label:'"
+        help="The prefix of the subset field being classified against, such as 'label:'"
         )
     parser.add_argument(
         '-l', '--live', default=False, action='store_true',
