@@ -32,12 +32,10 @@ def extract_labels(labels):
     extracted_labels = []
     for label in labels:
 
-        try:
-            _, value = label.split(":")
-        except:
+        if ':' in label:
+            extracted_labels.append(label.partition(':')[2].strip())
+        else:
             raise ValueError("Subset prefix must contain colon between prefix and value.")
-
-        extracted_labels.append(value.strip())
 
     return extracted_labels
 
@@ -85,7 +83,11 @@ def get_all_docs(client, subset_field, batch_size=20000):
     '''
     Pull all docs from project, using a particular subset as the LABEL
     '''
-    subset_field = subset_field.lower()
+    if ':' in subset_field:
+        subset_field = subset_field.lower()
+    else:
+        subset_field = '{}:'.format(subset_field.lower())
+
     docs = []
     offset = 0
     while True:
@@ -430,7 +432,9 @@ if __name__ == '__main__':
         )
     parser.add_argument(
         '-f', '--subset_field',
-        help="Prefix of the subset containing the label. Subset must split prefix/value using colon"
+        help='A prefix on the subset names that will be used for classification.'
+        'These subset names should begin with the prefix, '
+        'followed by a colon, such as "Label: positive".'
         )
     parser.add_argument(
         '-l', '--live', default=False, action='store_true',
