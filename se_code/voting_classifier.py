@@ -31,10 +31,13 @@ def extract_labels(labels):
 
     extracted_labels = []
     for label in labels:
-        if label.index(':') > 0:
-            extracted_labels.append(label[label.index(':'):].strip())
-        else:
+
+        try:
+            _, value = label.split(":")
+        except:
             raise ValueError("Subset prefix must contain colon between prefix and value.")
+
+        extracted_labels.append(value.strip())
 
     return extracted_labels
 
