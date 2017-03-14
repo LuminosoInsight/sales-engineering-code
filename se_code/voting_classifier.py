@@ -199,20 +199,6 @@ def train_classifier(client, train_docs, train_labels):
     return (classifiers, vectorizers)
 
 
-def binary_rating_labeler(rating):
-    '''
-    An example that produces labels from Amazon book reviews.
-
-    The classes it produces are 'pos' or 'neg' depending on whether the
-    document has a 'rating' of more or less than 3. Return None for a rating
-    of exactly 3, saying to skip that document.
-    '''
-
-    if rating == 3:
-        return None
-    return ('pos' if rating > 3 else 'neg')
-
-
 def get_test_docs_from_file(filename, label_func=None):
     '''
     Test data consists of dictionaries with 'text' and 'label' values.
