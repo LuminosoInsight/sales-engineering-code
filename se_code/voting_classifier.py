@@ -172,7 +172,7 @@ def train_classifier(client, train_docs, train_labels):
         raise ValueError("Training documents cannot be empty")
 
     term_vectorizer = make_term_vectorizer()
-    simple_vectorizer = make_term_vectorizer()
+    simple_vectorizer = make_simple_vectorizer()
     vectorizers = {'simple': simple_vectorizer, 'term': term_vectorizer}
 
     classifiers = {
