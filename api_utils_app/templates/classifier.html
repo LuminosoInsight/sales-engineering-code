@@ -1,5 +1,7 @@
-<!DOCTYPE HTML>
-<html>
+{% extends "index.html" %}
+
+{% block content %}
+
 <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
 
@@ -39,7 +41,7 @@ input[type=submit]:hover {
     background-color: #45a049;
 }
 
-div {
+div.demo {
     border-radius: 5px;
     background-color: #f2f2f2;
     padding: 20px;
@@ -95,7 +97,7 @@ circle {
 
     <h1>DEMO: Live Example of Luminoso Text Classifier</h1>
 
-    <div id="plot">
+    <div style="demo" id="plot">
     	<h3>{{ results[0][2] }}</h3>
     </div>
     <br>
@@ -178,5 +180,5 @@ circle {
 	    
     </script>
 	{% endif %}
-</body>
-</html>
+	
+{% endblock %}
