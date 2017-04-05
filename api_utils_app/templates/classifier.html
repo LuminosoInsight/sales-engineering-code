@@ -1,0 +1,182 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+    <title>Luminoso Classifier Demo</title>
+
+    <script src="http://d3js.org/d3.v2.js"></script>
+    <style>
+
+path.line {
+    fill: none;
+    stroke: #666;
+    stroke-width: 1.5px;
+}
+
+input[type=text], select {
+    width: 100%;
+    padding: 12px 20px;
+    margin: 8px 0;
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+input[type=submit] {
+    width: 100%;
+    background-color: #4CAF50;
+    color: white;
+    padding: 14px 20px;
+    margin: 8px 0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+input[type=submit]:hover {
+    background-color: #45a049;
+}
+
+div {
+    border-radius: 5px;
+    background-color: #f2f2f2;
+    padding: 20px;
+}
+
+.domain {
+    stroke-width: 1px;
+}
+
+circle {
+    cursor: pointer;
+}
+
+.axis {
+    shape-rendering: crispEdges;
+}
+
+.axis line, .axis path {
+    stroke-width: 1px;
+    stroke: #000;
+    fill: none;
+}
+
+.tooltip {
+    display: none;
+}
+
+.tooltip.active {
+    display: block;
+}
+
+.tooltip rect {
+    fill: #ff0000;
+}
+.demo {
+	border:1px solid #C0C0C0;
+	border-collapse:collapse;
+	padding:5px;
+}
+.demo th {
+	border:1px solid #C0C0C0;
+	padding:5px;
+	background:#F0F0F0;
+}
+.demo td {
+	border:1px solid #C0C0C0;
+	padding:5px;
+}
+    </style>
+
+</head>
+<body>
+
+    <h1>DEMO: Live Example of Luminoso Text Classifier</h1>
+
+    <div id="plot">
+    	<h3>{{ results[0][2] }}</h3>
+    </div>
+    <br>
+    <form action="demo" method="post">
+    	<label for="fname">Enter text to be classified:</label>
+    	<input type="text" name="text" length=200>
+		<input type="submit" value="Classify" method='POST'>	
+	</form>
+	<h2>History</h2>
+	<table class='demo'>
+	<tr><th>Verbatim</th><th>Classification</th><th>Confidence</th></tr>
+	{% for result in results %}
+	<tr><td>{{ result[2] }}</td><td>{{ result[0] }}</td><td>{{ '{0:.2%}'.format(result[1]) }}</td></tr>
+	{% endfor %}
+	</table>
+
+	{% if results|length>0 %}
+    <script>
+
+    var width = 150,
+	    height = 150,
+	    twoPi = 2 * Math.PI; 
+	
+	var dataset = {
+	                  progress: {{'{0:.2}'.format(results[0][1]*100)}},
+	                  total: 100
+	              };
+	 
+	var arc = d3.svg.arc()
+	    .innerRadius(50)
+	    .outerRadius(60)
+	    .startAngle(0);
+	 
+	var svg = d3.select("#plot").append("svg")
+	    .attr("width", width+400)
+	    .attr("height", height)
+	  .append("g")
+	    .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
+	
+	var meter = svg.append("g")
+	    .attr("class", "season-progress");
+	 
+	var background = meter.append("path")
+	    .datum({endAngle: twoPi})
+	    .style("fill", "#ddd")
+	    .attr("d", arc);
+	 
+	var foreground = meter.append("path")
+	    .datum({endAngle:0})
+	    .style("fill", "blue")
+	    .attr("class", "foreground")
+	    .attr("d", arc);
+	 
+	  foreground.transition()
+	    .duration(1000)
+	    .ease("linear")
+	    .attrTween("d", function(d) {
+	               var interpolate = d3.interpolate(d.endAngle, twoPi * dataset["progress"] / dataset["total"])
+	               return function(t) {
+	                  d.endAngle = interpolate(t);
+	                  return arc(d);
+	               }  
+	            });
+	
+	  var text =  meter.append("text")
+	    .attr("text-anchor", "middle")
+	    .attr("dy", ".35em")
+	    .attr("font-size", "24")
+	    .text(dataset["progress"]+"%");
+	  
+	  var text2 = svg.append("g")
+		    .attr("transform", "translate(65,0)");
+	  
+	  text2.append("text")    
+	  		.attr("dy","-.35em")
+		   .text("{{'The predicted value is: {0}.'.format(results[0][0])}}");
+	  text2.append("text")   
+	  	.attr("dy","1em")
+	       .text("{{'The model is {0:.2%} confident.'.format(results[0][1])}}");
+	    
+    </script>
+	{% endif %}
+</body>
+</html>

@@ -1,0 +1,41 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+<script type="text/javascript">
+ $(function() {
+    $('input[name=train]').bind('click', function() {
+        $("#loading").show();
+        var statusCode = 'Training...please wait';       
+      }); 
+  });  
+
+</script>
+	<div class="page-header"><p>
+       <h1>Train classifier and start live demo</h1>
+    </div>
+
+     
+      <div id="content">
+      <h3>Train classifier and start live demo</h3>
+      <form action="{{ url_for('setup_classifier') }}" method='post' >
+        
+        
+        <input type="text" name="train_url" class="form-control" placeholder="Analytics Project URL for Training Project" required autofocus>
+        <input type="text" name="test_url" class="form-control" placeholder="Analytics Project URL for Testing Project" required>
+        <input type="text" name="subset_label" class="form-control" placeholder="Subset Prefix for Classes (ex. Label, Tag, Class)" required>
+        
+        <input name='train' class="btn btn-lg btn-primary btn-block" type="submit" value="Train"/>
+        <img id="loading" height="25px" alt="" src={{ url_for('static', filename = 'images/ajaxSpinner.gif') }}  style="display:none">
+        <br>
+        <span id="errorLogin">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+
+
+      
+      
+      </div>
+
+{% endblock %}
