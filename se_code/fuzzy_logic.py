@@ -9,6 +9,7 @@ of using these functions over `max` and `min` is that they provide a better
 ranking. `min(a, b)` doesn't increase when the higher value increases, but the
 Hadamard product (fuzzy AND) does slightly increase.
 """
+import numpy as np
 
 
 def _clamp(val):
@@ -16,6 +17,12 @@ def _clamp(val):
     Restrict a value to the range [0, 1].
     """
     return max(0., min(1., val))
+
+def _tanh_clamp(val):
+    """
+    Use the tanh function with a hard floor at 0 to restrict a value to the range [0, 1].
+    """
+    return max(0, np.tanh(val))
 
 
 def _hadamard_product(v1, v2):
@@ -26,19 +33,22 @@ def _hadamard_product(v1, v2):
     This function doesn't check the range of the values, which is why
     it's private.
     """
-    return v1 * v2 / (v1 + v2 - v1 * v2)
+    try:
+        return v1 * v2 / (v1 + v2 - v1 * v2)
+    except ZeroDivisionError:
+        return 0
 
 
-def fuzzy_and(*vals):
+def fuzzy_and(vals):
     """
     Compute the 'fuzzy AND' (Hadamard product) of any number of values,
     which will be constrained to the range [0, 1].
     """
     if len(vals) == 0:
         return 1.
-    result = _clamp(vals[0])
+    result = _tanh_clamp(vals[0])
     for val in vals[1:]:
-        result = _hadamard_product(result, _clamp(val))
+        result = _hadamard_product(result, _tanh_clamp(val))
     return result
 
 
@@ -50,7 +60,7 @@ def fuzzy_not(val):
     return 1. - val
 
 
-def fuzzy_or(*vals):
+def fuzzy_or(vals):
     """
     Compute the 'fuzzy OR' (Hadamard co-product) of any number of values,
     which will be constrained to the range [0, 1].
@@ -60,8 +70,25 @@ def fuzzy_or(*vals):
     """
     if len(vals) == 0:
         return 0.
-    result = fuzzy_not(_clamp(vals[0]))
+    result = fuzzy_not(_tanh_clamp(vals[0]))
     for val in vals[1:]:
-        result = _hadamard_product(result, fuzzy_not(_clamp(val)))
+        result = _hadamard_product(result, fuzzy_not(_tanh_clamp(val)))
     return fuzzy_not(result)
 
+
+def max_or(vals):
+    """
+    Compute the max of any number of values.
+    """
+    if len(vals) == 0:
+        return 0.
+    return max(vals)
+
+
+def min_and(vals):
+    """
+    Compute the min of any number of values.
+    """
+    if len(vals) == 0:
+        return 0
+    return min(vals)
