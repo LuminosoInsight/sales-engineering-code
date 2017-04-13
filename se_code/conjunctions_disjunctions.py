@@ -1,10 +1,10 @@
 """
 Example use: to get the document search results for new disjunction of the terms: 'highly
-recommend' and 'not disapointed' in the Central Foods project, and hide the documents with the
+recommend' and 'not disappointed' in the Central Foods project, and hide the documents with the
 exact matches of either term, run:
 
-python conjunctions_disjunctions.py /projects/zoo/vfzct --text='highly recommend'
---text='not disappointed' --new --disjunction --docs --hide_exact
+python conjunctions_disjunctions.py /projects/zoo/vfzct 'highly recommend' 'not disappointed'
+--new --disjunction --docs --hide_exact
 """
 
 from collections import defaultdict
@@ -12,7 +12,6 @@ from collections import defaultdict
 import click
 import numpy as np
 
-from lumi_science.text_readers import get_reader
 from luminoso_api import LuminosoClient
 
 from se_code import fuzzy_logic
@@ -23,13 +22,14 @@ def connect(project_id):
     return client
 
 
-def get_current_results(client, terms, unit, n, hide_exact):
+def get_current_results(client, search_terms, unit, n, hide_exact):
     """
-    Given a list of terms, return the n documents or terms (unit) that our current solution would
-    return when supplied with these terms. It has an option to hide the documents containing
-    exact matches of the search terms (hide_exact=True).
+    Given a list of search terms, return the n documents or terms (unit) that our current
+    solution would return when supplied with these terms. It has an option to hide the documents
+    containing exact matches of the search terms (hide_exact=True).
     """
-    search_results = client.get(unit + '/search', terms=terms, limit=10000)['search_results']
+    search_terms = ' '.join(search_terms)
+    search_results = client.get(unit + '/search', text=search_terms, limit=10000)['search_results']
     display_count = 1
     for result, matching_strength in search_results:
 
@@ -43,7 +43,7 @@ def get_current_results(client, terms, unit, n, hide_exact):
                     to_display = result['document']['text']
             else:
                 to_display = result['document']['text']
-        else:  # unit == 'terms'
+        else:  # unit == 'search_terms'
             to_display = result['text']
 
         if to_display:
@@ -60,7 +60,7 @@ def get_new_conjunctions(client, terms, unit, n, function):
     scores = defaultdict(lambda: len(terms) * [0])
 
     for i, term in enumerate(terms):
-        search_results = client.get(unit + '/search', terms=[term], limit=10000)['search_results']
+        search_results = client.get(unit + '/search', text=term, limit=10000)['search_results']
         for result, matching_strength in search_results:
             if unit == 'docs':
                 doc_id = result['document']['_id']
@@ -98,7 +98,7 @@ def get_new_disjunctions(client, terms, unit, n, function, hide_exact):
 
     # Get matching scores for top term, document pairs
     for i, term in enumerate(terms):
-        search_results = client.get(unit + '/search', terms=[term], limit=10000)['search_results']
+        search_results = client.get(unit + '/search', text=term, limit=10000)['search_results']
         for result, matching_strength in search_results:
             if unit == 'docs':
                 doc_id = result['document']['_id']
@@ -142,8 +142,7 @@ def get_new_disjunctions(client, terms, unit, n, function, hide_exact):
 
 @click.command()
 @click.argument('project_id')
-@click.option('--text', multiple=True, help='Supply a search term. Use multiple times to supply '
-                                            'more terms.')
+@click.argument('search_terms', nargs=-1)
 @click.option('--current/--new', default=False, help='Get current or new results. Default: new')
 @click.option('--conjunction/--disjunction', default=True, help='Get conjunctions or disjunctions. '
                                                                 'Default: conjunction')
@@ -152,23 +151,17 @@ def get_new_disjunctions(client, terms, unit, n, function, hide_exact):
 @click.option('--n', default=10, help='Number of results to show. Default: 10.')
 @click.option('--hide_exact', is_flag=True, help='Hide the documents including exact matches of '
                                                  'either one of the search terms. Default: False.')
-def main(project_id, text, current, conjunction, unit, n, hide_exact):
+def main(project_id, search_terms, current, conjunction, unit, n, hide_exact):
     client = connect(project_id)
 
-    terms = []
-    for part in text:
-        term = ' '.join([triple[0] for triple in get_reader('en').legible_triples(part)])
-        terms.append(term)
-
     if current and conjunction:
-        get_current_results(client, terms, unit, n, hide_exact)
+        get_current_results(client, search_terms, unit, n, hide_exact)
     elif not current and conjunction:
-        get_new_conjunctions(client, terms, unit, n, fuzzy_logic.fuzzy_and)
+        get_new_conjunctions(client, search_terms, unit, n, fuzzy_logic.fuzzy_and)
     elif current and not conjunction:
-        get_current_results(client, terms, unit, n, hide_exact)
+        get_current_results(client, search_terms, unit, n, hide_exact)
     elif not current and not conjunction:
-        get_new_disjunctions(client, terms, unit, n, fuzzy_logic.fuzzy_or, hide_exact)
-
+        get_new_disjunctions(client, search_terms, unit, n, fuzzy_logic.fuzzy_or, hide_exact)
 
 if __name__ == '__main__':
     main()
