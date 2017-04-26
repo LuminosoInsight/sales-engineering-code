@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split
 
 from luminoso_api import LuminosoClient
 from voting_classifier.util import train_classifier, classify_documents
+from voting_classifier.serialization import serialize, deserialize, validate
 
 
 def extract_labels(labels):
@@ -192,6 +193,7 @@ def main(args):
 
     train_client = client.change_path('/projects/{}/{}'.format(args.account_id, args.training_project_id))
 
+    print('Loading Testing & Training documents...')
     if args.csv_file:
         test_docs, test_labels = get_test_docs_from_file(args.testing_data)
         train_docs, train_labels = get_all_docs(train_client, args.subset_field)
@@ -219,12 +221,26 @@ def main(args):
                     *return_label(new_text, classifiers, vectorizers, train_client))
                       )
     else:
-        classifiers, vectorizers = train_classifier(train_docs, train_labels)
+        if args.pickle_path:
+            try:
+                classifiers, vectorizers, _, _ = deserialize(args.pickle_path)
+            except FileNotFoundError:
+                print('No classifier found in {}.'.format(args.pickle_path))
+                print('Training classifier...')
+                classifiers, vectorizers = train_classifier(train_docs, train_labels)
+                serialize(classifiers, vectorizers, args.pickle_path)
+            except PermissionError:
+                print('No access to {}, cannot save/load classifier.'.format(args.pickle_path))
+        else:
+            print('Training classifier...')
+            classifiers, vectorizers = train_classifier(train_docs, train_labels)
+
+        print('Testing classifier...')
         classification = classify_test_documents(
             train_client, test_docs, test_labels, classifiers,
             vectorizers, args.save_results
             )
-        print('Accuracy:{:.2%}'.format(
+        print('Test Accuracy:{:.2%}'.format(
             score_results(test_labels, classifiers, classification))
             )
 
@@ -279,6 +295,11 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s', '--save_results', default=False, action='store_true',
         help="Save the results of the test set to a CSV file named results.csv"
+        )
+    parser.add_argument(
+        '-p', '--pickle_path',
+        help="Specify a path to save to classifier to or load a classifier from"
+        "If a classifier is found, it will be loaded, if not one will be created"
         )
     args = parser.parse_args()
     main(args)
