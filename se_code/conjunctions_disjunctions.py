@@ -48,7 +48,7 @@ def get_current_results(client, search_terms, unit, n, hide_exact):
             to_display = result['text']
 
         if to_display:
-            print(display_count, to_display)
+            print('{}.\t{}\t{}'.format(display_count, round(matching_strength, 2), to_display))
             print()
             display_count += 1
 
@@ -105,7 +105,7 @@ def get_new_results(client, terms, unit, n, function, hide_exact):
             to_display = doc_id
 
         if to_display:
-            print(display_count, to_display)
+            print('{}.\t{}\t{}'.format(display_count, round(score, 2), to_display))
             print()
             display_count += 1
 
