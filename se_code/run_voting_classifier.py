@@ -298,7 +298,7 @@ if __name__ == '__main__':
         )
     parser.add_argument(
         '-p', '--pickle_path',
-        help="Specify a path to save to classifier to or load a classifier from"
+        help="Specify a path to save the classifier to or load a classifier from"
         "If a classifier is found, it will be loaded, if not one will be created"
         )
     args = parser.parse_args()
