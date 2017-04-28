@@ -57,7 +57,7 @@ def fuzzy_not(val):
     Compute the inverse of a value, which in this logic is just 1 minus the
     value.
     """
-    return 1. - val
+    return 1. - _tanh_clamp(val)
 
 
 def fuzzy_or(vals):
@@ -72,7 +72,7 @@ def fuzzy_or(vals):
         return 0.
     result = fuzzy_not(_tanh_clamp(vals[0]))
     for val in vals[1:]:
-        result = _hadamard_product(result, fuzzy_not(_tanh_clamp(val)))
+        result = _hadamard_product(result, fuzzy_not(val))
     return fuzzy_not(result)
 
 
