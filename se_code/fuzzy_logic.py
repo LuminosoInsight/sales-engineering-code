@@ -12,13 +12,14 @@ Hadamard product (fuzzy AND) does slightly increase.
 import numpy as np
 
 
-def _clamp(val):
+def clamp(val):
     """
     Restrict a value to the range [0, 1].
     """
     return max(0., min(1., val))
 
-def _tanh_clamp(val):
+
+def tanh_clamp(val):
     """
     Use the tanh function with a hard floor at 0 to restrict a value to the range [0, 1].
     """
@@ -46,9 +47,9 @@ def fuzzy_and(vals):
     """
     if len(vals) == 0:
         return 1.
-    result = _tanh_clamp(vals[0])
+    result = vals[0]
     for val in vals[1:]:
-        result = _hadamard_product(result, _tanh_clamp(val))
+        result = _hadamard_product(result, val)
     return result
 
 
@@ -57,7 +58,7 @@ def fuzzy_not(val):
     Compute the inverse of a value, which in this logic is just 1 minus the
     value.
     """
-    return 1. - _tanh_clamp(val)
+    return 1. - val
 
 
 def fuzzy_or(vals):
@@ -70,7 +71,7 @@ def fuzzy_or(vals):
     """
     if len(vals) == 0:
         return 0.
-    result = fuzzy_not(_tanh_clamp(vals[0]))
+    result = fuzzy_not(vals[0])
     for val in vals[1:]:
         result = _hadamard_product(result, fuzzy_not(val))
     return fuzzy_not(result)

@@ -14,7 +14,7 @@ import numpy as np
 
 from luminoso_api import LuminosoClient
 
-from se_code import fuzzy_logic
+from se_code.fuzzy_logic import clamp, fuzzy_and, fuzzy_or, fuzzy_not, tanh_clamp
 
 
 def connect(account_id, project_id):
@@ -73,31 +73,22 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
     # Get matching scores for top term, document pairs
     for i, term in enumerate(search_terms + neg_terms):
         search_results = client.get(unit + '/search', text=term, limit=10000)['search_results']
+
         for result, matching_strength in search_results:
-            if unit == 'docs':
-                doc_id = result['document']['_id']
-            else:
-                doc_id = result['text']
+            doc_id = get_doc_id(result, unit)
 
             if i >= len(search_terms):
-                scores[doc_id][i] = fuzzy_logic.fuzzy_not(matching_strength)
+                scores[doc_id][i] = fuzzy_not(normalize_score(matching_strength, unit))
             else:
-                scores[doc_id][i] = matching_strength
+                scores[doc_id][i] = normalize_score(matching_strength, unit)
                 if hide_exact and result['exact_indices']:
                     exact_matches[doc_id] = True
 
     # Compute combined scores
     final_scores = []
     for doc_id, doc_scores in scores.items():
-
-        if operation == 'conjunction':
-            score = fuzzy_logic.fuzzy_and(doc_scores)
-        else:
-            score = fuzzy_logic.fuzzy_or(doc_scores[:len(search_terms)])
-            if neg_terms:
-                score = fuzzy_logic.fuzzy_and([score] + doc_scores[len(search_terms):])
+        score = compute_score(doc_scores, operation, search_terms, neg_terms)
         final_scores.append((doc_id, score))
-
     final_scores = sorted(final_scores, key=lambda x: x[1] if not np.isnan(x[1]) else 0,
                           reverse=True)
 
@@ -108,28 +99,66 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
         if display_count > int(n):
             break
 
-        to_display = ''
-        if unit == 'docs':
-            document = client.get('/docs', id=doc_id)
-            if hide_exact:
-                if not exact_matches[doc_id]:
-                    to_display = document['text']
-            else:
-                to_display = document['text']
-        else:
-            to_display = doc_id
-
+        to_display = get_result_to_display(client, doc_id, exact_matches, hide_exact, unit)
         if to_display:
             print('{}.\t{}\t{}'.format(display_count, round(score, 2), to_display))
             print()
             display_count += 1
 
 
+def get_result_to_display(client, doc_id, exact_matches, hide_exact, unit):
+    to_display = ''
+    if unit == 'docs':
+        document = client.get('/docs', id=doc_id)
+        if hide_exact:
+            if not exact_matches[doc_id]:
+                to_display = document['text']
+        else:
+            to_display = document['text']
+    else:
+        to_display = doc_id
+    return to_display
+
+
+def compute_score(doc_scores, operation, search_terms, neg_terms):
+    """
+    Compute a score for a document. This score consists of scores for each search term,
+    as well as the score for neg_terms. First, search term scores are combined using either
+    fuzzy_and or fuzzy_or. If any neg_terms are supplied, they will be combined with the search
+    terms score using fuzzy_and.
+    """
+    if operation == 'conjunction':
+        score = fuzzy_and(doc_scores)
+    else:
+        score = fuzzy_or(doc_scores[:len(search_terms)])
+        if neg_terms:
+            score = fuzzy_and([score] + doc_scores[len(search_terms):])
+    return score
+
+
+def normalize_score(score, unit):
+    """
+    Normalize document scores using tanh_clamp. Normalize terms using clamp, since their max
+    value is already 1.
+    """
+    if unit == 'terms':
+        return clamp(score)
+    else:
+        return tanh_clamp(score)
+
+
+def get_doc_id(result, unit):
+    if unit == 'terms':
+        return result['text']
+    else:
+        return result['document']['_id']
+
+
 @click.command()
 @click.argument('account_id')
 @click.argument('project_id')
 @click.argument('search_terms', nargs=-1)
-@click.option('--neg_terms', multiple=True, help='Specify terms that should be negated.')
+@click.option('--neg-terms', multiple=True, help='Specify terms that should be negated.')
 @click.option('--zero/--negative', default=True, help='Negative means the opposite of the topic '
                                                       'and zero means irrelevant to the topic. '
                                                       'Default: zero.')
