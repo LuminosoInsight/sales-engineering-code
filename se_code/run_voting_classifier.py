@@ -127,12 +127,17 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
     classification = classify_documents(test_docs, classifiers, vectorizers)
 
     if save_results:
-        results_dict = [dict({'text': z[0]['text'], 'truth': z[1]},
+        print('Savings results to results.csv file...')
+        results_dict = [dict({'text': z[0]['text'],
+                              'truth': z[1],
+                              'prediction': list(classifiers['simple'].classes_)[np.argmax(z[2])],
+                              'correct': z[1]==list(classifiers['simple'].classes_)[np.argmax(z[2])],
+                              'max_score': np.max(z[2])},
                              **dict(zip(list(classifiers['simple'].classes_), z[2])))
                         for z in zip(test_docs, test_labels, classification)]
 
         with open('results.csv', 'w', encoding='utf-8') as file:
-            writer = csv.DictWriter(file, ['text', 'truth'] +
+            writer = csv.DictWriter(file, ['text', 'truth', 'prediction', 'correct', 'max_score'] +
                                     list(classifiers['simple'].classes_))
             writer.writeheader()
             writer.writerows(results_dict)
@@ -208,9 +213,7 @@ def main(args):
     # Allows for live demo-ing in Python notebook
     if args.live:
         print('Training classifier...')
-        classifiers, vectorizers = train_classifier(
-            train_client, train_docs, train_labels
-            )
+        classifiers, vectorizers, _, _ = deserialize(args.pickle_path)
         print('Classifier trained. Enter example text below or "exit" to exit.\n\n')
         while True:
             new_text = input('Enter text to be classified: ')
