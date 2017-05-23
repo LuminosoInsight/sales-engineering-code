@@ -1,12 +1,12 @@
 from flask import Flask, jsonify, render_template, request, session, url_for, Response
 from luminoso_api import LuminosoClient
-from .topic_utilities import copy_topics, del_topics, parse_url
+from topic_utilities import copy_topics, del_topics, parse_url
 from se_code.run_voting_classifier import return_label, train_classifier, get_all_docs, split_train_test
-from .term_utilities import get_terms, ignore_terms, merge_terms
-from .deduper_utilities import dedupe
+from term_utilities import get_terms, ignore_terms, merge_terms
+from deduper_utilities import dedupe
 import numpy as np
-from .boilerplate_utilities import BPDetector, boilerplate_create_proj
-from .qualtrics_utilities import *
+from boilerplate_utilities import BPDetector, boilerplate_create_proj
+from qualtrics_utilities import *
 import redis
 
 #Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
@@ -64,7 +64,9 @@ def setup_classifier():
         test_acct, testing_project_id = parse_url(test_url)
         subset_field = request.form['subset_label'].strip()
         
-        client = LuminosoClient.connect()
+        client = LuminosoClient.connect(username=session['username'],
+                                        password=session['password'])
+        
         train_client = client.change_path('/projects/{}/{}'.format(train_acct,training_project_id))
         
         if training_project_id == testing_project_id:
@@ -76,7 +78,7 @@ def setup_classifier():
             test_docs, test_labels = get_all_docs(test_client, subset_field)
         
         classifiers, vectorizers = train_classifier(
-            train_client, train_docs, train_labels
+            train_docs, train_labels
             )
         
         sample_results = [doc['text'] for doc in np.random.choice(test_docs,100)]
