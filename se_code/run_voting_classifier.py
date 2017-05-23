@@ -185,14 +185,6 @@ def main(args):
     for POC purposes, projects should be split into training & test.
     '''
 
-    if not args.account_id:
-        args.account_id = input('Enter the account id: ')
-    if not args.training_project_id:
-        args.training_project_id = input('Enter the id of the training project: ')
-    if not args.testing_data:
-        args.testing_data = input('Enter the id of the testing project: ')
-    if not args.subset_field:
-        args.subset_field = input('Subset field prefix holding the label("Category label"): ')
 
     client = LuminosoClient.connect(url=args.api_url, username=args.username)
 
@@ -204,7 +196,7 @@ def main(args):
         train_docs, train_labels = get_all_docs(train_client, args.subset_field)
     elif args.testing_data == args.training_project_id:
         docs, labels = get_all_docs(train_client, args.subset_field)
-        train_docs, test_docs, train_labels, test_labels = split_train_test(docs, labels)
+        train_docs, test_docs, train_labels, test_labels = split_train_test(docs,labels,args.split)
     else:
         test_client = client.change_path('/projects/{}/{}'.format(args.account_id, args.testing_data))
         train_docs, train_labels = get_all_docs(train_client, args.subset_field)
@@ -273,6 +265,12 @@ if __name__ == '__main__':
         help="The ID of the project, or name of the CSV containing testing data"
         )
     parser.add_argument(
+        'subset_field',
+        help='A prefix on the subset names that will be used for classification.'
+        'These subset names should begin with the prefix, '
+        'followed by a colon, such as "Label: positive".'
+        )
+    parser.add_argument(
         '-u', '--username',
         help='Username (email) of Luminoso account'
         )
@@ -283,12 +281,6 @@ if __name__ == '__main__':
     parser.add_argument(
         '-c', '--csv_file', default=False, action='store_true',
         help="CSV file with testing data: (text,label) columns"
-        )
-    parser.add_argument(
-        '-f', '--subset_field',
-        help='A prefix on the subset names that will be used for classification.'
-        'These subset names should begin with the prefix, '
-        'followed by a colon, such as "Label: positive".'
         )
     parser.add_argument(
         '-l', '--live', default=False, action='store_true',
@@ -302,6 +294,12 @@ if __name__ == '__main__':
         '-p', '--pickle_path',
         help="Specify a path to save to classifier to or load a classifier from"
         "If a classifier is found, it will be loaded, if not one will be created"
+        )
+    parser.add_argument(
+        '-z', '--split',
+        help="Fraction of documents to hold for testing set. (.3 = 30%)"
+        "For when training/testing documents are in the same project.",
+        default=.3
         )
     args = parser.parse_args()
     main(args)
