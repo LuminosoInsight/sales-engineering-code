@@ -8,4 +8,4 @@ scikit-learn==0.18.1
 scipy==0.18.1
 sklearn==0.0
 gunicorn
-git+https://greatdansby@github.com/LuminosoInsight/voting_classifier.git
+git+https://github.com/LuminosoInsight/voting_classifier.git
