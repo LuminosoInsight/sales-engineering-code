@@ -8,4 +8,3 @@ scikit-learn==0.18.1
 scipy==0.18.1
 sklearn==0.0
 gunicorn
-~/git/voting_classifier
