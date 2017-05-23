@@ -210,33 +210,32 @@ def main(args):
         train_docs, train_labels = get_all_docs(train_client, args.subset_field)
         test_docs, test_labels = get_all_docs(test_client, args.subset_field)
 
-    # Allows for live demo-ing in Python notebook
-    if args.live:
+    if args.pickle_path:
+        try:
+            classifiers, vectorizers, _, _ = deserialize(args.pickle_path)
+            print('Loaded classifier from {}.'.format(args.pickle_path))
+        except FileNotFoundError:
+            print('No classifier found in {}.'.format(args.pickle_path))
+            print('Training classifier...')
+            classifiers, vectorizers = train_classifier(train_docs, train_labels)
+            serialize(classifiers, vectorizers, args.pickle_path)
+        except PermissionError:
+            print('No access to {}, cannot save/load classifier.'.format(args.pickle_path))
+    else:
         print('Training classifier...')
-        classifiers, vectorizers, _, _ = deserialize(args.pickle_path)
-        print('Classifier trained. Enter example text below or "exit" to exit.\n\n')
+        classifiers, vectorizers = train_classifier(train_docs, train_labels)
+
+    if args.live:
+        print('Live Demo Mode:\nEnter example text below or "exit" to exit.\n\n')
         while True:
             new_text = input('Enter text to be classified: ')
             if new_text == 'exit':
                 break
             else:
-                print('The predicted value is: "{0}".\n The model is {1:.2%} confident.\n'.format(
+                print('The predicted value is: "{0}",\n with a confidence score of {1:.2}.\n'.format(
                     *return_label(new_text, classifiers, vectorizers, train_client))
                       )
     else:
-        if args.pickle_path:
-            try:
-                classifiers, vectorizers, _, _ = deserialize(args.pickle_path)
-            except FileNotFoundError:
-                print('No classifier found in {}.'.format(args.pickle_path))
-                print('Training classifier...')
-                classifiers, vectorizers = train_classifier(train_docs, train_labels)
-                serialize(classifiers, vectorizers, args.pickle_path)
-            except PermissionError:
-                print('No access to {}, cannot save/load classifier.'.format(args.pickle_path))
-        else:
-            print('Training classifier...')
-            classifiers, vectorizers = train_classifier(train_docs, train_labels)
 
         print('Testing classifier...')
         classification = classify_test_documents(
