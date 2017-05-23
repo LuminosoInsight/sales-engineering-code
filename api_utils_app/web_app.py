@@ -1,12 +1,12 @@
 from flask import Flask, jsonify, render_template, request, session, url_for, Response
 from luminoso_api import LuminosoClient
-from topic_utilities import copy_topics, del_topics, parse_url
+from .topic_utilities import copy_topics, del_topics, parse_url
 from se_code.run_voting_classifier import return_label, train_classifier, get_all_docs, split_train_test
-from term_utilities import get_terms, ignore_terms, merge_terms
-from deduper_utilities import dedupe
+from .term_utilities import get_terms, ignore_terms, merge_terms
+from .deduper_utilities import dedupe
 import numpy as np
-from boilerplate_utilities import BPDetector, boilerplate_create_proj
-from qualtrics_utilities import *
+from .boilerplate_utilities import BPDetector, boilerplate_create_proj
+from .qualtrics_utilities import *
 import redis
 
 #Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
