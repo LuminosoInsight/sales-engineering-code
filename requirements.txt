@@ -1,0 +1,10 @@
+Flask==0.12
+Flask-RESTful==0.3.5
+langcodes==1.3.0
+luminoso-api==0.5.2
+numpy==1.11.2
+pack64==2.0.0
+scikit-learn==0.18.1
+scipy==0.18.1
+sklearn==0.0
+gunicorn
