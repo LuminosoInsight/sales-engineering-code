@@ -9,17 +9,17 @@ from boilerplate_utilities import BPDetector, boilerplate_create_proj
 from qualtrics_utilities import *
 import redis
 
+#Storage for live classifier demo
+classifiers = None
+vectorizers = None
+train_client = None
+results = []
+
 #Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
 
 app = Flask(__name__)
 app.secret_key = 'secret_key_that_we_need_to_have_to_use_sessions'
 red = redis.StrictRedis()
-
-#Storage for live classifier demo
-classifiers = None
-vectorizers = None
-train_client = None
-results = None
 
 @app.route('/')
 def home():
@@ -35,7 +35,7 @@ def login():
         ('Cleaning',('Deduper',url_for('deduper_page')), ('Boilerplate Cleaner',url_for('boilerplate_page'))),
         ('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('compass_export_page'))),
         ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
-        ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo')),('Live Classifier Demo',url_for('live_classifier')))]
+        ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo')))]
     print(session['apps_to_show'])
     try:
         LuminosoClient.connect('/projects/', username=session['username'],
@@ -56,6 +56,10 @@ def classifier_demo():
 
 @app.route('/classifier_demo', methods=['POST'])
 def setup_classifier():
+    global classifiers
+    global vectorizers
+    global train_client
+    global results
     
     if request.method == 'POST':
         train_url = request.form['train_url'].strip()
@@ -82,6 +86,7 @@ def setup_classifier():
             )
         
         sample_results = [doc['text'] for doc in np.random.choice(test_docs,100)]
+        global results 
         results = []
         for sample in sample_results:
             result = list(return_label(sample, classifiers, vectorizers, train_client))
@@ -90,10 +95,13 @@ def setup_classifier():
             
     return render_template('classifier.html', urls=session['apps_to_show'], results=results)
 
+
 @app.route('/live_classifier', methods=['GET','POST'])
 def live_classifier():
+    global results
+    
     if results is None:
-        return render_template('classifier.html', urls=session['apps_to_show'])
+        return render_template('classifier.html', urls=session['apps_to_show'], results=[['','',0]])
     
     if request.method == 'POST':
     
