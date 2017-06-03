@@ -25,7 +25,8 @@ def login():
                             ('Term',('Merge Terms',url_for('term_merge_page')),('Ignore Terms',url_for('term_ignore_page'))),
                             ('Cleaning',('Deduper',url_for('deduper_page')), ('Boilerplate Cleaner',url_for('boilerplate_page'))),
                             ('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('compass_export_page'))),
-                            ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics')))]
+                            ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
+                            ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj')))]
     print(session['apps_to_show'])
     try:
         LuminosoClient.connect('/projects/', username=session['username'],
@@ -39,6 +40,11 @@ def login():
 @app.route('/index')
 def index():
     return render_template('index.html', urls=session['apps_to_show'])
+
+
+@app.route('/conj_disj', mehtods=['POST','GET'])
+def topic_utils():
+        return render_template('conj_disj.html', urls=session['apps_to_show'])
 
 @app.route('/topic_utils')
 def topic_utils():
@@ -247,7 +253,7 @@ def bp_create_proj():
 ###
 
 if __name__ == '__main__':
-    app.run(debug=True, threaded=True, host= '0.0.0.0')#, ssl_context='adhoc')
+    app.run()#, ssl_context='adhoc')
 
 
 
