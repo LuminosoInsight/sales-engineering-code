@@ -42,7 +42,7 @@ def index():
     return render_template('index.html', urls=session['apps_to_show'])
 
 
-@app.route('/conj_disj', mehtods=['POST','GET'])
+@app.route('/conj_disj', methods=['POST','GET'])
 def topic_utils():
         return render_template('conj_disj.html', urls=session['apps_to_show'])
 
