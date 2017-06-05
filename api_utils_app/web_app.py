@@ -6,6 +6,7 @@ from deduper_utilities import dedupe
 from boilerplate_utilities import BPDetector, boilerplate_create_proj
 from qualtrics_utilities import *
 import redis
+from conjunctions_disjunctions import get_new_results
 
 #Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
 
@@ -43,8 +44,34 @@ def index():
 
 
 @app.route('/conj_disj', methods=['POST','GET'])
-def topic_utils():
-        return render_template('conj_disj.html', urls=session['apps_to_show'])
+def conj_disj():
+    new_results = []
+    current_results = []
+
+    if request.form['url']:
+        url = request.form['url'].strip()
+        from_acct, from_proj = parse_url(url)
+        client = LuminosoClient.connect('/projects/{}/{}', username=session['username'],
+                                            password=session['password'])
+        new_results = get_new_results(client,
+                                  request.form['search_terms'],
+                                  request.form['neg_terms'],
+                                  request.form['unit'],
+                                  request.form['n'],
+                                  request.form['operation'],
+                                  request.form['hide_exact'])
+        
+        current_results = get_current_results(client,
+                                  request.form['search_terms'],
+                                  request.form['neg_terms'],
+                                  request.form['unit'],
+                                  request.form['n'],
+                                  request.form['operation'],
+                                  request.form['hide_exact'])
+        
+    return render_template('conj_disj.html',
+                           urls=session['apps_to_show'],
+                           results=list(zip(new_results, current_results)))
 
 @app.route('/topic_utils')
 def topic_utils():

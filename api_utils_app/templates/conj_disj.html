@@ -1,0 +1,144 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+    <title>Conjunction, Disjunction & Negation Test</title>
+
+    <script src="http://d3js.org/d3.v2.js"></script>
+    <style>
+
+path.line {
+    fill: none;
+    stroke: #666;
+    stroke-width: 1.5px;
+}
+
+input[type=text], select {
+    width: 100%;
+    padding: 12px 20px;
+    margin: 8px 0;
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+input[type=submit] {
+    width: 100%;
+    background-color: #4CAF50;
+    color: white;
+    padding: 14px 20px;
+    margin: 8px 0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+input[type=submit]:hover {
+    background-color: #45a049;
+}
+
+div.demo {
+    border-radius: 5px;
+    background-color: #f2f2f2;
+    padding: 20px;
+}
+
+.domain {
+    stroke-width: 1px;
+}
+
+circle {
+    cursor: pointer;
+}
+
+.axis {
+    shape-rendering: crispEdges;
+}
+
+.axis line, .axis path {
+    stroke-width: 1px;
+    stroke: #000;
+    fill: none;
+}
+
+.tooltip {
+    display: none;
+}
+
+.tooltip.active {
+    display: block;
+}
+
+.tooltip rect {
+    fill: #ff0000;
+}
+.demo {
+	border:1px solid #C0C0C0;
+	border-collapse:collapse;
+	padding:5px;
+}
+.demo th {
+	border:1px solid #C0C0C0;
+	padding:5px;
+	background:#F0F0F0;
+}
+.demo td {
+	border:1px solid #C0C0C0;
+	padding:5px;
+}
+    </style>
+
+</head>
+<body>
+
+    <div class="page-header"><p>
+       <h1>Remove Duplicates from a Project</h1>
+    </div>
+
+      <div id="content">
+      <h3>Important Notes:</h3>
+      <h4>
+      <ul>  
+      <li>This utility will detect and remove duplicates as well as near-duplicates from a project.</li>
+      <li>If your project has more than 40,000 documents, the deduping process will be batched. In this case,
+          the deduper will miss many dupes unless your documents have a date field and dupes are likely to be
+          located near each other on a timeline. Please contact tobrien@luminoso.com if you have a need to
+          dedupe a project with >40,000 documents and does not meet the requirement that dupes are near each other in time.</li>
+      </ul>
+      </h4>
+      <br>
+      <form>
+        
+        <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
+        Number of Records to Return: <input type="text" name="n" class="form-control" placeholder="10" required><br>
+        Type of Record to Search:
+        <input type="radio" name="unit" value="docs" checked> Documents <br>
+        <input type="radio" name="unit" value="terms"> Terms <br>
+        Type of Search Operation:
+        <input type="radio" name="operation" value="conjunction" checked> Conjunction(AND) <br>
+        <input type="radio" name="operation" value="disjunction"> Disjunction(OR) <br>
+        <input type="radio" name="operation" value="negation"> Negation(NOT) <br><br>
+        <input type="text" name="search_terms" class="form-control" placeholder="Search terms (ex 'disappointed,screen,suggest')" required>
+        <input type="text" name="neg_terms" class="form-control" placeholder="Negated terms (ex 'cracked')" required>
+        <input class="btn btn-primary btn-lg" name="search" type="submit" value="Search"/>
+        <img id="loading" height="25px" alt="" src={{ url_for('static', filename = 'images/ajaxSpinner.gif') }}  style="display:none">
+        
+      </form>
+    {% if results|length>0 %}
+	<h2>Results</h2>
+	<table class='demo'>
+	<tr><th>Rank</th><th>New Result</th><th>New Score</th><th>Current API Result</th><th>Current API Score</th></tr>
+	{% for i, result in enumerate(results) %}
+	<tr><td>{{ i }}</td><td>{{ result[0]['text'] }}</td>
+		<td>{{ '{0:.2%}'.format(result[0]['score']) }}</td>
+		<td>{{ result[1]['text'] }}</td>
+		<td>{{ '{0:.2%}'.format(result[1]['score']) }}</td></tr>
+	{% endfor %}
+	</table>
+	{% endif %}
+	
+{% endblock %}
