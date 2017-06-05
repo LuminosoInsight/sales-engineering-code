@@ -92,11 +92,10 @@ circle {
       </h4>
       <br>
       <form method=POST>
-
+		
+		<table class=demo><tr style="vertical-align:top;"><tr><td colspan=4>
         Analytics Project URL:
-        <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
-        
-        <table class=demo><tr valign=top><td>
+        <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus></td></tr><td>
 	        Number of Records to Return: 
 			<select name="n">
 			  <option value="10">10</option>
@@ -121,14 +120,15 @@ circle {
         
       </form>
     {% if results|length>0 %}
-	<h2>Results</h2>
+	<h2>{{ query_info }}</h2>
 	<table class='demo' width=100%>
 	<tr><th>Rank</th><th>New Result</th><th>New Score</th><th>Current API Result</th><th>Current API Score</th></tr>
 	{% for result in results %}
-	<tr><td>{{ loop.index }}</td><td>{{ result[0]['text'] }}</td>
-		<td>{{ '{0:.2}'.format(result[0]['score']) }}</td>
-		<td>{{ result[1]['text'] }}</td>
-		<td>{{ '{0:.2}'.format(result[1]['score']) }}</td></tr>
+	<tr valign=top><td width=4%>{{ loop.index }}</td>
+		<td width=45%>{{ result[0]['text'] }}</td>
+		<td width=3%>{{ '{0:.2}'.format(result[0]['score']) }}</td>
+		<td width=45%>{{ result[1]['text'] }}</td>
+		<td width=3%>{{ '{0:.2}'.format(result[1]['score']) }}</td></tr>
 	{% endfor %}
 	</table>
 	{% endif %}

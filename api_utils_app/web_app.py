@@ -47,7 +47,8 @@ def index():
 def conj_disj():
     new_results = []
     current_results = []
-
+    query_info = ''
+    
     if request.method == 'POST':
         url = request.form['url'].strip()
         from_acct, from_proj = parse_url(url)
@@ -73,9 +74,20 @@ def conj_disj():
                                   int(request.form['n']),
                                   False)
         
+        connector = ' AND '
+        if request.form['operation'] == 'disjunction':
+            connector = ' OR '
+        
+        suffix = ''
+        if neg_terms:
+            suffix = ' NOT {}'.format(' '.join(neg_terms))
+            
+        query_info = 'Results for {}{}'.format(connector.join(request.form['search_terms'].split(',')),suffix)
+    
     return render_template('conj_disj.html',
                            urls=session['apps_to_show'],
-                           results=list(zip(new_results, current_results)))
+                           results=list(zip(new_results, current_results)),
+                           query_info=query_info)
 
 @app.route('/topic_utils')
 def topic_utils():
