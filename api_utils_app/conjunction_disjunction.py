@@ -34,17 +34,17 @@ def get_current_results(client, search_terms, neg_terms, zero, unit, n, hide_exa
 
     if zero:
         search_results = client.get(unit + '/search', text=search_terms, zero=neg_terms,
-                                    limit=10000)['search_results']
+                                    limit=n)['search_results']
     else:
         search_results = client.get(unit + '/search', text=search_terms, negative=neg_terms,
-                                    limit=10000)['search_results']
+                                    limit=n)['search_results']
 
     # Save results
     results = []
     for doc, matching_strength in search_results:
-        result = {'text':doc['document']['text'],
-                  'doc_id':doc['document']['doc_id'],
-                  'score':matching_strength}
+        results.append({'text':doc['document']['text'],
+                  'doc_id':doc['document']['_id'],
+                  'score':matching_strength})
     
     return results
 
@@ -82,10 +82,10 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
 
     # Save results
     results = []
-    for doc_id, score in final_scores:
-        result = {'text':get_result_to_display(client, doc_id, exact_matches, hide_exact, unit),
+    for doc_id, score in final_scores[:n]:
+        results.append({'text':get_result_to_display(client, doc_id, exact_matches, hide_exact, unit),
                   'doc_id':doc_id,
-                  'score':score}
+                  'score':score})
     
     return results
 

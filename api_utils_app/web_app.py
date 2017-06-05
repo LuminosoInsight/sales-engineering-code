@@ -6,7 +6,7 @@ from deduper_utilities import dedupe
 from boilerplate_utilities import BPDetector, boilerplate_create_proj
 from qualtrics_utilities import *
 import redis
-from conjunctions_disjunctions import get_new_results
+from conjunction_disjunction import get_new_results, get_current_results
 
 #Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
 
@@ -48,26 +48,30 @@ def conj_disj():
     new_results = []
     current_results = []
 
-    if request.form['url']:
+    if request.method == 'POST':
         url = request.form['url'].strip()
         from_acct, from_proj = parse_url(url)
-        client = LuminosoClient.connect('/projects/{}/{}', username=session['username'],
+        client = LuminosoClient.connect('/projects/{}/{}'.format(from_acct,from_proj), username=session['username'],
                                             password=session['password'])
+        neg_terms = []
+        if len(request.form['neg_terms']) > 0:
+            neg_terms = request.form['neg_terms'].split(',')
+                    
         new_results = get_new_results(client,
-                                  request.form['search_terms'],
-                                  request.form['neg_terms'],
+                                  request.form['search_terms'].split(','),
+                                  neg_terms,
                                   request.form['unit'],
-                                  request.form['n'],
+                                  int(request.form['n']),
                                   request.form['operation'],
-                                  request.form['hide_exact'])
+                                  False)
         
         current_results = get_current_results(client,
-                                  request.form['search_terms'],
-                                  request.form['neg_terms'],
+                                  request.form['search_terms'].split(','),
+                                  neg_terms,
+                                  '',
                                   request.form['unit'],
-                                  request.form['n'],
-                                  request.form['operation'],
-                                  request.form['hide_exact'])
+                                  int(request.form['n']),
+                                  False)
         
     return render_template('conj_disj.html',
                            urls=session['apps_to_show'],
