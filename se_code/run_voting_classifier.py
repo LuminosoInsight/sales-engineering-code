@@ -127,12 +127,17 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
     classification = classify_documents(test_docs, classifiers, vectorizers)
 
     if save_results:
-        results_dict = [dict({'text': z[0]['text'], 'truth': z[1]},
+        print('Savings results to results.csv file...')
+        results_dict = [dict({'text': z[0]['text'],
+                              'truth': z[1],
+                              'prediction': list(classifiers['simple'].classes_)[np.argmax(z[2])],
+                              'correct': z[1]==list(classifiers['simple'].classes_)[np.argmax(z[2])],
+                              'max_score': np.max(z[2])},
                              **dict(zip(list(classifiers['simple'].classes_), z[2])))
                         for z in zip(test_docs, test_labels, classification)]
 
         with open('results.csv', 'w', encoding='utf-8') as file:
-            writer = csv.DictWriter(file, ['text', 'truth'] +
+            writer = csv.DictWriter(file, ['text', 'truth', 'prediction', 'correct', 'max_score'] +
                                     list(classifiers['simple'].classes_))
             writer.writeheader()
             writer.writerows(results_dict)
@@ -180,14 +185,6 @@ def main(args):
     for POC purposes, projects should be split into training & test.
     '''
 
-    if not args.account_id:
-        args.account_id = input('Enter the account id: ')
-    if not args.training_project_id:
-        args.training_project_id = input('Enter the id of the training project: ')
-    if not args.testing_data:
-        args.testing_data = input('Enter the id of the testing project: ')
-    if not args.subset_field:
-        args.subset_field = input('Subset field prefix holding the label("Category label"): ')
 
     client = LuminosoClient.connect(url=args.api_url, username=args.username)
 
@@ -199,41 +196,38 @@ def main(args):
         train_docs, train_labels = get_all_docs(train_client, args.subset_field)
     elif args.testing_data == args.training_project_id:
         docs, labels = get_all_docs(train_client, args.subset_field)
-        train_docs, test_docs, train_labels, test_labels = split_train_test(docs, labels)
+        train_docs, test_docs, train_labels, test_labels = split_train_test(docs,labels,args.split)
     else:
         test_client = client.change_path('/projects/{}/{}'.format(args.account_id, args.testing_data))
         train_docs, train_labels = get_all_docs(train_client, args.subset_field)
         test_docs, test_labels = get_all_docs(test_client, args.subset_field)
 
-    # Allows for live demo-ing in Python notebook
-    if args.live:
+    if args.pickle_path:
+        try:
+            classifiers, vectorizers, _, _ = deserialize(args.pickle_path)
+            print('Loaded classifier from {}.'.format(args.pickle_path))
+        except FileNotFoundError:
+            print('No classifier found in {}.'.format(args.pickle_path))
+            print('Training classifier...')
+            classifiers, vectorizers = train_classifier(train_docs, train_labels)
+            serialize(classifiers, vectorizers, args.pickle_path)
+        except PermissionError:
+            print('No access to {}, cannot save/load classifier.'.format(args.pickle_path))
+    else:
         print('Training classifier...')
-        classifiers, vectorizers = train_classifier(
-            train_client, train_docs, train_labels
-            )
-        print('Classifier trained. Enter example text below or "exit" to exit.\n\n')
+        classifiers, vectorizers = train_classifier(train_docs, train_labels)
+
+    if args.live:
+        print('Live Demo Mode:\nEnter example text below or "exit" to exit.\n\n')
         while True:
             new_text = input('Enter text to be classified: ')
             if new_text == 'exit':
                 break
             else:
-                print('The predicted value is: "{0}".\n The model is {1:.2%} confident.\n'.format(
+                print('The predicted value is: "{0}",\n with a confidence score of {1:.2}.\n'.format(
                     *return_label(new_text, classifiers, vectorizers, train_client))
                       )
     else:
-        if args.pickle_path:
-            try:
-                classifiers, vectorizers, _, _ = deserialize(args.pickle_path)
-            except FileNotFoundError:
-                print('No classifier found in {}.'.format(args.pickle_path))
-                print('Training classifier...')
-                classifiers, vectorizers = train_classifier(train_docs, train_labels)
-                serialize(classifiers, vectorizers, args.pickle_path)
-            except PermissionError:
-                print('No access to {}, cannot save/load classifier.'.format(args.pickle_path))
-        else:
-            print('Training classifier...')
-            classifiers, vectorizers = train_classifier(train_docs, train_labels)
 
         print('Testing classifier...')
         classification = classify_test_documents(
@@ -271,6 +265,12 @@ if __name__ == '__main__':
         help="The ID of the project, or name of the CSV containing testing data"
         )
     parser.add_argument(
+        'subset_field',
+        help='A prefix on the subset names that will be used for classification.'
+        'These subset names should begin with the prefix, '
+        'followed by a colon, such as "Label: positive".'
+        )
+    parser.add_argument(
         '-u', '--username',
         help='Username (email) of Luminoso account'
         )
@@ -281,12 +281,6 @@ if __name__ == '__main__':
     parser.add_argument(
         '-c', '--csv_file', default=False, action='store_true',
         help="CSV file with testing data: (text,label) columns"
-        )
-    parser.add_argument(
-        '-f', '--subset_field',
-        help='A prefix on the subset names that will be used for classification.'
-        'These subset names should begin with the prefix, '
-        'followed by a colon, such as "Label: positive".'
         )
     parser.add_argument(
         '-l', '--live', default=False, action='store_true',
@@ -300,6 +294,12 @@ if __name__ == '__main__':
         '-p', '--pickle_path',
         help="Specify a path to save the classifier to or load a classifier from"
         "If a classifier is found, it will be loaded, if not one will be created"
+        )
+    parser.add_argument(
+        '-z', '--split',
+        help="Fraction of documents to hold for testing set. (.3 = 30%)"
+        "For when training/testing documents are in the same project.",
+        default=.3
         )
     args = parser.parse_args()
     main(args)
