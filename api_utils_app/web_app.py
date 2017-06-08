@@ -29,18 +29,13 @@ def home():
 def login():
     session['username'] = request.form['username']
     session['password'] = request.form['password']
-    session['apps_to_show'] = [('Topic',('Copy Topics',url_for('copy_topics_page')),('Delete Topics',url_for('delete_topics_page'))),
-                            ('Term',('Merge Terms',url_for('term_merge_page')),('Ignore Terms',url_for('term_ignore_page'))),
-                            ('Cleaning',('Deduper',url_for('deduper_page')), ('Boilerplate Cleaner',url_for('boilerplate_page'))),
-                            ('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('compass_export_page'))),
-                            ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
-                            ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj')))]
     session['apps_to_show'] = [
         ('Topic',('Copy Topics',url_for('copy_topics_page')),('Delete Topics',url_for('delete_topics_page'))),
         ('Term',('Merge Terms',url_for('term_merge_page')),('Ignore Terms',url_for('term_ignore_page'))),
         ('Cleaning',('Deduper',url_for('deduper_page')), ('Boilerplate Cleaner',url_for('boilerplate_page'))),
         ('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('compass_export_page'))),
         ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
+        ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj'))),
         ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo')))]
     print(session['apps_to_show'])
     try:
