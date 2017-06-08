@@ -1,0 +1,136 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+    <script src="http://d3js.org/d3.v2.js"></script>
+    <style>
+
+path.line {
+    fill: none;
+    stroke: #666;
+    stroke-width: 1.5px;
+}
+
+input[type=text], select {
+    width: 100%;
+    padding: 12px 20px;
+    margin: 8px 0;
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+div.demo {
+    border-radius: 5px;
+    background-color: #f2f2f2;
+    padding: 20px;
+}
+
+.domain {
+    stroke-width: 1px;
+}
+
+circle {
+    cursor: pointer;
+}
+
+.axis {
+    shape-rendering: crispEdges;
+}
+
+.axis line, .axis path {
+    stroke-width: 1px;
+    stroke: #000;
+    fill: none;
+}
+
+.tooltip {
+    display: none;
+}
+
+.tooltip.active {
+    display: block;
+}
+
+.tooltip rect {
+    fill: #ff0000;
+}
+.demo {
+	border:1px solid #C0C0C0;
+	border-collapse:collapse;
+	padding:5px;
+}
+.demo th {
+	border:1px solid #C0C0C0;
+	padding:5px;
+	background:#F0F0F0;
+}
+.demo td {
+	border:1px solid #C0C0C0;
+	padding:5px;
+}
+    </style>
+
+</head>
+<body>
+
+    <div class="page-header"><p>
+       <h1>Search Documents/Terms using Conjunction, Disjunction & Negation</h1>
+    </div>
+
+      <div id="content">
+      <h3>Important Notes:</h3>
+      <h4>
+      <ul>  
+      <li>This utility will search an existing project for matching using a new type of logic to
+      find conjunctions (Term1 AND Term2), disjunctions (Term1 OR Term2) and negation (Term1 NOT Term2).</li>
+      </ul>
+      </h4>
+      <br>
+      <form method=POST>
+		
+		<table class=demo><tr style="vertical-align:top;"><tr><td colspan=4>
+        Analytics Project URL:
+        <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus></td></tr><td>
+	        Number of Records to Return: 
+			<select name="n">
+			  <option value="10">10</option>
+			  <option value="25">25</option>
+			  <option value="50">50</option>
+			  <option value="100">100</option>
+			</select><br></td><td>
+	        Type of Record to Search:<br>
+	        <input type="radio" name="unit" value="docs" checked> Documents <br>
+	        <input type="radio" name="unit" value="terms"> Terms <br><br></td><td>
+	        Type of Search Operation:<br>
+	        <input type="radio" name="operation" value="conjunction" checked> Conjunction(AND) <br>
+	        <input type="radio" name="operation" value="disjunction"> Disjunction(OR) <br>
+	        <input type="radio" name="operation" value="negation"> Negation(NOT) <br><br></td><td>
+	        Search Terms:
+	        <input type="text" name="search_terms" class="form-control" placeholder="disappointed,screen,suggest" required>
+	        Negated Terms:
+	        <input type="text" name="neg_terms" class="form-control" placeholder="cracked,broken,arrived">
+	        </td></tr>
+       </table> 
+        <input class="btn btn-primary btn-lg" name="search" type="submit" value="Search"/>
+        
+      </form>
+    {% if results|length>0 %}
+	<h2>{{ query_info }}</h2>
+	<table class='demo' width=100%>
+	<tr><th>Rank</th><th>New Result</th><th>New Score</th><th>Current API Result</th><th>Current API Score</th></tr>
+	{% for result in results %}
+	<tr valign=top><td width=4%>{{ loop.index }}</td>
+		<td width=45%>{{ result[0]['text'] }}</td>
+		<td width=3%>{{ '{0:.2}'.format(result[0]['score']) }}</td>
+		<td width=45%>{{ result[1]['text'] }}</td>
+		<td width=3%>{{ '{0:.2}'.format(result[1]['score']) }}</td></tr>
+	{% endfor %}
+	</table>
+	{% endif %}
+	
+{% endblock %}

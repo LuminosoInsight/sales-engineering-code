@@ -8,6 +8,7 @@ import numpy as np
 from boilerplate_utilities import BPDetector, boilerplate_create_proj
 from qualtrics_utilities import *
 import redis
+from conjunction_disjunction import get_new_results, get_current_results
 
 #Storage for live classifier demo
 classifiers = None
@@ -112,6 +113,51 @@ def live_classifier():
         results.append(result)
 
     return render_template('classifier.html', urls=session['apps_to_show'], results=results[::-1])
+@app.route('/conj_disj', methods=['POST','GET'])
+def conj_disj():
+    new_results = []
+    current_results = []
+    query_info = ''
+    
+    if request.method == 'POST':
+        url = request.form['url'].strip()
+        from_acct, from_proj = parse_url(url)
+        client = LuminosoClient.connect('/projects/{}/{}'.format(from_acct,from_proj), username=session['username'],
+                                            password=session['password'])
+        neg_terms = []
+        if len(request.form['neg_terms']) > 0:
+            neg_terms = request.form['neg_terms'].split(',')
+                    
+        new_results = get_new_results(client,
+                                  request.form['search_terms'].split(','),
+                                  neg_terms,
+                                  request.form['unit'],
+                                  int(request.form['n']),
+                                  request.form['operation'],
+                                  False)
+        
+        current_results = get_current_results(client,
+                                  request.form['search_terms'].split(','),
+                                  neg_terms,
+                                  '',
+                                  request.form['unit'],
+                                  int(request.form['n']),
+                                  False)
+        
+        connector = ' AND '
+        if request.form['operation'] == 'disjunction':
+            connector = ' OR '
+        
+        suffix = ''
+        if neg_terms:
+            suffix = ' NOT {}'.format(' '.join(neg_terms))
+            
+        query_info = 'Results for {}{}'.format(connector.join(request.form['search_terms'].split(',')),suffix)
+    
+    return render_template('conj_disj.html',
+                           urls=session['apps_to_show'],
+                           results=list(zip(new_results, current_results)),
+                           query_info=query_info)
 
 @app.route('/topic_utils')
 def topic_utils():
