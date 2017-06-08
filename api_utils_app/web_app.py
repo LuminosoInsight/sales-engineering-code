@@ -51,11 +51,6 @@ def login():
 def index():
     return render_template('index.html', urls=session['apps_to_show'])
 
-
-@app.route('/conj_disj', methods=['POST','GET'])
-def topic_utils():
-        return render_template('conj_disj.html', urls=session['apps_to_show'])
-
 @app.route('/classifier_demo', methods=['GET'])
 def classifier_demo():
     return render_template('setup_classifier.html', urls=session['apps_to_show'])
