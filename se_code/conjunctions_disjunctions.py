@@ -69,55 +69,46 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
     """
     scores = defaultdict(lambda: len(search_terms + neg_terms) * [0])
     exact_matches = defaultdict(lambda: False)
+    display_texts = {}
 
     # Get matching scores for top term, document pairs
     for i, term in enumerate(search_terms + neg_terms):
         search_results = client.get(unit + '/search', text=term, limit=10000)['search_results']
 
         for result, matching_strength in search_results:
-            doc_id = get_doc_id(result, unit)
+            if unit == 'docs':
+                _id = result['document']['_id']
+                display_texts[_id] = result['document']['text']
+            else:
+                _id = result['text']
+                display_texts[_id] = _id
 
             if i >= len(search_terms):
-                scores[doc_id][i] = fuzzy_not(normalize_score(matching_strength, unit))
+                scores[_id][i] = fuzzy_not(normalize_score(matching_strength, unit))
             else:
-                scores[doc_id][i] = normalize_score(matching_strength, unit)
+                scores[_id][i] = normalize_score(matching_strength, unit)
                 if hide_exact and result['exact_indices']:
-                    exact_matches[doc_id] = True
+                    exact_matches[_id] = True
 
     # Compute combined scores
     final_scores = []
-    for doc_id, doc_scores in scores.items():
+    for _id, doc_scores in scores.items():
         score = compute_score(doc_scores, operation, search_terms, neg_terms)
-        final_scores.append((doc_id, score))
+        final_scores.append((_id, score))
     final_scores = sorted(final_scores, key=lambda x: x[1] if not np.isnan(x[1]) else 0,
                           reverse=True)
 
     # Print scores
     display_count = 1
-    for doc_id, score in final_scores:
+    for _id, score in final_scores:
 
         if display_count > int(n):
             break
 
-        to_display = get_result_to_display(client, doc_id, exact_matches, hide_exact, unit)
-        if to_display:
-            print('{}.\t{}\t{}'.format(display_count, round(score, 2), to_display))
+        if not (hide_exact and exact_matches[_id]):
+            print('{}.\t{}\t{}'.format(display_count, round(score, 2), display_texts[_id]))
             print()
             display_count += 1
-
-
-def get_result_to_display(client, doc_id, exact_matches, hide_exact, unit):
-    to_display = ''
-    if unit == 'docs':
-        document = client.get('/docs', id=doc_id)
-        if hide_exact:
-            if not exact_matches[doc_id]:
-                to_display = document['text']
-        else:
-            to_display = document['text']
-    else:
-        to_display = doc_id
-    return to_display
 
 
 def compute_score(doc_scores, operation, search_terms, neg_terms):
@@ -145,13 +136,6 @@ def normalize_score(score, unit):
         return clamp(score)
     else:
         return tanh_clamp(score)
-
-
-def get_doc_id(result, unit):
-    if unit == 'terms':
-        return result['text']
-    else:
-        return result['document']['_id']
 
 
 @click.command()
