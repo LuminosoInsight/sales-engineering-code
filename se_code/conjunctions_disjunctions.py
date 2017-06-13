@@ -105,7 +105,6 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
         if display_count > int(n):
             break
 
-        # to_display = get_result_to_display(client, doc_id, exact_matches, hide_exact, unit)
         if not (hide_exact and exact_matches[_id]):
             print('{}.\t{}\t{}'.format(display_count, round(score, 2), display_texts[_id]))
             print()
