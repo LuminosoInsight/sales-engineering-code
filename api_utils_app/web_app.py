@@ -121,7 +121,6 @@ def live_classifier():
 def subset_search():
     
     global client, subset_stats, subset_vecs
-    project = ''
     
     if request.method == 'POST':
         if 'url' in request.form:
@@ -134,13 +133,17 @@ def subset_search():
             subset_stats = client.get('/subsets/stats')
             subset_vecs = [unpack64(s['mean']) for s in subset_stats]
         else:
+            project = client.get()['name']
             question = request.form['text']
             query_info, results = search_subsets(client, question, subset_vecs, subset_stats)
             return render_template('subset_search.html',
                                    urls=session['apps_to_show'],
                                    query_info=query_info,
-                                   results=results)
-
+                                   results=results,
+                                   project=project)
+    else:
+        project = ''
+        
     return render_template('subset_search.html', urls=session['apps_to_show'], project=project)
 
 @app.route('/conj_disj', methods=['POST','GET'])
