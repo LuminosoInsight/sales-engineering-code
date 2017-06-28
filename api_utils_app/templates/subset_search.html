@@ -1,0 +1,129 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+    <script src="http://d3js.org/d3.v2.js"></script>
+    <style>
+
+path.line {
+    fill: none;
+    stroke: #666;
+    stroke-width: 1.5px;
+}
+
+input[type=text], select {
+    width: 100%;
+    padding: 12px 20px;
+    margin: 8px 0;
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+div.demo {
+    border-radius: 5px;
+    background-color: #f2f2f2;
+    padding: 20px;
+}
+
+.domain {
+    stroke-width: 1px;
+}
+
+circle {
+    cursor: pointer;
+}
+
+.axis {
+    shape-rendering: crispEdges;
+}
+
+.axis line, .axis path {
+    stroke-width: 1px;
+    stroke: #000;
+    fill: none;
+}
+
+.tooltip {
+    display: none;
+}
+
+.tooltip.active {
+    display: block;
+}
+
+.tooltip rect {
+    fill: #ff0000;
+}
+.demo {
+	border:1px solid #C0C0C0;
+	border-collapse:collapse;
+	padding:5px;
+}
+.demo th {
+	border:1px solid #C0C0C0;
+	padding:5px;
+	background:#F0F0F0;
+}
+.demo td {
+	border:1px solid #C0C0C0;
+	padding:5px;
+}
+    </style>
+
+</head>
+<body>
+
+    <div class="page-header"><p>
+       <h1>Conceptual Feature Search V1.1</h1>
+    </div>
+
+      <div id="content">
+      <h3>Important Notes:</h3>
+      <h4>
+      <ul>  
+      <li>This utility will search the Edmunds project for the best subset (car) related to an
+      input question. The car, matching score and example verbatim will be returned.</li>
+      <li>Please use for internal testing purposes only, as data is proprietary.</li>
+      </ul>
+      </h4>
+      <br>
+      <form method=POST >
+        
+        <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
+        <input name='train' class="btn btn-lg btn-primary btn-block" type="submit" value="Load Project"/>
+        <br>
+        <span id="errorLogin">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+      <br>
+      <form method=POST>
+		
+        {% if project %}
+        What are you looking for in {{ project }}?:
+        {% else %}
+        Please load a project.
+        {% endif %}
+        <input type="text" name="text" class="form-control" placeholder="Comfortable, easy to use" required autofocus>
+        <input class="btn btn-primary btn-lg" name="search" type="submit" value="Search"/>
+        
+      </form>
+    {% if results|length>0 %}
+	<h2>{{ query_info }}</h2>
+	<table class='demo' width=100%>
+	<tr><th>Rank</th><th>Subset</th><th>Score</th><th>Example Review</th></tr>
+	{% for result in results %}
+	<tr valign=top><td width=4%>{{ loop.index }}</td>
+		<td width=45%>{{ result['car'] }}</td>
+		<td width=3%>{{ '{0:.2}'.format(result['score']) }}</td>
+		<td width=45%>{{ result['example_review'] }}</td></tr>
+	{% endfor %}
+	</table>
+	{% endif %}
+	
+{% endblock %}
