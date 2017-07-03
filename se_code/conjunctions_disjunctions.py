@@ -46,9 +46,9 @@ def get_current_results(client, search_terms, neg_terms, zero, unit, n, hide_exa
     # Save results
     results = []
     for result, score in search_results[start_idx:start_idx+n]:
-        results.append({'text':result['document']['text'],
-                        'doc_id':result['document']['_id'],
-                        'score':score})
+        results.append({'text': result['document']['text'],
+                        'doc_id': result['document']['_id'],
+                        'score': score})
 
     return results
 
@@ -93,9 +93,9 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
     # Save results
     results = []
     for _id, score in final_scores[:n]:
-        results.append({'text':display_texts[_id],
-                        '_id':_id,
-                        'score':score})
+        results.append({'text': display_texts[_id],
+                        '_id': _id,
+                        'score': score})
 
     return results
 
