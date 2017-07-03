@@ -85,8 +85,9 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
     # Compute combined scores
     final_scores = []
     for _id, doc_scores in scores.items():
-        score = compute_score(doc_scores, operation, search_terms, neg_terms)
-        final_scores.append((_id, score))
+         if len(doc_scores) == len(search_terms):
+            score = compute_score(doc_scores, operation, search_terms, neg_terms)
+            final_scores.append((_id, score))
     final_scores = sorted(final_scores, key=lambda x: x[1] if not np.isnan(x[1]) else 0,
                           reverse=True)
 
