@@ -69,6 +69,8 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
 
         for result, matching_strength in search_results:
             if unit == 'docs':
+                if hide_exact and result['exact_indices']:
+                    continue
                 _id = result['document']['_id']
                 display_texts[_id] = result['document']['text']
             else:
@@ -78,8 +80,7 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
             if i >= len(search_terms):
                 scores[_id][i] = fuzzy_not(normalize_score(matching_strength, unit))
             else:
-                if not (hide_exact and result['exact_indices']):
-                    scores[_id][i] = normalize_score(matching_strength, unit)
+                scores[_id][i] = normalize_score(matching_strength, unit)
 
     # Compute combined scores
     final_scores = []
