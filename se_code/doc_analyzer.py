@@ -16,7 +16,11 @@ def sample_iterator(iterator, sample_rate=10):
             yield item
 
 
-def create_sampled_project(account_client, project_name, infile, language=None, sample_rate=10):
+def create_sampled_project(account_client, project_name, infile, language, sample_rate=10):
+    """
+    Create a project from a sample of the documents that need to be analyzed,
+    and wait for it to be ready.
+    """
     info = account_client.post(name=project_name)
     project_id = info['project_id']
     print("Created project %r with ID %s" % (project_name, project_id))
@@ -29,10 +33,7 @@ def create_sampled_project(account_client, project_name, infile, language=None, 
         print('Uploaded batch #%d' % i)
 
     print('Calculating.')
-    kwargs = {}
-    if language is not None:
-        kwargs['language'] = language
-    job_id = project.post('docs/recalculate', **kwargs)
+    job_id = project.post('docs/recalculate', language=language)
     project.wait_for(job_id)
 
     # Return to the start of the file with our input documents
@@ -92,9 +93,21 @@ def sample_and_vectorize(account_client, project_name, infile, outfile, language
 @click.argument('infile', type=click.File('r', encoding='utf-8'))
 @click.argument('outfile', type=click.File('w', encoding='utf-8'))
 @click.option('--api-url', '-a', default='https://analytics.luminoso.com/api/v4')
-@click.option('--language', '-l', default=None)
+@click.option('--language', '-l', default='en')
 @click.option('--sample-rate', '-s', type=int, default=10)
 def main(account_id, project_name, username, infile, outfile, api_url, language, sample_rate):
+    """
+    Read a JSON stream of documents from `infile`, and write the analyzed
+    versions of them to `outfile`.
+
+    They will be analyzed according to the Luminoso project named `project_name`,
+    which will be created if it doesn't exist. If the project needs to be created,
+    it will be created from a 1/N sample of the documents, where N = `SAMPLE_RATE`.
+
+    If the project needs to be created, it will be analyzed in the given language,
+    which defaults to English. If the project already exists, the language option
+    will be ignored.
+    """
     account_url = '%s/projects/%s' % (api_url, account_id)
     account_client = LuminosoClient.connect(account_url, username=username)
     sample_and_vectorize(account_client, project_name, infile, outfile, language, sample_rate)
