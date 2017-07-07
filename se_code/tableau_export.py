@@ -73,7 +73,7 @@ def create_doc_table(client, docs, subsets, themes):
 
     for i, theme in enumerate(themes):
         search_terms = [t['text'] for t in theme['terms']]
-        theme['name'] = ' '.join(search_terms)
+        theme['name'] = ', '.join(search_terms)[:-2]
         theme['docs'] = get_new_results(client, search_terms, [], 'docs', 20, 'conjunction', False)
         xref_table.append({'Header': 'Theme {}'.format(i), 'Name': theme['name']})
 
@@ -139,7 +139,7 @@ def add_score_drivers_to_project(client, docs, drivers):
                 break
         sys.stderr.write('\r\tWaiting for recalculation ({}sec)'.format(time_waiting))
         time.sleep(30)
-        time_waiting += 1
+        time_waiting += 30
     print('Done recalculating. Training...')
     client.post('prediction/train')
     print('Done training.')
@@ -149,7 +149,7 @@ def create_themes_table(client, themes):
     print('Creating themes table...')
     for i, theme in enumerate(themes):
         search_terms = [t['text'] for t in theme['terms']]
-        theme['name'] = ' '.join(search_terms)
+        theme['name'] = ', '.join(search_terms)[:-2]
         theme['id'] = i
         theme['docs'] = sum([t['distinct_doc_count'] for t in theme['terms']])
         del theme['terms']
@@ -181,6 +181,7 @@ def create_drivers_table(client, drivers):
         for driver in score_drivers['positive']:
             row = {}
             row['driver'] = driver['text']
+            row['subset'] = subset
             row['impact'] = driver['regressor_dot']
             row['score'] = driver['driver_score']
 
