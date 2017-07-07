@@ -49,7 +49,7 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
             ])
             odds_ratio, pvalue = fisher_exact(table, alternative='greater')
             if pvalue < pvalue_cutoff:
-                subset_scores.append((subset, term['text'], odds_ratio, pvalue))
+                subset_scores.append((subset, term, odds_ratio, pvalue))
 
         subset_scores.sort(key=lambda x: (x[0], -x[2], x[1]))
         results.extend(subset_scores[:terms_per_subset])
@@ -71,8 +71,8 @@ def run(account_id, project_id, username, terms_per_subset,
                                  scan_terms=1000)
 
     print('Subset\tText\tOdds ratio\tUncorrected p-value')
-    for subset, text, fisher, pvalue in key_terms:
-        print('%s\t%s\t%6.5g\t%6.5g' % (subset, text, fisher, pvalue))
+    for subset, term, fisher, pvalue in key_terms:
+        print('%s\t%s\t%6.5g\t%6.5g' % (subset, term['text'], fisher, pvalue))
 
 
 
