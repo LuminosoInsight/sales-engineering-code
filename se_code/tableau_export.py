@@ -8,6 +8,7 @@ import csv
 import json
 import time
 import sys
+import datetime
 import argparse
 import numpy as np
 
@@ -55,11 +56,8 @@ def pull_lumi_data(account, project, term_count=1000, interval='day', themes=7, 
     themes = client.get('/terms/clusters/', num_clusters=themes, num_cluster_terms=theme_terms)
     terms = client.get('terms', limit=term_count)
     terms_doc_count = client.get('terms/doc_counts', limit=term_count, format='json')
-    terms = [dict(t, **tdc) for t, tdc in zip(terms, terms_doc_count)]
-    terms = {t['text']: t for t in terms}
-    timelines = client.get('topics/timeline_correlation', interval=interval, format='json')
     skt = subset_key_terms(client, 20)
-    return client, docs, topics, terms, subsets, drivers, skt, timelines, themes
+    return client, docs, topics, terms, subsets, drivers, skt, themes
 
 
 def create_doc_table(client, docs, subsets, themes):
@@ -149,7 +147,7 @@ def create_themes_table(client, themes):
     print('Creating themes table...')
     for i, theme in enumerate(themes):
         search_terms = [t['text'] for t in theme['terms']]
-        theme['name'] = ', '.join(search_terms)[:-2]
+        theme['name'] = ', '.join(search_terms)
         theme['id'] = i
         theme['docs'] = sum([t['distinct_doc_count'] for t in theme['terms']])
         del theme['terms']
@@ -199,9 +197,27 @@ def create_drivers_table(client, drivers):
     return driver_table
 
 
-#def create_trends_table():
-    
-    
+def create_trends_table(terms, topics, docs):
+    term_vecs = np.asarray([unpack64(t['vector']) for t in terms])
+    concept_list = [t['text'] for t in terms]
+
+    dated_docs = [d for d in docs if 'date' in d]
+    dated_docs.sort(key = lambda k: k['date'])
+    dates = np.asarray([[datetime.datetime.fromtimestamp(int(d['date'])).strftime('%Y-%m-%d %H:%M:%S')] for d in dated_docs])
+
+    doc_vecs = np.asarray([unpack64(t['vector']) for t in dated_docs])
+
+    results = np.dot(term_vecs, np.transpose(doc_vecs))
+    results = np.transpose(results)
+    idx = list(range(0, len(results)))
+    results = np.hstack((idx, results))
+    results = np.hstack((dates, results))
+    concept_list = ['Date','Index'].extend(concept_list)
+
+    trends_table = [{key:value for key, value in zip(concept_list, r)} for r in results]
+
+    return trends_table, trends_table
+
 #def create_prediction_table():
     
     
@@ -211,6 +227,9 @@ def create_drivers_table(client, drivers):
 def write_table_to_csv(table, filename):
 
     print('Writing to file {}.'.format(filename))
+    if len(table) == 0:
+        print('Warning: No data to write to {}.'.format(filename))
+        return
     with open(filename, 'w') as file:
         writer = csv.DictWriter(file, fieldnames=table[0].keys())
         writer.writeheader()
@@ -225,7 +244,7 @@ def main():
     parser.add_argument('project_id', help="The ID of the project to analyze, such as '2jsnm'")
     args = parser.parse_args()
 
-    client, docs, topics, terms, subsets, drivers, skt, timelines, themes = pull_lumi_data(args.account_id, args.project_id)
+    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id)
 
     doc_table, xref_table = create_doc_table(client, docs, subsets, themes)
     write_table_to_csv(doc_table, 'doc_table.csv')
@@ -239,6 +258,10 @@ def main():
 
     driver_table = create_drivers_table(client, drivers)
     write_table_to_csv(driver_table, 'drivers_table.csv')
+
+    trends_table, trendingterms_table = create_trends_table(terms, topics, docs)
+    write_table_to_csv(trends_table, 'trends_table.csv')
+    write_table_to_csv(trendingterms_table, 'trendingterms_table.csv')
 
 if __name__ == '__main__':
     main()
