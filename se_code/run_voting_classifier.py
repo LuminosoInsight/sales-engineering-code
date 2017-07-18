@@ -1,13 +1,19 @@
 import argparse
 import csv
 import numpy as np
+import sys
 import json
+import ntpath
 from sklearn.model_selection import train_test_split
 
 from luminoso_api import LuminosoClient
 from voting_classifier.util import train_classifier, classify_documents
 from voting_classifier.serialization import serialize, deserialize, validate
 
+
+def path_leaf(path):
+    head, tail = ntpath.split(path)
+    return tail or ntpath.basename(head)
 
 def extract_labels(labels):
     '''
@@ -106,7 +112,7 @@ def get_test_docs_from_file(filename, label_func=None):
 
 
 def classify_test_documents(train_client, test_docs, test_labels, classifiers,
-                            vectorizers, save_results=False):
+                            vectorizers, filename, save_results=False):
     '''
     Inputs:
 
@@ -127,7 +133,7 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
     classification = classify_documents(test_docs, classifiers, vectorizers)
 
     if save_results:
-        print('Savings results to results.csv file...')
+        print('Savings results to ' + filename +'.csv file...')
         results_dict = [dict({'text': z[0]['text'],
                               'truth': z[1],
                               'prediction': list(classifiers['simple'].classes_)[np.argmax(z[2])],
@@ -136,7 +142,7 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
                              **dict(zip(list(classifiers['simple'].classes_), z[2])))
                         for z in zip(test_docs, test_labels, classification)]
 
-        with open('results.csv', 'w', encoding='utf-8') as file:
+        with open(filename + '.csv', 'w', encoding='utf-8') as file:
             writer = csv.DictWriter(file, ['text', 'truth', 'prediction', 'correct', 'max_score'] +
                                     list(classifiers['simple'].classes_))
             writer.writeheader()
@@ -194,13 +200,16 @@ def main(args):
     if args.csv_file:
         test_docs, test_labels = get_test_docs_from_file(args.testing_data)
         train_docs, train_labels = get_all_docs(train_client, args.subset_field)
+        flag = 1
     elif args.testing_data == args.training_project_id:
         docs, labels = get_all_docs(train_client, args.subset_field)
         train_docs, test_docs, train_labels, test_labels = split_train_test(docs,labels,args.split)
+        flag = 2
     else:
         test_client = client.change_path('/projects/{}/{}'.format(args.account_id, args.testing_data))
         train_docs, train_labels = get_all_docs(train_client, args.subset_field)
         test_docs, test_labels = get_all_docs(test_client, args.subset_field)
+        flag = 3
 
     if args.pickle_path:
         try:
@@ -228,11 +237,16 @@ def main(args):
                     *return_label(new_text, classifiers, vectorizers, train_client))
                       )
     else:
-
+        if flag == 1:
+            filename = path_leaf(args.testing_data)
+        elif flag == 2:
+            filename = train_client.get()['name']
+        else:
+            filename = test_client.get()['name']
         print('Testing classifier...')
         classification = classify_test_documents(
             train_client, test_docs, test_labels, classifiers,
-            vectorizers, args.save_results
+            vectorizers, filename, args.save_results
             )
         print('Test Accuracy:{:.2%}'.format(
             score_results(test_labels, classifiers, classification))
@@ -288,7 +302,7 @@ if __name__ == '__main__':
         )
     parser.add_argument(
         '-s', '--save_results', default=False, action='store_true',
-        help="Save the results of the test set to a CSV file named results.csv"
+        help="Save the results of the test set to a CSV file named after the file or project name"
         )
     parser.add_argument(
         '-p', '--pickle_path',
@@ -297,7 +311,7 @@ if __name__ == '__main__':
         )
     parser.add_argument(
         '-z', '--split',
-        help="Fraction of documents to hold for testing set. (.3 = 30%)"
+        help="Fraction of documents to hold for testing set. (.3 = 30%%) "
         "For when training/testing documents are in the same project.",
         default=.3
         )
