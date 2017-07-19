@@ -98,7 +98,10 @@ def get_test_docs_from_file(filename, label_func=None):
             if label_func:
                 label = label_func(doc['label'])
             else:
-                label = doc['label'].strip()
+                if 'label' in doc:
+                    label = doc['label'].strip()
+                else:
+                    label = ''
 
             if label is None:
                 continue
@@ -110,9 +113,9 @@ def get_test_docs_from_file(filename, label_func=None):
 
     return all_docs, all_labels
 
-
+# ADDED FLAG
 def classify_test_documents(train_client, test_docs, test_labels, classifiers,
-                            vectorizers, filename, save_results=False):
+                            vectorizers, filename, flag, save_results=False):
     '''
     Inputs:
 
@@ -128,27 +131,38 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
     Returns a list of classes assigned to the documents in order, and the
     decision matrix, whose dimensions are (n_docs, n_classes).
     '''
-
     test_docs = train_client.upload('docs/vectors', test_docs)
     classification = classify_documents(test_docs, classifiers, vectorizers)
-
+    
     if save_results:
-        print('Savings results to ' + filename +'.csv file...')
-        results_dict = [dict({'text': z[0]['text'],
-                              'truth': z[1],
-                              'prediction': list(classifiers['simple'].classes_)[np.argmax(z[2])],
-                              'correct': z[1]==list(classifiers['simple'].classes_)[np.argmax(z[2])],
-                              'max_score': np.max(z[2])},
-                             **dict(zip(list(classifiers['simple'].classes_), z[2])))
-                        for z in zip(test_docs, test_labels, classification)]
+        print('Saving results to ' + filename +'.csv file...')
+        if flag == 3:
+            results_dict = [dict({'text': z[0]['text'],
+                                  'label': list(classifiers['simple'].classes_)[np.argmax(z[2])],
+                                  'max_score': np.max(z[2])},
+                                 **dict(zip(list(classifiers['simple'].classes_), z[2])))
+                            for z in zip(test_docs, test_labels, classification)]
+        else:    
+            results_dict = [dict({'text': z[0]['text'],
+                                  'truth': z[1],
+                                  'prediction': list(classifiers['simple'].classes_)[np.argmax(z[2])],
+                                  'correct': z[1]==list(classifiers['simple'].classes_)[np.argmax(z[2])],
+                                  'max_score': np.max(z[2])},
+                                 **dict(zip(list(classifiers['simple'].classes_), z[2])))
+                            for z in zip(test_docs, test_labels, classification)]
 
         with open(filename + '.csv', 'w', encoding='utf-8') as file:
-            writer = csv.DictWriter(file, ['text', 'truth', 'prediction', 'correct', 'max_score'] +
+            if flag == 3:
+                writer = csv.DictWriter(file, ['text', 'label', 'max_score'] + 
+                                        list(classifiers['simple'].classes_))
+            else:
+                writer = csv.DictWriter(file, ['text', 'truth', 'prediction', 'correct', 'max_score'] +
                                     list(classifiers['simple'].classes_))
             writer.writeheader()
             writer.writerows(results_dict)
-
+    
     return classification
+        
 
 
 def return_label(new_text, classifiers, vectorizers, train_client):
@@ -197,6 +211,7 @@ def main(args):
     train_client = client.change_path('/projects/{}/{}'.format(args.account_id, args.training_project_id))
 
     print('Loading Testing & Training documents...')
+    # ADDED FLAG
     if args.csv_file:
         test_docs, test_labels = get_test_docs_from_file(args.testing_data)
         train_docs, train_labels = get_all_docs(train_client, args.subset_field)
@@ -205,12 +220,36 @@ def main(args):
         docs, labels = get_all_docs(train_client, args.subset_field)
         train_docs, test_docs, train_labels, test_labels = split_train_test(docs,labels,args.split)
         flag = 2
+    # ADDED FOURTH OPTION
+    elif args.no_test:
+        test_client = client.change_path('/projects/{}/{}'.format(args.account_id, args.testing_data))
+        train_docs, train_labels = get_all_docs(train_client, args.subset_field)
+        #test_docs = test_client.get('docs')
+        test_docs = []
+        offset = 0
+        batch_size = 20000
+        newdocs = test_client.get('docs', offset=offset, limit=batch_size)
+        test_docs.extend(newdocs)
+        offset += batch_size
+        while newdocs:
+            newdocs = test_client.get('docs', offset=offset, limit=batch_size)
+            #if not newdocs:
+            #    break
+            test_docs.extend(newdocs)
+            offset += batch_size
+            
+        test_labels = []
+        for i in range(0, len(test_docs)):
+            test_labels.append('Other')
+        flag = 3
+        print(len(test_docs))
     else:
         test_client = client.change_path('/projects/{}/{}'.format(args.account_id, args.testing_data))
         train_docs, train_labels = get_all_docs(train_client, args.subset_field)
         test_docs, test_labels = get_all_docs(test_client, args.subset_field)
-        flag = 3
+        flag = 4
 
+    
     if args.pickle_path:
         try:
             classifiers, vectorizers, _, _ = deserialize(args.pickle_path)
@@ -237,6 +276,7 @@ def main(args):
                     *return_label(new_text, classifiers, vectorizers, train_client))
                       )
     else:
+    # ADDED FLAG SEPARATION
         if flag == 1:
             filename = path_leaf(args.testing_data)
         elif flag == 2:
@@ -246,11 +286,12 @@ def main(args):
         print('Testing classifier...')
         classification = classify_test_documents(
             train_client, test_docs, test_labels, classifiers,
-            vectorizers, filename, args.save_results
-            )
-        print('Test Accuracy:{:.2%}'.format(
-            score_results(test_labels, classifiers, classification))
-            )
+            vectorizers, filename, flag, args.save_results
+        )
+        if flag != 3:
+            print('Test Accuracy:{:.2%}'.format(
+                  score_results(test_labels, classifiers, classification))
+                 )
 
 if __name__ == '__main__':
     '''
@@ -314,6 +355,11 @@ if __name__ == '__main__':
         help="Fraction of documents to hold for testing set. (.3 = 30%%) "
         "For when training/testing documents are in the same project.",
         default=.3
+        )
+    # ADDED THIS
+    parser.add_argument(
+        '-n', '--no_test', default=False, action='store_true',
+        help="Simply run the classifier, do not compare to validation set (Because there is no validation label data."
         )
     args = parser.parse_args()
     main(args)
