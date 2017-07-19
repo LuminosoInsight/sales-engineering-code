@@ -124,9 +124,8 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
     '''
 
     batched_test_docs = []
-    quarter_size = int(len(test_docs) / 4)
-    for i in range(0, len(test_docs), quarter_size):
-        batched_test_docs.append(test_docs[i:i+quarter_size])
+    for i in range(0, len(test_docs), 5000):
+        batched_test_docs.append(test_docs[i:i+5000])
     for batch in batched_test_docs:
         test_docs = train_client.upload('docs/vectors', batch)
 
