@@ -125,7 +125,7 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
 
     processed_test_docs = []
     for i in range(0, len(test_docs), 5000):
-       processed_test_docs.extend(train_client.upload(test_docs[i:i+5000]))
+        processed_test_docs.extend(train_client.upload('docs/vectors', test_docs[i:i+5000]))
 
     classification = classify_documents(processed_test_docs, classifiers, vectorizers)
 
