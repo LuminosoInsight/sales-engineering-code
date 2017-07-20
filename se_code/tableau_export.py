@@ -209,12 +209,16 @@ def create_trends_table(terms, topics, docs):
 
     results = np.dot(term_vecs, np.transpose(doc_vecs))
     results = np.transpose(results)
-    idx = list(range(0, len(results)))
+    idx = [[x] for x in list(range(0, len(results)))]
     results = np.hstack((idx, results))
     results = np.hstack((dates, results))
-    concept_list = ['Date','Index'].extend(concept_list)
+    headers = ['Date','Index']
+    headers.extend(concept_list)
 
-    trends_table = [{key:value for key, value in zip(concept_list, r)} for r in results]
+    trends_table = [{key:value for key, value in zip(headers, r)} for r in results]
+    #for concept in concept_list:
+        
+    #trendingterms_table = 
 
     return trends_table, trends_table
 
