@@ -123,11 +123,9 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
     decision matrix, whose dimensions are (n_docs, n_classes).
     '''
 
-    batched_test_docs = []
+
     for i in range(0, len(test_docs), 5000):
-        batched_test_docs.append(test_docs[i:i+5000])
-    for batch in batched_test_docs:
-        test_docs = train_client.upload('docs/vectors', batch)
+       train_client.upload(test_docs[i:i+5000])
 
     classification = classify_documents(test_docs, classifiers, vectorizers)
 
