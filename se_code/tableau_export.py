@@ -3,6 +3,7 @@ from pack64 import unpack64
 import run_voting_classifier # need accuracy/coverage chart
 from conjunctions_disjunctions import get_new_results
 from subset_key_terms import subset_key_terms
+from scipy.stats import linregress
 
 import csv
 import json
@@ -211,16 +212,17 @@ def create_trends_table(terms, topics, docs):
     results = np.transpose(results)
     idx = [[x] for x in list(range(0, len(results)))]
     results = np.hstack((idx, results))
-    results = np.hstack((dates, results))
+
     headers = ['Date','Index']
     headers.extend(concept_list)
 
-    trends_table = [{key:value for key, value in zip(headers, r)} for r in results]
-    #for concept in concept_list:
-        
-    #trendingterms_table = 
+    slopes = [linregress(results[:,x+1],results[:,0])[0] for x in range(len(results[0])-1)]
 
-    return trends_table, trends_table
+    results = np.hstack((dates, results))
+    trends_table = [{key:value for key, value in zip(headers, r)} for r in results]
+    trendingterms_table = [{'Term':term, 'Slope':slope} for term, slope in zip(concept_list, slopes)]
+
+    return trends_table, trendingterms_table
 
 #def create_prediction_table():
     
