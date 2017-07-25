@@ -9,6 +9,7 @@ from boilerplate_utilities import BPDetector, boilerplate_create_proj
 from qualtrics_utilities import *
 import redis
 from conjunction_disjunction import get_new_results, get_current_results
+from text_filter import filter_project
 
 #Storage for live classifier demo
 classifiers = None
@@ -37,7 +38,8 @@ def login():
         ('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('compass_export_page'))),
         ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
         ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj'))),
-        ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo')))]
+        ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo'))),
+        ('Filter', ('Text Filter', url_for('text_filter_page')))]
     print(session['apps_to_show'])
     try:
         LuminosoClient.connect('/projects/', username=session['username'],
@@ -189,6 +191,28 @@ def topic_utils_delete():
     #NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
     return render_template('delete_topics.html', urls=session['apps_to_show'])
 
+@app.route('/text_filter', methods=['POST'])
+def text_filter():
+    url = request.form['url'].strip()
+    from_acct, from_proj = parse_url(url)
+    client = LuminosoClient.connect('/projects/', username=session['username'],
+                                               password=session['password'])
+    text = request.form['remove'].strip()
+    #exact = (request.form['exact'] == 'on')
+    exact = (request.form.get('exact') == 'on')
+    reconcile = (request.form.get('reconcile') == 'unrelated')
+    name = request.form['dest_name'].strip()
+    #branch = (request.form['branch'] == 'on')
+    branch = (request.form.get('branch') == 'on')
+    filter_project(client=client, acc_id=from_acct, proj_id=from_proj, branch_name=name, 
+                   text=text, not_related=reconcile, branch=branch, exact=exact)
+    return render_template('text_filter.html', urls=session['apps_to_show'])
+    #return jsonify(filter_project(from_acct, from_proj, name, text, reconcile, branch, exact))
+
+@app.route('/text_filter_page')
+def text_filter_page():
+    return render_template('text_filter.html', urls=session['apps_to_show'])
+
 @app.route('/term_utils')
 def term_utils():
     return render_template('term_utils.html', urls=session['apps_to_show'])
@@ -247,6 +271,7 @@ def dedupe_util():
     url = request.args.get('url', 0, type=str)
     acct, proj = parse_url(url)
     copy = (request.args.get('copy') == 'true')
+    print(copy)
     recalc = (request.args.get('recalc') == 'true')
     reconcile = request.args.get('reconcile')
     cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,

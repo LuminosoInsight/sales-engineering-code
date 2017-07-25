@@ -133,16 +133,52 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
     '''
     test_docs = train_client.upload('docs/vectors', test_docs)
     classification = classify_documents(test_docs, classifiers, vectorizers)
+    percentage = .1
     
     if save_results:
-        print('Saving results to ' + filename +'.csv file...')
+        results_dict = []
+#        for z in zip(test_docs, test_labels, classification):
+#            text = z[0]['text']
+#            truth = z[1]
+#            max_score = np.max(z[2])
+#            max_index = np.argmax(z[2])
+#            difference = percentage * max_score
+#            dif_threshold = max_score - difference
+#            class_list = list(classifiers['simple'].classes_)
+#            max_is_correct = True
+#            prediction = args.unclassified
+             #This line enforces a high enough score
+#            max_past_threshold = max_score > args.assoc_threshold
+#            if max_past_threshold:
+#                for i in range(0, len(z[2])):
+#                    if z[2][i] > dif_threshold and i != max_index:
+#                        max_is_correct = False
+#                if max_is_correct:
+#                    prediction = class_list[max_index]
+#            if flag == 3:
+#                results_dict.append(dict({'text': text,
+#                                          'label': prediction,
+#                                          'max_score': max_score},
+#                                        **dict(zip(class_list, z[2]))))
+#            else:
+#                results_dict.append(dict({'text': text,
+#                                          'truth': truth,
+#                                          'prediction': prediction,
+#                                          'correct': z[1] == prediction,
+                                          
+#                                          'max_score': max_score},
+#                                     **dict(zip(class_list, z[2]))))
+#        print('Saving results to ' + filename +'.csv file...')
+
+# MAX (replaces entire for loop):    
         if flag == 3:
             results_dict = [dict({'text': z[0]['text'],
                                   'label': list(classifiers['simple'].classes_)[np.argmax(z[2])],
                                   'max_score': np.max(z[2])},
                                  **dict(zip(list(classifiers['simple'].classes_), z[2])))
                             for z in zip(test_docs, test_labels, classification)]
-        else:    
+        else:
+            
             results_dict = [dict({'text': z[0]['text'],
                                   'truth': z[1],
                                   'prediction': list(classifiers['simple'].classes_)[np.argmax(z[2])],
@@ -150,7 +186,8 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
                                   'max_score': np.max(z[2])},
                                  **dict(zip(list(classifiers['simple'].classes_), z[2])))
                             for z in zip(test_docs, test_labels, classification)]
-
+        if args.pickle_path:
+            filename = args.pickle_path + '/' + filename
         with open(filename + '.csv', 'w', encoding='utf-8') as file:
             if flag == 3:
                 writer = csv.DictWriter(file, ['text', 'label', 'max_score'] + 
@@ -326,6 +363,11 @@ if __name__ == '__main__':
         'followed by a colon, such as "Label: positive".'
         )
     parser.add_argument(
+        'unclassified',
+        help='The name of the subset that you want all unclassified data to be '
+        'sorted into.'
+        )
+    parser.add_argument(
         '-u', '--username',
         help='Username (email) of Luminoso account'
         )
@@ -344,6 +386,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '-s', '--save_results', default=False, action='store_true',
         help="Save the results of the test set to a CSV file named after the file or project name"
+        )
+    parser.add_argument(
+        '-t', '--assoc_threshold', default=.3,
+        help="The minimum score needed for a document to be considered for classification."
         )
     parser.add_argument(
         '-p', '--pickle_path',
