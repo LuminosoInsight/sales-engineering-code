@@ -120,7 +120,7 @@ def filter_project(client, acc_id, proj_id, branch_name, text, not_related=False
     docs_id = create_id_list(iterations, docs, negate)
    
     if branch:
-        if branch_name = '':
+        if branch_name == '':
             branch_name = proj.get()['name'] + '_branched({})'.format(to_branch)
         branch_project(proj, branch_name, text, docs_id)
     delete_docs(proj, docs_id, 600)
