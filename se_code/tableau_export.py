@@ -67,6 +67,8 @@ def create_doc_table(client, docs, subsets, themes):
     doc_table = []
     xref_table = []
     subset_headings = list(set([s['subset'].partition(':')[0] for s in subsets]))
+    all_index = subset_headings.index('__all__')
+    del subset_headings[all_index]
     subset_headings = {s: i for i, s in enumerate(subset_headings)}
     xref_table.extend([{'Header': 'Subset {}'.format(n), 'Name': h} for h,n in subset_headings.items()])
 
@@ -84,6 +86,7 @@ def create_doc_table(client, docs, subsets, themes):
             row['doc_date'] = doc['date']
         else:
             row['doc_date'] = 0
+        # changed from subset # to subset (name)
         row.update({'Subset {}'.format(i): '' for i in range(len(subset_headings))})
         row.update({'Subset {}_centrality'.format(i): 0 for i in range(len(subset_headings))})
 
@@ -115,7 +118,8 @@ def create_skt_table(client, skt):
                   'odds_ratio': o,
                   'p_value': p,
                   'exact_matches': terms[t['text']]['num_exact_matches'],
-                  'conceptual_matches': terms[t['text']]['num_related_matches']}
+                  'conceptual_matches': terms[t['text']]['num_related_matches'],
+                  'total_matches': terms[t['text']]['num_exact_matches'] + terms[t['text']]['num_related_matches']}
                  for s, t, o, p in skt]
     return skt_table
 
@@ -149,7 +153,8 @@ def create_themes_table(client, themes):
     for i, theme in enumerate(themes):
         search_terms = [t['text'] for t in theme['terms']]
         theme['name'] = ', '.join(search_terms)
-        theme['id'] = i
+        # Changed from numerical to "Theme #"
+        theme['id'] = 'Theme {}'.format(i)
         theme['docs'] = sum([t['distinct_doc_count'] for t in theme['terms']])
         del theme['terms']
     return themes
@@ -165,6 +170,19 @@ def create_drivers_table(client, drivers):
             row['subset'] = subset
             row['impact'] = driver['regressor_dot']
             row['score'] = driver['driver_score']
+            # ADDED RELATED TERMS
+            related_terms = driver['similar_terms']
+            list_terms = client.get('terms', terms=related_terms)
+            related_text = []
+            for term in list_terms:
+                related_text.append(term['text'])
+            row['related_terms'] = related_text
+            doc_count = client.get('terms/doc_counts', terms=related_terms, use_json=True)
+            count_sum = 0
+            for doc_dict in doc_count:
+                count_sum += doc_dict['num_exact_matches']
+            row['doc_count'] = count_sum
+            
     
             # Use the driver term to find related documents
             search_docs = client.get('docs/search', terms=[driver['term']], limit=500, exact_only=True)
@@ -176,6 +194,8 @@ def create_drivers_table(client, drivers):
 
             docs = sorted(search_docs['search_results'], key=lambda k: k[0]['document']['driver_as'])
             row['example_doc'] = docs[0][0]['document']['text']
+            row['example_doc2'] = docs[1][0]['document']['text']
+            row['example_doc3'] = docs[2][0]['document']['text']
             driver_table.append(row)
         for driver in score_drivers['positive']:
             row = {}
@@ -183,6 +203,17 @@ def create_drivers_table(client, drivers):
             row['subset'] = subset
             row['impact'] = driver['regressor_dot']
             row['score'] = driver['driver_score']
+            related_terms = driver['similar_terms']
+            list_terms = client.get('terms', terms=related_terms)
+            related_text = []
+            for term in list_terms:
+                related_text.append(term['text'])
+            row['related_terms'] = related_text
+            doc_count = client.get('terms/doc_counts', terms=related_terms, use_json=True)
+            count_sum = 0
+            for doc_dict in doc_count:
+                count_sum += doc_dict['num_exact_matches']
+            row['doc_count'] = count_sum
 
             # Use the driver term to find related documents
             search_docs = client.get('docs/search', terms=[driver['term']], limit=500, exact_only=True)
@@ -194,7 +225,10 @@ def create_drivers_table(client, drivers):
 
             docs = sorted(search_docs['search_results'], key=lambda k: -k[0]['document']['driver_as'])
             row['example_doc'] = docs[0][0]['document']['text']
+            row['example_doc2'] = docs[1][0]['document']['text']
+            row['example_doc3'] = docs[2][0]['document']['text']
             driver_table.append(row)
+    
     return driver_table
 
 
@@ -207,22 +241,64 @@ def create_trends_table(terms, topics, docs):
     dates = np.asarray([[datetime.datetime.fromtimestamp(int(d['date'])).strftime('%Y-%m-%d %H:%M:%S')] for d in dated_docs])
 
     doc_vecs = np.asarray([unpack64(t['vector']) for t in dated_docs])
+    
+    if len(doc_vecs) > 0:
 
-    results = np.dot(term_vecs, np.transpose(doc_vecs))
-    results = np.transpose(results)
-    idx = [[x] for x in list(range(0, len(results)))]
-    results = np.hstack((idx, results))
+        results = np.dot(term_vecs, np.transpose(doc_vecs))
+        results = np.transpose(results)
+        idx = [[x] for x in range(0, len(results))]
+        results = np.hstack((idx, results))
 
-    headers = ['Date','Index']
-    headers.extend(concept_list)
+        headers = ['Date','Index']
+        headers.extend(concept_list)
 
-    slopes = [linregress(results[:,x+1],results[:,0])[0] for x in range(len(results[0])-1)]
+        tenth = int(.9 * len(results))
+        quarter = int(.75 * len(results))
+        half = int(.5 * len(results))
 
-    results = np.hstack((dates, results))
-    trends_table = [{key:value for key, value in zip(headers, r)} for r in results]
-    trendingterms_table = [{'Term':term, 'Slope':slope} for term, slope in zip(concept_list, slopes)]
+        slopes = [linregress(results[:,x+1],results[:,0])[0] for x in range(len(results[0])-1)]
+        slope_ranking = zip(concept_list, slopes)
+        slope_ranking = sorted(slope_ranking, key=lambda rank:rank[1])
+        slope_ranking = slope_ranking[::-1]
 
+        tenth_slopes = [linregress(results[tenth:,x+1],results[tenth:,0])[0] for x in range(len(results[0]) - 1)]
+        tenth_slope_ranking = zip(concept_list, tenth_slopes)
+        tenth_slope_ranking = sorted(tenth_slope_ranking, key=lambda rank:rank[1])
+        tenth_slope_ranking = tenth_slope_ranking[::-1]
+
+        quarter_slopes = [linregress(results[quarter:,x+1],results[quarter:,0])[0] for x in range(len(results[0]) - 1)]
+        quarter_slope_ranking = zip(concept_list, quarter_slopes)
+        quarter_slope_ranking = sorted(quarter_slope_ranking, key=lambda rank:rank[1])
+        quarter_slope_ranking = quarter_slope_ranking[::-1]
+
+        half_slopes = [linregress(results[half:,x+1],results[half:,0])[0] for x in range(len(results[0]) - 1)]
+        half_slope_ranking = zip(concept_list, half_slopes)
+        half_slope_ranking = sorted(half_slope_ranking, key=lambda rank:rank[1])
+        half_slope_ranking = half_slope_ranking[::-1]
+
+        results = np.hstack((dates, results))
+        trends_table = [{key:value for key, value in zip(headers, r)} for r in results]
+        trendingterms_table = [{'Term':term, 
+                                'Slope':slope, 
+                                'Rank':slope_ranking.index((term, slope)) + 1, 
+                                'Tenth term slope':tenth_slope, 
+                                'Tenth term rank':tenth_slope_ranking.index((term, tenth_slope)) + 1, 
+                                'Quarter term slope':quarter_slope,
+                                'Quarter term rank':quarter_slope_ranking.index((term, quarter_slope)) + 1, 
+                                'Half term slope':half_slope, 
+                                'Half term rank':half_slope_ranking.index((term, half_slope)) + 1}
+                               for term, slope, tenth_slope, quarter_slope, half_slope in zip(concept_list, slopes, tenth_slopes, quarter_slopes, half_slopes)]
+    else:
+        trends_table = []
+        trendingterms_table = []
     return trends_table, trendingterms_table
+
+#def create_prediction_table():
+    
+    
+#def create_pairings_table():
+    
+    
 
 #def create_prediction_table():
     
