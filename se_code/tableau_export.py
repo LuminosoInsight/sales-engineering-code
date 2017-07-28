@@ -66,17 +66,27 @@ def create_doc_table(client, docs, subsets, themes):
     print('Creating doc table...')
     doc_table = []
     xref_table = []
-    subset_headings = list(set([s['subset'].partition(':')[0] for s in subsets]))
-    all_index = subset_headings.index('__all__')
-    del subset_headings[all_index]
+    subset_headings = set([s['subset'].partition(':')[0] for s in subsets])
+    #all_index = subset_headings.index('__all__')
+    #del subset_headings[all_index]
+    subset_headings.remove('__all__')
     subset_headings = {s: i for i, s in enumerate(subset_headings)}
-    xref_table.extend([{'Header': 'Subset {}'.format(n), 'Name': h} for h,n in subset_headings.items()])
+    info = []
+    header = []
+    for h,n in subset_headings.items():
+        header.append('Subset {}'.format(n))
+        info.append(h)
+   # xref_table.extend([{'Header': 'Subset {}'.format(n), 'Name': h} for h,n in subset_headings.items()])
 
     for i, theme in enumerate(themes):
         search_terms = [t['text'] for t in theme['terms']]
         theme['name'] = ', '.join(search_terms)[:-2]
         theme['docs'] = get_new_results(client, search_terms, [], 'docs', 20, 'conjunction', False)
-        xref_table.append({'Header': 'Theme {}'.format(i), 'Name': theme['name']})
+        #xref_table.append({'Header': 'Theme {}'.format(i), 'Name': theme['name']})
+        header.append('Theme {}'.format(i))
+        info.append(theme['name'])
+        
+        
 
     for doc in docs:
         row = {}
@@ -102,8 +112,13 @@ def create_doc_table(client, docs, subsets, themes):
             if doc['_id'] in [d['_id'] for d in theme['docs']]:
                 row['Theme {}'.format(i)] = [d['score'] for d in theme['docs'] if d['_id'] == doc['_id']][0]
         doc_table.append(row)
+    xref_table = []
+    xref_dic = {}
+    for i in range(len(header)):
+        ref_dic = {header[i]:info[i]}
+        xref_dic.update(ref_dic)
+    xref_table.append(xref_dic)
     return doc_table, xref_table
-
 
 def create_skt_table(client, skt):
 
@@ -277,7 +292,14 @@ def create_trends_table(terms, topics, docs):
         half_slope_ranking = half_slope_ranking[::-1]
 
         results = np.hstack((dates, results))
-        trends_table = [{key:value for key, value in zip(headers, r)} for r in results]
+        #trends_table = [{key:value for key, value in zip(headers, r)} for r in results]
+        trends_table = []
+        for i in range(len(results)):
+            for j in range(len(concept_list)):
+                trends_table.append({'Date':results[i][0],
+                                     'Index':results[i][1],
+                                     'Term':concept_list[j],
+                                     'Score':results[i][j + 2]})
         trendingterms_table = [{'Term':term, 
                                 'Slope':slope, 
                                 'Rank':slope_ranking.index((term, slope)) + 1, 
