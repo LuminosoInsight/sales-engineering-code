@@ -10,6 +10,7 @@ from qualtrics_utilities import *
 import redis
 from conjunction_disjunction import get_new_results, get_current_results
 from text_filter import filter_project
+from auto_plutchik import get_all_topics, delete_all_topics, add_plutchik, copy_project
 
 #Storage for live classifier demo
 classifiers = None
@@ -39,7 +40,7 @@ def login():
         ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
         ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj'))),
         ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo'))),
-        ('Filter', ('Text Filter', url_for('text_filter_page')))]
+        ('Modify', ('Text Filter', url_for('text_filter_page')), ('Auto Emotions', url_for('plutchik_page')))]
     print(session['apps_to_show'])
     try:
         LuminosoClient.connect('/projects/', username=session['username'],
@@ -208,7 +209,32 @@ def text_filter():
                    text=text, not_related=reconcile, branch=branch, exact=exact)
     return render_template('text_filter.html', urls=session['apps_to_show'])
     #return jsonify(filter_project(from_acct, from_proj, name, text, reconcile, branch, exact))
+    
+@app.route('/plutchik', methods=['POST'])
+def plutchik():
+    url = request.form['url'].strip()
+    from_acct, from_proj = parse_url(url)
+    client = LuminosoClient.connect('/projects/', username=session['username'],
+                                                password=session['password'])
+    client = client.change_path('/')
+    client = client.change_path('/projects/{}/{}'.format(from_acct, from_proj))
+    delete = (request.form.get('delete') == 'on')
+    name = request.form['dest_name'].strip()
+    copy = (request.form.get('copy') == 'on')
+    
+    topic_list = get_all_topics(client)
+    if copy:
+        client = copy_project(client, from_acct, name)
+    if delete:
+        delete_all_topics(client, topic_list)
+    add_plutchik(client)
+    return render_template('auto_plutchik.html', urls=session['apps_to_show'])
+    
 
+@app.route('/plutchik_page')
+def plutchik_page():
+    return render_template('auto_plutchik.html', urls=session['apps_to_show'])
+    
 @app.route('/text_filter_page')
 def text_filter_page():
     return render_template('text_filter.html', urls=session['apps_to_show'])
