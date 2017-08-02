@@ -271,22 +271,22 @@ def create_trends_table(terms, topics, docs):
         quarter = int(.75 * len(results))
         half = int(.5 * len(results))
 
-        slopes = [linregress(results[:,x+1],results[:,0])[0] for x in range(len(results[0])-1)]
+        slopes = [linregress(results[:,0], results[:,x+1])[0] for x in range(len(results[0])-1)]
         slope_ranking = zip(concept_list, slopes)
         slope_ranking = sorted(slope_ranking, key=lambda rank:rank[1])
         slope_ranking = slope_ranking[::-1]
 
-        tenth_slopes = [linregress(results[tenth:,x+1],results[tenth:,0])[0] for x in range(len(results[0]) - 1)]
+        tenth_slopes = [linregress(results[tenth:,0], results[tenth:,x+1])[0] for x in range(len(results[0]) - 1)]
         tenth_slope_ranking = zip(concept_list, tenth_slopes)
         tenth_slope_ranking = sorted(tenth_slope_ranking, key=lambda rank:rank[1])
         tenth_slope_ranking = tenth_slope_ranking[::-1]
 
-        quarter_slopes = [linregress(results[quarter:,x+1],results[quarter:,0])[0] for x in range(len(results[0]) - 1)]
+        quarter_slopes = [linregress(results[quarter:,0], results[quarter:,x+1])[0] for x in range(len(results[0]) - 1)]
         quarter_slope_ranking = zip(concept_list, quarter_slopes)
         quarter_slope_ranking = sorted(quarter_slope_ranking, key=lambda rank:rank[1])
         quarter_slope_ranking = quarter_slope_ranking[::-1]
 
-        half_slopes = [linregress(results[half:,x+1],results[half:,0])[0] for x in range(len(results[0]) - 1)]
+        half_slopes = [linregress(results[half:,0], results[half:,x+1])[0] for x in range(len(results[0]) - 1)]
         half_slope_ranking = zip(concept_list, half_slopes)
         half_slope_ranking = sorted(half_slope_ranking, key=lambda rank:rank[1])
         half_slope_ranking = half_slope_ranking[::-1]
