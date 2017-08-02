@@ -255,7 +255,7 @@ def main(args):
         flag = 1
     elif args.testing_data == args.training_project_id:
         docs, labels = get_all_docs(train_client, args.subset_field)
-        train_docs, test_docs, train_labels, test_labels = split_train_test(docs,labels,args.split)
+        train_docs, test_docs, train_labels, test_labels = split_train_test(docs,labels,float(args.split))
         flag = 2
     # ADDED FOURTH OPTION
     elif args.no_test:
