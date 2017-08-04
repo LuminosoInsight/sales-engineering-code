@@ -115,7 +115,7 @@ def get_test_docs_from_file(filename, label_func=None):
 
 # ADDED FLAG
 def classify_test_documents(train_client, test_docs, test_labels, classifiers,
-                            vectorizers, filename, flag, save_results=False):
+                            vectorizers, filename, flag, threshold, measure_percentage, measure_max_score, save_results=False):
     '''
     Inputs:
 
@@ -137,66 +137,79 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
     
     if save_results:
         results_dict = []
-#        for z in zip(test_docs, test_labels, classification):
-#            text = z[0]['text']
-#            truth = z[1]
-#            max_score = np.max(z[2])
-#            max_index = np.argmax(z[2])
-#            difference = percentage * max_score
-#            dif_threshold = max_score - difference
-#            class_list = list(classifiers['simple'].classes_)
-#            max_is_correct = True
-#            prediction = args.unclassified
-             #This line enforces a high enough score
-#            max_past_threshold = max_score > args.assoc_threshold
-#            if max_past_threshold:
-#                for i in range(0, len(z[2])):
-#                    if z[2][i] > dif_threshold and i != max_index:
-#                        max_is_correct = False
-#                if max_is_correct:
-#                    prediction = class_list[max_index]
-#            if flag == 3:
-#                results_dict.append(dict({'text': text,
-#                                          'label': prediction,
-#                                          'max_score': max_score},
-#                                        **dict(zip(class_list, z[2]))))
-#            else:
-#                results_dict.append(dict({'text': text,
-#                                          'truth': truth,
-#                                          'prediction': prediction,
-#                                          'correct': z[1] == prediction,
-                                          
-#                                          'max_score': max_score},
-#                                     **dict(zip(class_list, z[2]))))
-#        print('Saving results to ' + filename +'.csv file...')
+        percentage_results_dict = []
+        if measure_percentage:
+            for z in zip(test_docs, test_labels, classification):
+                text = z[0]['text']
+                truth = z[1]
+                max_score = np.max(z[2])
+                max_index = np.argmax(z[2])
+                difference = percentage * max_score
+                dif_threshold = max_score - difference
+                class_list = list(classifiers['simple'].classes_)
+                max_is_correct = True
+                prediction = args.unclassified
+                 #This line enforces a high enough score
+                max_past_threshold = max_score > threshold
+                if max_past_threshold:
+                    for i in range(0, len(z[2])):
+                        if z[2][i] > dif_threshold and i != max_index:
+                            max_is_correct = False
+                    if max_is_correct:
+                        prediction = class_list[max_index]
+                if flag == 3:
+                    percentage_results_dict.append(dict({'text': text,
+                                              'label': prediction,
+                                              'max_score': max_score},
+                                            **dict(zip(class_list, z[2]))))
+                else:
+                    percentage_results_dict.append(dict({'text': text,
+                                              'truth': truth,
+                                              'prediction': prediction,
+                                              'correct': z[1] == prediction,                           
+                                              'max_score': max_score},
+                                         **dict(zip(class_list, z[2]))))
+            print('Saving results to ' + filename +'_percentage.csv file...')
 
 # MAX (replaces entire for loop):    
-        if flag == 3:
-            results_dict = [dict({'text': z[0]['text'],
-                                  'label': list(classifiers['simple'].classes_)[np.argmax(z[2])],
-                                  'max_score': np.max(z[2])},
-                                 **dict(zip(list(classifiers['simple'].classes_), z[2])))
-                            for z in zip(test_docs, test_labels, classification)]
-        else:
-            
-            results_dict = [dict({'text': z[0]['text'],
-                                  'truth': z[1],
-                                  'prediction': list(classifiers['simple'].classes_)[np.argmax(z[2])],
-                                  'correct': z[1]==list(classifiers['simple'].classes_)[np.argmax(z[2])],
-                                  'max_score': np.max(z[2])},
-                                 **dict(zip(list(classifiers['simple'].classes_), z[2])))
-                            for z in zip(test_docs, test_labels, classification)]
+        if measure_max_score:
+            if flag == 3:
+                results_dict = [dict({'text': z[0]['text'],
+                                      'label': list(classifiers['simple'].classes_)[np.argmax(z[2])],
+                                      'max_score': np.max(z[2])},
+                                     **dict(zip(list(classifiers['simple'].classes_), z[2])))
+                                for z in zip(test_docs, test_labels, classification)]
+            else:
+
+                results_dict = [dict({'text': z[0]['text'],
+                                      'truth': z[1],
+                                      'prediction': list(classifiers['simple'].classes_)[np.argmax(z[2])],
+                                      'correct': z[1]==list(classifiers['simple'].classes_)[np.argmax(z[2])],
+                                      'max_score': np.max(z[2])},
+                                     **dict(zip(list(classifiers['simple'].classes_), z[2])))
+                                for z in zip(test_docs, test_labels, classification)]
         if args.pickle_path:
             filename = args.pickle_path + '/' + filename
-        with open(filename + '.csv', 'w', encoding='utf-8') as file:
-            if flag == 3:
-                writer = csv.DictWriter(file, ['text', 'label', 'max_score'] + 
+        if measure_max_score:
+            with open(filename + '.csv', 'w', encoding='utf-8') as file:
+                if flag == 3:
+                    writer = csv.DictWriter(file, ['text', 'label', 'max_score'] + 
+                                            list(classifiers['simple'].classes_))
+                else:
+                    writer = csv.DictWriter(file, ['text', 'truth', 'prediction', 'correct', 'max_score'] +
                                         list(classifiers['simple'].classes_))
-            else:
-                writer = csv.DictWriter(file, ['text', 'truth', 'prediction', 'correct', 'max_score'] +
-                                    list(classifiers['simple'].classes_))
-            writer.writeheader()
-            writer.writerows(results_dict)
+                writer.writeheader()
+                writer.writerows(results_dict)
+        if measure_percentage:
+            with open(filename + '_percentage.csv', 'w', encoding='utf-8') as percentage_file:
+                if flag == 3:
+                    writer = csv.DictWriter(percentage_file, ['text', 'label', 'max_score'] +
+                                            list(classifiers['simple'].classes_))
+                else:
+                    writer = csv.DictWriter(percentage_file, ['text', 'truth', 'prediction', 'correct', 'max_score'] +
+                                            list(classifiers['simple'].classes_))
+                writer.writeheader()
+                writer.writerows(percentage_results_dict)
     
     return classification
         
@@ -323,9 +336,9 @@ def main(args):
         print('Testing classifier...')
         classification = classify_test_documents(
             train_client, test_docs, test_labels, classifiers,
-            vectorizers, filename, flag, args.save_results
+            vectorizers, filename, flag, args.assoc_threshold, args.percentage, args.max, args.save_results
         )
-        if flag != 3:
+        if flag != 3 or args.no_display_test:
             print('Test Accuracy:{:.2%}'.format(
                   score_results(test_labels, classifiers, classification))
                  )
@@ -407,5 +420,17 @@ if __name__ == '__main__':
         '-n', '--no_test', default=False, action='store_true',
         help="Simply run the classifier, do not compare to validation set (Because there is no validation label data."
         )
+    parser.add_argument(
+        '-f', '--percentage', default=False, action='store_true',
+        help="Whether or not to run the classification on difference of score compared to max score"
+        )
+    parser.add_argument(
+        '-m', '--max', default=True, action='store_false',
+        help="Whether or not to run the classification on max score"
+        )
+    parser.add_argument(
+        '-d', '--no_display_test', default=False, action='store_true',
+        help="Just don\'t display the accuracy on standard output. Ignore this"
+    )
     args = parser.parse_args()
     main(args)
