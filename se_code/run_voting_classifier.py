@@ -123,13 +123,16 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
     decision matrix, whose dimensions are (n_docs, n_classes).
     '''
 
-    test_docs = train_client.upload('docs/vectors', test_docs)
-    classification = classify_documents(test_docs, classifiers, vectorizers)
+    processed_test_docs = []
+    for i in range(0, len(test_docs), 5000):
+        processed_test_docs.extend(train_client.upload('docs/vectors', test_docs[i:i+5000]))
+
+    classification = classify_documents(processed_test_docs, classifiers, vectorizers)
 
     if save_results:
         results_dict = [dict({'text': z[0]['text'], 'truth': z[1]},
                              **dict(zip(list(classifiers['simple'].classes_), z[2])))
-                        for z in zip(test_docs, test_labels, classification)]
+                        for z in zip(processed_test_docs, test_labels, classification)]
 
         with open('results.csv', 'w', encoding='utf-8') as file:
             writer = csv.DictWriter(file, ['text', 'truth'] +
