@@ -60,6 +60,29 @@ def pull_lumi_data(account, project, term_count=1000, interval='day', themes=7, 
     skt = subset_key_terms(client, 20)
     return client, docs, topics, terms, subsets, drivers, skt, themes
 
+def create_doc_term_table(client, docs, terms, threshold):
+    doc_term_table = []
+    for i in range(len(docs)):
+        doc_vector = unpack64(docs[i]['vector'])
+        for j in range(len(terms)):
+            term_vector = unpack64(terms[j]['vector'])
+            if np.dot(doc_vector, term_vector) >= threshold:
+                doc_term_table.append({'doc_id': docs[i]['_id'], 
+                                       'term': terms[j]['text'],
+                                       'association': np.dot(doc_vector, term_vector)})
+    return doc_term_table
+    
+def create_doc_topic_table(client, docs, topics):
+    doc_topic_table = []
+    for i in range(len(docs)):
+        doc_vector = unpack64(docs[i]['vector'])
+        for j in range(len(topics)):
+            topic_vector = unpack64(topics[j]['vector'])
+            #if np.dot(doc_vector, topic_vector) >= .3:
+            doc_topic_table.append({'doc_id': docs[i]['_id'], 
+                                    'topic': topics[j]['text'],
+                                    'association': np.dot(doc_vector, topic_vector)})
+    return doc_topic_table
 
 def create_doc_table(client, docs, subsets, themes):
 
@@ -346,13 +369,21 @@ def main():
     )
     parser.add_argument('account_id', help="The ID of the account that owns the project, such as 'demo'")
     parser.add_argument('project_id', help="The ID of the project to analyze, such as '2jsnm'")
+    parser.add_argument('-t', '--term_count', default=1000, help="The number of top terms to pull from the project")
+    parser.add_argument('-a', '--assoc_threshold', default=.3, help="The minimum association threshold to display")
     args = parser.parse_args()
 
-    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id)
+    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, term_count=args.term_count)
 
     doc_table, xref_table = create_doc_table(client, docs, subsets, themes)
     write_table_to_csv(doc_table, 'doc_table.csv')
     write_table_to_csv(xref_table, 'xref_table.csv')
+    
+    doc_term_table = create_doc_term_table(client, docs, terms, args.assoc_threshold)
+    write_table_to_csv(doc_term_table, 'doc_term_table.csv')
+    
+    doc_topic_table = create_doc_topic_table(client, docs, topics)
+    write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
 
     themes_table = create_themes_table(client, themes)
     write_table_to_csv(themes_table, 'themes_table.csv')
