@@ -149,10 +149,10 @@ def create_skt_table(client, skt):
     terms = client.get('terms/doc_counts',
                        terms=[t['term'] for _, t, _, _ in skt],
                        format='json')
-    doc_ids = []
+    doc_texts = []
     for term in terms:
         docs = client.get('docs/search', limit=3, text=term['text'])
-        doc_ids.append([ids[0]['document']['_id'] for ids in docs['search_results']])
+        doc_texts.append([ids[0]['document']['text'] for ids in docs['search_results']])
     terms = {t['text']: t for t in terms}
     skt_table = []
     index = 0
@@ -164,9 +164,9 @@ def create_skt_table(client, skt):
                       'p_value': p,
                       'exact_matches': terms[t['text']]['num_exact_matches'],
                       'conceptual_matches': terms[t['text']]['num_related_matches'],
-                      'id1': doc_ids[index][0],
-                      'id2': doc_ids[index][1],
-                      'id3': doc_ids[index][2],
+                      'id1': doc_texts[index][0],
+                      'id2': doc_texts[index][1],
+                      'id3': doc_texts[index][2],
                       'total_matches': terms[t['text']]['num_exact_matches'] + terms[t['text']]['num_related_matches']})
         index += 1
     return skt_table
