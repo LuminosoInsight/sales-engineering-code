@@ -149,16 +149,26 @@ def create_skt_table(client, skt):
     terms = client.get('terms/doc_counts',
                        terms=[t['term'] for _, t, _, _ in skt],
                        format='json')
+    doc_ids = []
+    for term in terms:
+        docs = client.get('docs/search', limit=3, text=term['text'])
+        doc_ids.append([ids[0]['document']['_id'] for ids in docs['search_results']])
     terms = {t['text']: t for t in terms}
-    skt_table = [{'term': t['text'],
-                  'subset': s.partition(':')[0],
-                  'value': s.partition(':')[2],
-                  'odds_ratio': o,
-                  'p_value': p,
-                  'exact_matches': terms[t['text']]['num_exact_matches'],
-                  'conceptual_matches': terms[t['text']]['num_related_matches'],
-                  'total_matches': terms[t['text']]['num_exact_matches'] + terms[t['text']]['num_related_matches']}
-                 for s, t, o, p in skt]
+    skt_table = []
+    index = 0
+    for s, t, o, p in skt:
+        skt_table.append({'term': t['text'],
+                      'subset': s.partition(':')[0],
+                      'value': s.partition(':')[2],
+                      'odds_ratio': o,
+                      'p_value': p,
+                      'exact_matches': terms[t['text']]['num_exact_matches'],
+                      'conceptual_matches': terms[t['text']]['num_related_matches'],
+                      'id1': doc_ids[index][0],
+                      'id2': doc_ids[index][1],
+                      'id3': doc_ids[index][2],
+                      'total_matches': terms[t['text']]['num_exact_matches'] + terms[t['text']]['num_related_matches']})
+        index += 1
     return skt_table
 
 
@@ -371,6 +381,8 @@ def main():
     parser.add_argument('project_id', help="The ID of the project to analyze, such as '2jsnm'")
     parser.add_argument('-t', '--term_count', default=1000, help="The number of top terms to pull from the project")
     parser.add_argument('-a', '--assoc_threshold', default=.3, help="The minimum association threshold to display")
+    parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Generate doc_term_table")
+    parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Generate doc_topic_table")
     args = parser.parse_args()
 
     client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, term_count=args.term_count)
@@ -379,11 +391,13 @@ def main():
     write_table_to_csv(doc_table, 'doc_table.csv')
     write_table_to_csv(xref_table, 'xref_table.csv')
     
-    doc_term_table = create_doc_term_table(client, docs, terms, args.assoc_threshold)
-    write_table_to_csv(doc_term_table, 'doc_term_table.csv')
+    if args.doc_term:
+        doc_term_table = create_doc_term_table(client, docs, terms, args.assoc_threshold)
+        write_table_to_csv(doc_term_table, 'doc_term_table.csv')
     
-    doc_topic_table = create_doc_topic_table(client, docs, topics)
-    write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
+    if args.doc_topic:
+        doc_topic_table = create_doc_topic_table(client, docs, topics)
+        write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
 
     themes_table = create_themes_table(client, themes)
     write_table_to_csv(themes_table, 'themes_table.csv')
