@@ -26,7 +26,7 @@ def is_number(s):
         return False
 
 
-def pull_lumi_data(account, project, term_count=1000, interval='day', themes=7, theme_terms=4):
+def pull_lumi_data(account, project, term_count=100, interval='day', themes=7, theme_terms=4):
 
     print('Extracting Lumi data...')
     client = LuminosoClient.connect('/projects/{}/{}'.format(account, project))
@@ -76,12 +76,18 @@ def create_doc_topic_table(client, docs, topics):
     doc_topic_table = []
     for i in range(len(docs)):
         doc_vector = unpack64(docs[i]['vector'])
+        max_score = 0
+        max_topic = ''
         for j in range(len(topics)):
             topic_vector = unpack64(topics[j]['vector'])
             #if np.dot(doc_vector, topic_vector) >= .3:
-            doc_topic_table.append({'doc_id': docs[i]['_id'], 
-                                    'topic': topics[j]['text'],
-                                    'association': np.dot(doc_vector, topic_vector)})
+            score = np.dot(doc_vector, topic_vector)
+            if score > max_score:
+                max_score = score
+                max_topic = topics[j]['text']
+        doc_topic_table.append({'doc_id': docs[i]['_id'], 
+                                'topic': max_topic,
+                                'association': max_score})
     return doc_topic_table
 
 def create_doc_table(client, docs, subsets, themes):
@@ -116,7 +122,7 @@ def create_doc_table(client, docs, subsets, themes):
         row['doc_id'] = doc['_id']
         row['doc_text'] = doc['text']
         if 'date' in doc:
-            row['doc_date'] = doc['date']
+            row['doc_date'] = datetime.datetime.fromtimestamp(int(doc['date'])).strftime('%Y-%m-%d %H:%M:%S')
         else:
             row['doc_date'] = 0
         # changed from subset # to subset (name)
@@ -164,9 +170,9 @@ def create_skt_table(client, skt):
                       'p_value': p,
                       'exact_matches': terms[t['text']]['num_exact_matches'],
                       'conceptual_matches': terms[t['text']]['num_related_matches'],
-                      'id1': doc_texts[index][0],
-                      'id2': doc_texts[index][1],
-                      'id3': doc_texts[index][2],
+                      'Text 1': doc_texts[index][0],
+                      'Text 2': doc_texts[index][1],
+                      'Text 3': doc_texts[index][2],
                       'total_matches': terms[t['text']]['num_exact_matches'] + terms[t['text']]['num_related_matches']})
         index += 1
     return skt_table
@@ -379,7 +385,7 @@ def main():
     )
     parser.add_argument('account_id', help="The ID of the account that owns the project, such as 'demo'")
     parser.add_argument('project_id', help="The ID of the project to analyze, such as '2jsnm'")
-    parser.add_argument('-t', '--term_count', default=1000, help="The number of top terms to pull from the project")
+    parser.add_argument('-t', '--term_count', default=100, help="The number of top terms to pull from the project")
     parser.add_argument('-a', '--assoc_threshold', default=.3, help="The minimum association threshold to display")
     parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Generate doc_term_table")
     parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Generate doc_topic_table")
