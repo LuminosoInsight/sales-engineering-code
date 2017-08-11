@@ -156,13 +156,27 @@ def create_skt_table(client, skt):
                        terms=[t['term'] for _, t, _, _ in skt],
                        format='json')
     doc_texts = []
-    for term in terms:
-        docs = client.get('docs/search', limit=3, text=term['text'])
+    subsets = [s for s, _, _, _ in skt]
+    for i in range(len(terms)):
+        docs = client.get('docs/search', limit=3, text=terms[i]['text'], subset=subsets[i])
         doc_texts.append([ids[0]['document']['text'] for ids in docs['search_results']])
     terms = {t['text']: t for t in terms}
     skt_table = []
     index = 0
     for s, t, o, p in skt:
+        text_length = len(doc_texts[index])
+        text_1 = ''
+        text_2 = ''
+        text_3 = ''
+        if text_length == 1:
+            text_1 = doc_texts[index][0]
+        elif text_length == 2:
+            text_1 = doc_texts[index][0]
+            text_2 = doc_texts[index][1]
+        elif text_length > 2:
+            text_1 = doc_texts[index][0]
+            text_2 = doc_texts[index][1]
+            text_3 = doc_texts[index][2]
         skt_table.append({'term': t['text'],
                       'subset': s.partition(':')[0],
                       'value': s.partition(':')[2],
@@ -170,9 +184,9 @@ def create_skt_table(client, skt):
                       'p_value': p,
                       'exact_matches': terms[t['text']]['num_exact_matches'],
                       'conceptual_matches': terms[t['text']]['num_related_matches'],
-                      'Text 1': doc_texts[index][0],
-                      'Text 2': doc_texts[index][1],
-                      'Text 3': doc_texts[index][2],
+                      'Text 1': text_1,
+                      'Text 2': text_2,
+                      'Text 3': text_3,
                       'total_matches': terms[t['text']]['num_exact_matches'] + terms[t['text']]['num_related_matches']})
         index += 1
     return skt_table
