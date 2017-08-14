@@ -260,10 +260,16 @@ def create_drivers_table(client, drivers):
                 document = doc[0]['document']
                 document['driver_as'] = get_as(score_drivers['coefficient_vector'],document['vector'])
 
-            docs = sorted(search_docs['search_results'], key=lambda k: k[0]['document']['driver_as'])
-            row['example_doc'] = docs[0][0]['document']['text']
-            row['example_doc2'] = docs[1][0]['document']['text']
-            row['example_doc3'] = docs[2][0]['document']['text']
+            docs = sorted(search_docs['search_results'], key=lambda k: k[0]['document']['driver_as']) 
+            row['example_doc'] = ''
+            row['example_doc2'] = ''
+            row['example_doc3'] = ''
+            if len(docs) >= 1:
+                row['example_doc'] = docs[0][0]['document']['text']
+            if len(docs) >= 2:
+                row['example_doc2'] = docs[1][0]['document']['text']
+            if len(docs) >= 3:
+                row['example_doc3'] = docs[2][0]['document']['text']
             driver_table.append(row)
         for driver in score_drivers['positive']:
             row = {}
@@ -292,9 +298,16 @@ def create_drivers_table(client, drivers):
                 document['driver_as'] = get_as(score_drivers['coefficient_vector'],document['vector'])
 
             docs = sorted(search_docs['search_results'], key=lambda k: -k[0]['document']['driver_as'])
-            row['example_doc'] = docs[0][0]['document']['text']
-            row['example_doc2'] = docs[1][0]['document']['text']
-            row['example_doc3'] = docs[2][0]['document']['text']
+            
+            row['example_doc'] = ''
+            row['example_doc2'] = ''
+            row['example_doc3'] = ''
+            if len(docs) >= 1:
+                row['example_doc'] = docs[0][0]['document']['text']
+            if len(docs) >= 2:
+                row['example_doc2'] = docs[1][0]['document']['text']
+            if len(docs) >= 3:
+                row['example_doc3'] = docs[2][0]['document']['text']
             driver_table.append(row)
     
     return driver_table
