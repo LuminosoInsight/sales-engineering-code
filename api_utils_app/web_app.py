@@ -10,6 +10,7 @@ from qualtrics_utilities import *
 import redis
 from conjunction_disjunction import get_new_results, get_current_results
 from text_filter import filter_project
+from subset_filter import filter_subsets
 from auto_plutchik import get_all_topics, delete_all_topics, add_plutchik, copy_project
 
 #Storage for live classifier demo
@@ -40,7 +41,7 @@ def login():
         ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
         ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj'))),
         ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo'))),
-        ('Modify', ('Text Filter', url_for('text_filter_page')), ('Auto Emotions', url_for('plutchik_page')))]
+        ('Modify', ('Text Filter', url_for('text_filter_page')), ('Auto Emotions', url_for('plutchik_page')), ('Subset Filter', url_for('subset_filter_page')))]
     print(session['apps_to_show'])
     try:
         LuminosoClient.connect('/projects/', username=session['username'],
@@ -229,11 +230,26 @@ def plutchik():
         delete_all_topics(client, topic_list)
     add_plutchik(client)
     return render_template('auto_plutchik.html', urls=session['apps_to_show'])
+
+@app.route('/subset_filter', methods=['POST'])
+def subset_filter():
+    url = request.form['url'].strip()
+    from_acct, from_proj = parse_url(url)
+    client = LuminosoClient.connect('/projects/', username=session['username'],
+                                               password=session['password'])
+    min_count = int(request.form['min_count'].strip())
+    name = request.form['dest_name'].strip()
+    filter_subsets(client=client, account_id=from_acct, project_id=from_proj, proj_name=name, min_count=min_count)
+    return render_template('subset_filter.html', urls=session['apps_to_show'])
     
 
 @app.route('/plutchik_page')
 def plutchik_page():
     return render_template('auto_plutchik.html', urls=session['apps_to_show'])
+
+@app.route('/subset_filter_page')
+def subset_filter_page():
+    return render_template('subset_filter.html', urls=session['apps_to_show'])
     
 @app.route('/text_filter_page')
 def text_filter_page():
