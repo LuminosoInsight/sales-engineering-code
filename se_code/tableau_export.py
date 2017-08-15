@@ -152,71 +152,51 @@ def create_doc_table(client, docs, subsets, themes):
 def create_skt_table(client, skt):
 
     print('Creating subset key terms table...')
-    #print(client)
     terms_to_get = []
-    indices = []
-    index = 0
     length = 0
-    actual_skt = []
+    terms = []
     for s, t, o, p in skt:
-        if length < 15000 - len(t['term']):
-            terms_to_get.append(t['term'])
-            indices.append(index)
-            actual_skt.append((s, t, o, p))
+        if length > 15000 - len(t['term']):
+            terms.extend(client.get('terms/doc_counts', terms=terms_to_get, format='json'))
+            
+            terms_to_get = []
+            length = 0
+        terms_to_get.append(t['term'])
         length += len(t['term'])
-        index += 1
-    terms = client.get('terms/doc_counts', terms=terms_to_get, format='json')
-    
-    
-    #params = []
-    #for _, t, _, p in skt:
-    #    params.append((t['terms'], p))
-    #params = sorted(params, key=lambda term:term[1])
-    #if len(params) > 150:
-    #    params = params[-150:]
-    #terms_to_get = []
-    #for term in params:
-    #    terms_to_get.append(term[0])
-    #terms = client.get('terms/doc_counts', terms=terms_to_get, format='json') 
+    if length > 0:
+        terms.extend(client.get('terms/doc_counts', terms=terms_to_get, format='json'))
         
-    #terms = client.get('/terms/doc_counts/', terms=[t['term'] for _, t, _, _ in skt], format='json')
     
-    #terms = client.get('terms/doc_counts', limit=1000, format='json')
-    #subsets = [s for s, _, _, _ in skt]
-    subsets = [s[0] for s in actual_skt]
-    doc_texts = []
-    for i in range(len(terms)):
-        docs = client.get('docs/search', limit=3, text=terms[i]['text'], subset=subsets[i])
-        doc_texts.append([ids[0]['document']['text'] for ids in docs['search_results']])
     terms = {t['text']: t for t in terms}
     skt_table = []
     index = 0
-    for key_term in actual_skt:
-        #if t['text'] in terms.keys():
-        text_length = len(doc_texts[index])
+    for s, t, o, p in skt:   
+        docs = client.get('docs/search', limit=3, text=t['text'], subset=s)
+        doc_texts = [ids[0]['document']['text'] for ids in docs['search_results']]
+        text_length = len(doc_texts)
         text_1 = ''
         text_2 = ''
         text_3 = ''
         if text_length == 1:
-            text_1 = doc_texts[index][0]
+            text_1 = doc_texts[0]
         elif text_length == 2:
-            text_1 = doc_texts[index][0]
-            text_2 = doc_texts[index][1]
+            text_1 = doc_texts[0]
+            text_2 = doc_texts[1]
         elif text_length > 2:
-            text_1 = doc_texts[index][0]
-            text_2 = doc_texts[index][1]
-            text_3 = doc_texts[index][2]
-        skt_table.append({'term': key_term[1]['text'],
-                          'subset': key_term[0].partition(':')[0],
-                          'value': key_term[0].partition(':')[2],
-                          'odds_ratio': key_term[2],
-                          'p_value': key_term[3],
-                          'exact_matches': terms[key_term[1]['text']]['num_exact_matches'],
-                          'conceptual_matches': terms[key_term[1]['text']]['num_related_matches'],
+            text_1 = doc_texts[0]
+            text_2 = doc_texts[1]
+            text_3 = doc_texts[2]
+        skt_table.append({'term': t['text'],
+                          'subset': s.partition(':')[0],
+                          'value': s.partition(':')[2],
+                          'odds_ratio': o,
+                          'p_value': p,
+                          'exact_matches': terms[t['text']]['num_exact_matches'],
+                          'conceptual_matches': terms[t['text']]['num_related_matches'],
                           'Text 1': text_1,
                           'Text 2': text_2,
                           'Text 3': text_3,
-                          'total_matches': terms[key_term[1]['text']]['num_exact_matches'] + terms[key_term[1]['text']]['num_related_matches']})
+                          'total_matches': terms[t['text']]['num_exact_matches'] + terms[t['text']]['num_related_matches']})
         index += 1
     return skt_table
 
