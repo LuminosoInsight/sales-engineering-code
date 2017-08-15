@@ -152,18 +152,47 @@ def create_doc_table(client, docs, subsets, themes):
 def create_skt_table(client, skt):
 
     print('Creating subset key terms table...')
-    terms = client.get('terms/doc_counts',
-                       terms=[t['term'] for _, t, _, _ in skt],
-                       format='json')
+    #print(client)
+    terms_to_get = []
+    indices = []
+    index = 0
+    length = 0
+    actual_skt = []
+    for s, t, o, p in skt:
+        if length < 15000 - len(t['term']):
+            terms_to_get.append(t['term'])
+            indices.append(index)
+            actual_skt.append((s, t, o, p))
+        length += len(t['term'])
+        index += 1
+    terms = client.get('terms/doc_counts', terms=terms_to_get, format='json')
+    
+    
+    #params = []
+    #for _, t, _, p in skt:
+    #    params.append((t['terms'], p))
+    #params = sorted(params, key=lambda term:term[1])
+    #if len(params) > 150:
+    #    params = params[-150:]
+    #terms_to_get = []
+    #for term in params:
+    #    terms_to_get.append(term[0])
+    #terms = client.get('terms/doc_counts', terms=terms_to_get, format='json') 
+        
+    #terms = client.get('/terms/doc_counts/', terms=[t['term'] for _, t, _, _ in skt], format='json')
+    
+    #terms = client.get('terms/doc_counts', limit=1000, format='json')
+    #subsets = [s for s, _, _, _ in skt]
+    subsets = [s[0] for s in actual_skt]
     doc_texts = []
-    subsets = [s for s, _, _, _ in skt]
     for i in range(len(terms)):
         docs = client.get('docs/search', limit=3, text=terms[i]['text'], subset=subsets[i])
         doc_texts.append([ids[0]['document']['text'] for ids in docs['search_results']])
     terms = {t['text']: t for t in terms}
     skt_table = []
     index = 0
-    for s, t, o, p in skt:
+    for key_term in actual_skt:
+        #if t['text'] in terms.keys():
         text_length = len(doc_texts[index])
         text_1 = ''
         text_2 = ''
@@ -177,17 +206,17 @@ def create_skt_table(client, skt):
             text_1 = doc_texts[index][0]
             text_2 = doc_texts[index][1]
             text_3 = doc_texts[index][2]
-        skt_table.append({'term': t['text'],
-                      'subset': s.partition(':')[0],
-                      'value': s.partition(':')[2],
-                      'odds_ratio': o,
-                      'p_value': p,
-                      'exact_matches': terms[t['text']]['num_exact_matches'],
-                      'conceptual_matches': terms[t['text']]['num_related_matches'],
-                      'Text 1': text_1,
-                      'Text 2': text_2,
-                      'Text 3': text_3,
-                      'total_matches': terms[t['text']]['num_exact_matches'] + terms[t['text']]['num_related_matches']})
+        skt_table.append({'term': key_term[1]['text'],
+                          'subset': key_term[0].partition(':')[0],
+                          'value': key_term[0].partition(':')[2],
+                          'odds_ratio': key_term[2],
+                          'p_value': key_term[3],
+                          'exact_matches': terms[key_term[1]['text']]['num_exact_matches'],
+                          'conceptual_matches': terms[key_term[1]['text']]['num_related_matches'],
+                          'Text 1': text_1,
+                          'Text 2': text_2,
+                          'Text 3': text_3,
+                          'total_matches': terms[key_term[1]['text']]['num_exact_matches'] + terms[key_term[1]['text']]['num_related_matches']})
         index += 1
     return skt_table
 
@@ -314,7 +343,14 @@ def create_drivers_table(client, drivers):
 
 
 def create_trends_table(terms, topics, docs):
-    term_vecs = np.asarray([unpack64(t['vector']) for t in terms])
+    term_list = []
+    for t in terms:
+        if t['vector'] != None:
+            term_list.append(unpack64(t['vector']))
+        else:
+            term_list.append([0 for i in range(len(term_list[0]))])
+    term_vecs = np.asarray(term_list)
+    #term_vecs = np.asarray([unpack64(t['vector']) if t['vector'] != None for t in terms])
     concept_list = [t['text'] for t in terms]
 
     dated_docs = [d for d in docs if 'date' in d]
