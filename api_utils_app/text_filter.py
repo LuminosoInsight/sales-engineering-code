@@ -66,6 +66,7 @@ def split_loop(docs, limit):
 
 def create_id_list(iterations, docs, negate):
     docs_id = []
+    keep_id = []
     for i in range(0, iterations):
         search_results = docs[i]['search_results']
         length = len(search_results)
@@ -73,10 +74,14 @@ def create_id_list(iterations, docs, negate):
             if negate:
                 if search_results[j][1] < .3:
                     docs_id.append(search_results[j][0]['document']['_id'])
+                else:
+                    keep_id.append(search_results[j][0]['document']['_id'])
             else:
                 if search_results[j][1] >= .3:
                     docs_id.append(search_results[j][0]['document']['_id'])
-    return docs_id
+                else:
+                    keep_id.append(search_results[j][0]['document']['_id'])
+    return docs_id, keep_id
 
 def branch_project(client, branch_name, text, docs_id):
     print('Branching Project')
@@ -117,13 +122,14 @@ def filter_project(client, acc_id, proj_id, branch_name, text, not_related=False
         negate = False
     
     
-    docs_id = create_id_list(iterations, docs, negate)
+    docs_id, keep_id = create_id_list(iterations, docs, negate)
    
     if branch:
         if branch_name == '':
-            branch_name = proj.get()['name'] + '_branched({})'.format(to_branch)
-        branch_project(proj, branch_name, text, docs_id)
-    delete_docs(proj, docs_id, 600)
+            branch_name = proj.get()['name'] + '_deleted({})'.format(to_branch)
+        branch_project(proj, branch_name, text, keep_id)
+    else:
+        delete_docs(proj, docs_id, 600)
     while proj.get('jobs'):
         time.sleep(1)
     print('Recalculation done.')
