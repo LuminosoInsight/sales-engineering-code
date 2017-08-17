@@ -38,27 +38,19 @@ def get_current_results(client, search_terms, neg_terms, zero, unit, n, hide_exa
     else:
         search_results = client.get(unit + '/search', text=search_terms, negative=neg_terms,
                                     limit=10000)['search_results']
+    if hide_exact:
+        start_idx = len([result for result, score in search_results if result['exact_indices']])
+    else:
+        start_idx = 0
 
-    display_count = 1
-    for result, matching_strength in search_results:
+    # Save results
+    results = []
+    for result, score in search_results[start_idx:start_idx+n]:
+        results.append({'text': result['document']['text'],
+                        'doc_id': result['document']['_id'],
+                        'score': score})
 
-        if display_count > int(n):
-            break
-
-        to_display = ''
-        if unit == 'docs':
-            if hide_exact:
-                if not result['exact_indices']:
-                    to_display = result['document']['text']
-            else:
-                to_display = result['document']['text']
-        else:  # unit == 'terms'
-            to_display = result['text']
-
-        if to_display:
-            print('{}.\t{}\t{}'.format(display_count, round(matching_strength, 2), to_display))
-            print()
-            display_count += 1
+    return results
 
 
 def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_exact):
@@ -77,6 +69,8 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
 
         for result, matching_strength in search_results:
             if unit == 'docs':
+                if hide_exact and result['exact_indices']:
+                    continue
                 _id = result['document']['_id']
                 display_texts[_id] = result['document']['text']
             else:
@@ -87,28 +81,24 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
                 scores[_id][i] = fuzzy_not(normalize_score(matching_strength, unit))
             else:
                 scores[_id][i] = normalize_score(matching_strength, unit)
-                if hide_exact and result['exact_indices']:
-                    exact_matches[_id] = True
 
     # Compute combined scores
     final_scores = []
     for _id, doc_scores in scores.items():
-        score = compute_score(doc_scores, operation, search_terms, neg_terms)
-        final_scores.append((_id, score))
+         if len(doc_scores) == len(search_terms):
+            score = compute_score(doc_scores, operation, search_terms, neg_terms)
+            final_scores.append((_id, score))
     final_scores = sorted(final_scores, key=lambda x: x[1] if not np.isnan(x[1]) else 0,
                           reverse=True)
 
-    # Print scores
-    display_count = 1
-    for _id, score in final_scores:
+    # Save results
+    results = []
+    for _id, score in final_scores[:n]:
+        results.append({'text': display_texts[_id],
+                        '_id': _id,
+                        'score': score})
 
-        if display_count > int(n):
-            break
-
-        if not (hide_exact and exact_matches[_id]):
-            print('{}.\t{}\t{}'.format(display_count, round(score, 2), display_texts[_id]))
-            print()
-            display_count += 1
+    return results
 
 
 def compute_score(doc_scores, operation, search_terms, neg_terms):
@@ -159,15 +149,20 @@ def main(account_id, project_id, search_terms, neg_terms, zero, current, conjunc
     client = connect(account_id, project_id)
 
     if current and conjunction:
-        get_current_results(client, search_terms, neg_terms, zero, unit, n, hide_exact)
+        results = get_current_results(client, search_terms, neg_terms, zero, unit, n, hide_exact)
     elif not current and conjunction:
-        get_new_results(client, search_terms, neg_terms, unit, n, 'conjunction', hide_exact)
+        results = get_new_results(client, search_terms, neg_terms, unit, n, 'conjunction', hide_exact)
     elif current and not conjunction:
-        get_current_results(client, search_terms, neg_terms, zero, unit, n, hide_exact)
+        results = get_current_results(client, search_terms, neg_terms, zero, unit, n, hide_exact)
     elif not current and not conjunction:
-        get_new_results(client, search_terms, neg_terms, unit, n, 'disjunction',
+        results = get_new_results(client, search_terms, neg_terms, unit, n, 'disjunction',
                         hide_exact)
 
+    display_count = 1
+    for result in results:
+        print('{}.\t{}\t{}'.format(display_count, round(result['score'], 2), result['text']))
+        print()
+        display_count += 1
 
 if __name__ == '__main__':
     main()
