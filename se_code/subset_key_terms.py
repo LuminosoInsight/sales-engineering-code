@@ -28,10 +28,10 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
     """
     subset_counts = client.get()['counts']
     pvalue_cutoff = 1 / scan_terms / 20
-
     results = []
-
+    index = 0
     for subset in sorted(subset_counts):
+        index += 1
         subset_terms = client.get('terms', subset=subset, limit=scan_terms)
         length = 0
         termlist = []
@@ -50,7 +50,8 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
         #for term in termlist:
         #    length += len(term)
         #print(length)
-        all_terms = client.get('terms', terms=termlist)
+        if len(termlist) > 0:
+            all_terms.extend(client.get('terms', terms=termlist))
         all_term_dict = {term['term']: term['distinct_doc_count'] for term in all_terms}
 
         subset_scores = []
