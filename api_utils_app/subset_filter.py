@@ -18,12 +18,16 @@ def get_all_docs(client):
         else:
             return docs
 
-def subsets_to_remove(client, min_count):        
+def subsets_to_remove(client, count, more=False):        
     subsets = client.get('subsets/stats')
     subsets_to_remove = []
     for subset in subsets:
-        if subset['count'] < min_count:
-            subsets_to_remove.append(subset['subset'])
+        if not more:
+            if subset['count'] <= count:
+                subsets_to_remove.append(subset['subset'])
+        else:
+            if subset['count'] >= count:
+                subsets_to_remove.append(subset['subset'])
     return subsets_to_remove
 
 def modify_docs(docs, subsets_to_remove):
@@ -35,11 +39,11 @@ def modify_docs(docs, subsets_to_remove):
         doc['subsets'] = subset
     return docs
         
-def filter_subsets(client, account_id, project_id, proj_name, min_count, batch_size=10000):
+def filter_subsets(client, account_id, project_id, proj_name, count, more=False, batch_size=10000):
     client = client.change_path(account_id + '/' + project_id)
     print('Getting all docs...')
     docs = get_all_docs(client)
-    remove = subsets_to_remove(client, min_count)
+    remove = subsets_to_remove(client, count, more)
     docs = modify_docs(docs, remove)
     
     client = LuminosoClient.connect('https://analytics.luminoso.com/api/v4/projects/{}/'.format(account_id))

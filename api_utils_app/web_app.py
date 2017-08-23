@@ -237,9 +237,10 @@ def subset_filter():
     from_acct, from_proj = parse_url(url)
     client = LuminosoClient.connect('/projects/', username=session['username'],
                                                password=session['password'])
-    min_count = int(request.form['min_count'].strip())
+    count = int(request.form['min_count'].strip())
     name = request.form['dest_name'].strip()
-    filter_subsets(client=client, account_id=from_acct, project_id=from_proj, proj_name=name, min_count=min_count)
+    more = (request.form.get('more') == 'on')
+    filter_subsets(client=client, account_id=from_acct, project_id=from_proj, proj_name=name, count=count, more=more)
     return render_template('subset_filter.html', urls=session['apps_to_show'])
     
 
