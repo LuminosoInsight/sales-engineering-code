@@ -26,7 +26,7 @@ def is_number(s):
         return False
 
 
-def pull_lumi_data(account, project, term_count=100, interval='day', themes=7, theme_terms=4):
+def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4):
 
     print('Extracting Lumi data...')
     client = LuminosoClient.connect('/projects/{}/{}'.format(account, project))
@@ -57,7 +57,7 @@ def pull_lumi_data(account, project, term_count=100, interval='day', themes=7, t
     themes = client.get('/terms/clusters/', num_clusters=themes, num_cluster_terms=theme_terms)
     terms = client.get('terms', limit=term_count)
     terms_doc_count = client.get('terms/doc_counts', limit=term_count, format='json')
-    skt = subset_key_terms(client, 20)
+    skt = subset_key_terms(client, skt_limit)
     return client, docs, topics, terms, subsets, drivers, skt, themes
 
 def create_doc_term_table(client, docs, terms, threshold):
@@ -430,11 +430,12 @@ def main():
     parser.add_argument('project_id', help="The ID of the project to analyze, such as '2jsnm'")
     parser.add_argument('-t', '--term_count', default=100, help="The number of top terms to pull from the project")
     parser.add_argument('-a', '--assoc_threshold', default=.3, help="The minimum association threshold to display")
+    parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
     parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Generate doc_term_table")
     parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Generate doc_topic_table")
     args = parser.parse_args()
 
-    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, term_count=args.term_count)
+    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, skt_limit=args.skt_limit, term_count=args.term_count)
 
     doc_table, xref_table = create_doc_table(client, docs, subsets, themes)
     write_table_to_csv(doc_table, 'doc_table.csv')
