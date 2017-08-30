@@ -90,6 +90,24 @@ def create_doc_topic_table(client, docs, topics):
                                 'association': max_score})
     return doc_topic_table
 
+def create_doc_subset_table(client, docs, subsets):
+    doc_subset_table = []
+    subset_headings = set([s['subset'].partition(':')[0] for s in subsets])
+    subset_headings.remove('__all__')
+    subset_headings = {s: i for i, s in enumerate(subset_headings)}
+    for i in range(len(docs)):
+        for h, n in subset_headings.items():
+            for subset in docs[i]['subsets']: 
+                subset_partition = subset.partition(':')
+                if subset_partition[0] in h:
+                    value = subset_partition[2]
+            doc_subset_table.append({'doc_id': docs[i]['_id'],
+                                     'subset': 'Subset {}'.format(n),
+                                     'subset_name': h,
+                                     'value': value
+            })
+    return doc_subset_table
+
 def create_doc_table(client, docs, subsets, themes):
 
     print('Creating doc table...')
@@ -433,6 +451,7 @@ def main():
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
     parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Generate doc_term_table")
     parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Generate doc_topic_table")
+    parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Generate doc_subset_table")
     args = parser.parse_args()
 
     client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, skt_limit=args.skt_limit, term_count=args.term_count)
@@ -448,6 +467,10 @@ def main():
     if args.doc_topic:
         doc_topic_table = create_doc_topic_table(client, docs, topics)
         write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
+        
+    if args.doc_subset:
+        doc_subset_table = create_doc_subset_table(client, docs, subsets)
+        write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
 
     themes_table = create_themes_table(client, themes)
     write_table_to_csv(themes_table, 'themes_table.csv')
