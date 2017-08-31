@@ -97,6 +97,7 @@ def create_doc_subset_table(client, docs, subsets):
     subset_headings = {s: i for i, s in enumerate(subset_headings)}
     for i in range(len(docs)):
         for h, n in subset_headings.items():
+            value = ''
             for subset in docs[i]['subsets']: 
                 subset_partition = subset.partition(':')
                 if subset_partition[0] in h:
