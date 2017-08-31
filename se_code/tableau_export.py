@@ -101,11 +101,12 @@ def create_doc_subset_table(client, docs, subsets):
                 subset_partition = subset.partition(':')
                 if subset_partition[0] in h:
                     value = subset_partition[2]
-            doc_subset_table.append({'doc_id': docs[i]['_id'],
-                                     'subset': 'Subset {}'.format(n),
-                                     'subset_name': h,
-                                     'value': value
-            })
+            if value != '' and 'null' not in value.lower():
+                doc_subset_table.append({'doc_id': docs[i]['_id'],
+                                         'subset': 'Subset {}'.format(n),
+                                         'subset_name': h,
+                                         'value': value
+                })
     return doc_subset_table
 
 def create_doc_table(client, docs, subsets, themes):
@@ -472,18 +473,18 @@ def main():
         doc_subset_table = create_doc_subset_table(client, docs, subsets)
         write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
 
-    themes_table = create_themes_table(client, themes)
-    write_table_to_csv(themes_table, 'themes_table.csv')
+    #themes_table = create_themes_table(client, themes)
+    #write_table_to_csv(themes_table, 'themes_table.csv')
 
-    skt_table = create_skt_table(client, skt)
-    write_table_to_csv(skt_table, 'skt_table.csv')
+    #skt_table = create_skt_table(client, skt)
+    #write_table_to_csv(skt_table, 'skt_table.csv')
 
-    driver_table = create_drivers_table(client, drivers)
-    write_table_to_csv(driver_table, 'drivers_table.csv')
+    #driver_table = create_drivers_table(client, drivers)
+    #write_table_to_csv(driver_table, 'drivers_table.csv')
 
-    trends_table, trendingterms_table = create_trends_table(terms, topics, docs)
-    write_table_to_csv(trends_table, 'trends_table.csv')
-    write_table_to_csv(trendingterms_table, 'trendingterms_table.csv')
+    #trends_table, trendingterms_table = create_trends_table(terms, topics, docs)
+    #write_table_to_csv(trends_table, 'trends_table.csv')
+    #write_table_to_csv(trendingterms_table, 'trendingterms_table.csv')
 
 if __name__ == '__main__':
     main()
