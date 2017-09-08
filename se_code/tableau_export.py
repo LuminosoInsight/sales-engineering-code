@@ -25,6 +25,14 @@ def is_number(s):
     except ValueError:
         return False
 
+def reorder_subsets(subsets):
+    new_subsets = []
+    for s in subsets:
+        if is_number(s['subset'].partition(':')[2]):
+            new_subsets.insert(0, s)
+        else:
+            new_subsets.append(s)
+    return new_subsets
 
 def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4):
 
@@ -92,18 +100,18 @@ def create_doc_topic_table(client, docs, topics):
 
 def create_doc_subset_table(client, docs, subsets):
     doc_subset_table = []
-    subset_headings = set([s['subset'].partition(':')[0] for s in subsets])
+    subset_headings = list(dict.fromkeys([s['subset'].partition(':')[0] for s in subsets]))
     subset_headings.remove('__all__')
     subset_headings = {s: i for i, s in enumerate(subset_headings)}
-    for i in range(len(docs)):
+    for doc in docs:
         for h, n in subset_headings.items():
             value = ''
-            for subset in docs[i]['subsets']: 
-                subset_partition = subset.partition(':')
+            for subset in doc['subsets']: 
+                subset_partition = subset.partition(':')[2]
                 if subset_partition[0] in h:
-                    value = subset_partition[2]
+                    value = subset_partition
             if value != '' and 'null' not in value.lower():
-                doc_subset_table.append({'doc_id': docs[i]['_id'],
+                doc_subset_table.append({'doc_id': doc['_id'],
                                          'subset': 'Subset {}'.format(n),
                                          'subset_name': h,
                                          'value': value
@@ -115,9 +123,7 @@ def create_doc_table(client, docs, subsets, themes):
     print('Creating doc table...')
     doc_table = []
     xref_table = []
-    subset_headings = set([s['subset'].partition(':')[0] for s in subsets])
-    #all_index = subset_headings.index('__all__')
-    #del subset_headings[all_index]
+    subset_headings = list(dict.fromkeys([s['subset'].partition(':')[0] for s in subsets]))
     subset_headings.remove('__all__')
     subset_headings = {s: i for i, s in enumerate(subset_headings)}
     info = []
@@ -125,18 +131,14 @@ def create_doc_table(client, docs, subsets, themes):
     for h,n in subset_headings.items():
         header.append('Subset {}'.format(n))
         info.append(h)
-   # xref_table.extend([{'Header': 'Subset {}'.format(n), 'Name': h} for h,n in subset_headings.items()])
 
     for i, theme in enumerate(themes):
         search_terms = [t['text'] for t in theme['terms']]
         theme['name'] = ', '.join(search_terms)[:-2]
         theme['docs'] = get_new_results(client, search_terms, [], 'docs', 20, 'conjunction', False)
-        #xref_table.append({'Header': 'Theme {}'.format(i), 'Name': theme['name']})
         header.append('Theme {}'.format(i))
         info.append(theme['name'])
         
-        
-
     for doc in docs:
         row = {}
         row['doc_id'] = doc['_id']
@@ -453,14 +455,16 @@ def main():
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
     parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Generate doc_term_table")
     parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Generate doc_topic_table")
-    parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Generate doc_subset_table")
+    #parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Generate doc_subset_table")
+    parser.add_argument('-trends', '--trend_tables', default=False, action='store_true', help="Generate trends_table and trendingterms_table")
     args = parser.parse_args()
 
     client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, skt_limit=args.skt_limit, term_count=args.term_count)
+    subsets = reorder_subsets(subsets)
 
     doc_table, xref_table = create_doc_table(client, docs, subsets, themes)
     write_table_to_csv(doc_table, 'doc_table.csv')
-    write_table_to_csv(xref_table, 'xref_table.csv')
+    #write_table_to_csv(xref_table, 'xref_table.csv')
     
     if args.doc_term:
         doc_term_table = create_doc_term_table(client, docs, terms, args.assoc_threshold)
@@ -470,9 +474,9 @@ def main():
         doc_topic_table = create_doc_topic_table(client, docs, topics)
         write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
         
-    if args.doc_subset:
-        doc_subset_table = create_doc_subset_table(client, docs, subsets)
-        write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
+    #if args.doc_subset:
+    doc_subset_table = create_doc_subset_table(client, docs, subsets)
+    write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
 
     themes_table = create_themes_table(client, themes)
     write_table_to_csv(themes_table, 'themes_table.csv')
@@ -482,10 +486,11 @@ def main():
 
     driver_table = create_drivers_table(client, drivers)
     write_table_to_csv(driver_table, 'drivers_table.csv')
-
-    trends_table, trendingterms_table = create_trends_table(terms, topics, docs)
-    write_table_to_csv(trends_table, 'trends_table.csv')
-    write_table_to_csv(trendingterms_table, 'trendingterms_table.csv')
+    
+    if args.trend_tables:
+        trends_table, trendingterms_table = create_trends_table(terms, topics, docs)
+        write_table_to_csv(trends_table, 'trends_table.csv')
+        write_table_to_csv(trendingterms_table, 'trendingterms_table.csv')
 
 if __name__ == '__main__':
     main()
