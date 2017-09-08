@@ -12,6 +12,8 @@ from conjunction_disjunction import get_new_results, get_current_results
 from text_filter import filter_project
 from subset_filter import filter_subsets
 from auto_plutchik import get_all_topics, delete_all_topics, add_plutchik, copy_project
+from compass_utilities import get_all_docs, post_messages, format_messages
+from random import randint
 
 #Storage for live classifier demo
 classifiers = None
@@ -40,7 +42,7 @@ def login():
         ('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('compass_export_page'))),
         ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
         ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj'))),
-        ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo'))),
+        ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo')), ('Compass Demo',url_for('compass_demo'))),
         ('Modify', ('Text Filter', url_for('text_filter_page')), ('Auto Emotions', url_for('plutchik_page')), ('Subset Filter', url_for('subset_filter_page')))]
     print(session['apps_to_show'])
     try:
@@ -56,6 +58,46 @@ def login():
 def index():
     return render_template('index.html', urls=session['apps_to_show'])
 
+@app.route('/compass_demo', methods=['GET'])
+def compass_demo():
+    return render_template('compass_demo.html', urls=session['apps_to_show'])
+
+@app.route('/compass_stream', methods=['POST'])
+def compass_stream():
+    url = request.form['url'].strip()
+    from_acct, from_proj = parse_url(url)
+    client = LuminosoClient.connect('/projects/', username=session['username'],
+                                               password=session['password'])
+    api_url = request.form['api_url']
+    client = LuminosoClient.connect('/projects/{}/{}'.format(from_acct, from_proj))
+    docs = get_all_docs(client)
+    
+    stream_time = request.form['stream_time']
+    randomize = (request.form.get('randomize') == 'on')
+    total_time = 0
+    while total_time < int(float(stream_time) * 60):
+        if randomize:
+            batch_size = randint(1, int(len(docs) / 10))
+            interval = randint(int(batch_size / 10), int(batch_size / 5))
+        else:
+            if int(request.form['batch_size']) > 0:
+                batch_size = int(request.form['batch_size'])
+            else:
+                batch_size = int(len(docs) / 10)
+            if int(request.form['interval']) > 0:
+                interval = int(request.form['interval'])
+            else:
+                interval = int(batch_size / 10)
+        curr_docs = []
+        for i in range(batch_size):
+            curr_docs.append(docs[randint(0, len(docs) - 1)])
+        messages = format_messages(curr_docs)
+        post_messages(api_url, messages, interval)
+        print('POSTed {}, sleeping for {}'.format(batch_size, interval))
+        total_time += interval
+    print('Done posting')
+    return render_template('compass_demo.html', urls=session['apps_to_show'])
+    
 @app.route('/classifier_demo', methods=['GET'])
 def classifier_demo():
     return render_template('setup_classifier.html', urls=session['apps_to_show'])

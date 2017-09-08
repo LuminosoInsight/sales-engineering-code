@@ -1,0 +1,35 @@
+
+{% extends "index.html" %}
+
+{% block content %}
+
+	<div class="page-header"><p>
+       <h1>Upload data set to be classified by Compass project</h1>
+    </div>
+      
+
+      <div id="content">
+      <h3>Upload data set to be classified by Compass project</h3>
+      <h4>Default compass project: https://compass.luminoso.com/api/projects/k24vjqfj/p/</h4>
+      <form action="{{ url_for('compass_stream') }}" method='post' >
+        
+        
+        <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
+        <input type="text" name="api_url" class="form-control" placeholder="Compass API URL" required autofocus>
+        <input type="number" name="batch_size" class="form-control" placeholder="Batch size (defaults to 10% of documents)">
+        <input type="number" name="interval" class="form-control" placeholder="Time interval between batch uploads (No more than 10 documents per second)">
+        <input type="number" name="stream_time" class="form-control" placeholder="Stream for how many minutes?" required>
+        <input type="checkbox" name="randomize" checked> Randomize batch size and interval<br><br>
+        <input class="btn btn-lg btn-primary btn-block" type="submit" value="Stream"/>
+        <br>
+        <span id="errorLogin">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+
+
+      
+      
+      </div>
+
+{% endblock %}
