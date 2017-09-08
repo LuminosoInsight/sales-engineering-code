@@ -72,6 +72,8 @@ def compass_stream():
     client = LuminosoClient.connect('/projects/{}/{}'.format(from_acct, from_proj))
     docs = get_all_docs(client)
     
+    compass_username = request.form['comp_name']
+    compass_password = request.form['comp_pass']
     stream_time = request.form['stream_time']
     randomize = (request.form.get('randomize') == 'on')
     total_time = 0
@@ -92,7 +94,7 @@ def compass_stream():
         for i in range(batch_size):
             curr_docs.append(docs[randint(0, len(docs) - 1)])
         messages = format_messages(curr_docs)
-        post_messages(api_url, messages, interval)
+        post_messages(api_url, messages, interval, compass_username, compass_password)
         print('POSTed {}, sleeping for {}'.format(batch_size, interval))
         total_time += interval
     print('Done posting')

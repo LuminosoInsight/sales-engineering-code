@@ -53,8 +53,7 @@ def format_messages(docs):
         messages.append(message)
     return messages
 
-def post_messages(api_url, docs, interval):#, username, password, url):
-    #headers = get_headers(username, password, url)
-    headers = get_headers('kwang@luminoso.com', 'Ch1l13aters', BASE_URL)
+def post_messages(api_url, docs, interval, username, password):
+    headers = get_headers(username, password, BASE_URL)
     requests.post(api_url + 'messages/', json=docs, headers=headers)
     time.sleep(interval)

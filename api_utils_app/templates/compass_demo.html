@@ -10,10 +10,21 @@
 
       <div id="content">
       <h3>Upload data set to be classified by Compass project</h3>
-      <h4>Default compass project: https://compass.luminoso.com/api/projects/k24vjqfj/p/</h4>
+      <h3>Upload documents from an Analytics project into a created Compass project. 
+              You may then go into the Compass UI to see the results in real time.</h3>
+      <h4>
+      <li><b>Pandora Demo: :</b>
+      	<ul>
+      	<li>Analytics project: https://analytics.luminoso.com/app/#/projects/demo/prr5mhwv</li>
+      	<li>Compass project: https://compass.luminoso.com/api/projects/gm3nfnbs/p/ </li>
+      	<li>Subset prefix: Category Tag</li>
+      	</ul>
+      </li>
+      </h4>
       <form action="{{ url_for('compass_stream') }}" method='post' >
         
-        
+        <input type="text" name="comp_name" class="form-control" placeholder="Compass Username" required>
+        <input type="text" name="comp_pass" class="form-control" placeholder="Compass Password" required>
         <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
         <input type="text" name="api_url" class="form-control" placeholder="Compass API URL" required autofocus>
         <input type="number" name="batch_size" class="form-control" placeholder="Batch size (defaults to 10% of documents)">
