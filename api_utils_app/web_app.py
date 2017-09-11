@@ -75,21 +75,11 @@ def compass_stream():
     compass_username = request.form['comp_name']
     compass_password = request.form['comp_pass']
     stream_time = request.form['stream_time']
-    randomize = (request.form.get('randomize') == 'on')
     total_time = 0
     while total_time < int(float(stream_time) * 60):
-        if randomize:
-            batch_size = randint(1, int(len(docs) / 10))
-            interval = randint(int(batch_size / 10), int(batch_size / 5))
-        else:
-            if int(request.form['batch_size']) > 0:
-                batch_size = int(request.form['batch_size'])
-            else:
-                batch_size = int(len(docs) / 10)
-            if int(request.form['interval']) > 0:
-                interval = int(request.form['interval'])
-            else:
-                interval = int(batch_size / 10)
+        batch_size = randint(1, int(len(docs) / 10))
+        interval = randint(int(batch_size / 10), int(batch_size / 5))
+        
         curr_docs = []
         for i in range(batch_size):
             curr_docs.append(docs[randint(0, len(docs) - 1)])
