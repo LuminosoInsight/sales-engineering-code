@@ -23,8 +23,8 @@
       </h4>
       <form action="{{ url_for('compass_stream') }}" method='post' >
         
-        <input type="text" name="comp_name" class="form-control" placeholder="Compass Username" required>
-        <input type="text" name="comp_pass" class="form-control" placeholder="Compass Password" required>
+        <input type="email" name="comp_name" class="form-control" placeholder="Compass Username" required>
+        <input type="password" name="comp_pass" class="form-control" placeholder="Compass Password" required>
         <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
         <input type="text" name="api_url" class="form-control" placeholder="Compass API URL" required autofocus>
         <input type="number" name="stream_time" class="form-control" placeholder="Stream for how many minutes?" required>
