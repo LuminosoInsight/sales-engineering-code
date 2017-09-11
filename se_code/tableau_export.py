@@ -107,9 +107,9 @@ def create_doc_subset_table(client, docs, subsets):
         for h, n in subset_headings.items():
             value = ''
             for subset in doc['subsets']: 
-                subset_partition = subset.partition(':')[2]
+                subset_partition = subset.partition(':')
                 if subset_partition[0] in h:
-                    value = subset_partition
+                    value = subset_partition[2]
             if value != '' and 'null' not in value.lower():
                 doc_subset_table.append({'doc_id': doc['_id'],
                                          'subset': 'Subset {}'.format(n),
