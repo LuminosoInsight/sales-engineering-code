@@ -70,32 +70,36 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
 
 def create_doc_term_table(client, docs, terms, threshold):
     doc_term_table = []
-    for i in range(len(docs)):
-        doc_vector = unpack64(docs[i]['vector'])
-        for j in range(len(terms)):
-            term_vector = unpack64(terms[j]['vector'])
-            if np.dot(doc_vector, term_vector) >= threshold:
-                doc_term_table.append({'doc_id': docs[i]['_id'], 
-                                       'term': terms[j]['text'],
-                                       'association': np.dot(doc_vector, term_vector)})
+    for doc in docs:
+        if doc['vector']:
+            doc_vector = unpack64(doc['vector'])
+            for term in terms:
+                if term['vector']:
+                    term_vector = unpack64(term['vector'])
+                    if np.dot(doc_vector, term_vector) >= threshold:
+                        doc_term_table.append({'doc_id': doc['_id'], 
+                                               'term': term['text'],
+                                               'association': np.dot(doc_vector, term_vector)})
     return doc_term_table
     
 def create_doc_topic_table(client, docs, topics):
     doc_topic_table = []
-    for i in range(len(docs)):
-        doc_vector = unpack64(docs[i]['vector'])
-        max_score = 0
-        max_topic = ''
-        for j in range(len(topics)):
-            topic_vector = unpack64(topics[j]['vector'])
-            #if np.dot(doc_vector, topic_vector) >= .3:
-            score = np.dot(doc_vector, topic_vector)
-            if score > max_score:
-                max_score = score
-                max_topic = topics[j]['text']
-        doc_topic_table.append({'doc_id': docs[i]['_id'], 
-                                'topic': max_topic,
-                                'association': max_score})
+    for doc in docs:
+        if doc['vector']:
+            doc_vector = unpack64(doc['vector'])
+            max_score = 0
+            max_topic = ''
+            for topic in topics:
+                if topic['vector']:
+                    topic_vector = unpack64(topic['vector'])
+                    #if np.dot(doc_vector, topic_vector) >= .3:
+                    score = np.dot(doc_vector, topic_vector)
+                    if score > max_score:
+                        max_score = score
+                        max_topic = topic['text']
+                doc_topic_table.append({'doc_id': doc['_id'], 
+                                        'topic': max_topic,
+                                        'association': max_score})
     return doc_topic_table
 
 def create_doc_subset_table(client, docs, subsets):
