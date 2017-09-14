@@ -524,7 +524,7 @@ def main():
         doc_topic_table = create_doc_topic_table(client, docs, topics)
         write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
         
-    if args.doc_subset:
+    #if args.doc_subset:
     doc_subset_table = create_doc_subset_table(client, docs, subsets)
     write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
 
