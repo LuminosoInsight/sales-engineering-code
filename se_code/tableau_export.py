@@ -47,8 +47,14 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
             docs.extend(new_docs)
         else:
             break
-    drivers = list(set([key for d in docs for key in d['predict'].keys()]))
+    
+    topics = client.get('topics')
+    themes = client.get('/terms/clusters/', num_clusters=themes, num_cluster_terms=theme_terms)
+    terms = client.get('terms', limit=term_count)
+    terms_doc_count = client.get('terms/doc_counts', limit=term_count, format='json')
+    skt = subset_key_terms(client, skt_limit)
 
+    drivers = list(set([key for d in docs for key in d['predict'].keys()]))
     # See if any score drivers are present, if not, create some from subsets
     if not any(drivers):
         drivers = []
@@ -58,15 +64,11 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
                              if s['subset'].partition(':')[0] == subset]
             if all([is_number(v) for v in subset_values]):
                 drivers.append(subset)
-        if drivers:
-            add_score_drivers_to_project(client, docs, drivers)
-
-    topics = client.get('topics')
-    themes = client.get('/terms/clusters/', num_clusters=themes, num_cluster_terms=theme_terms)
-    terms = client.get('terms', limit=term_count)
-    terms_doc_count = client.get('terms/doc_counts', limit=term_count, format='json')
-    skt = subset_key_terms(client, skt_limit)
+        
+    if drivers:
+        add_score_drivers_to_project(client, docs, drivers)
     return client, docs, topics, terms, subsets, drivers, skt, themes
+
 
 def create_doc_term_table(client, docs, terms, threshold):
     doc_term_table = []
@@ -97,9 +99,9 @@ def create_doc_topic_table(client, docs, topics):
                     if score > max_score:
                         max_score = score
                         max_topic = topic['text']
-                doc_topic_table.append({'doc_id': doc['_id'], 
-                                        'topic': max_topic,
-                                        'association': max_score})
+            doc_topic_table.append({'doc_id': doc['_id'], 
+                                    'topic': max_topic,
+                                    'association': max_score})
     return doc_topic_table
 
 def create_doc_subset_table(client, docs, subsets):
@@ -122,7 +124,7 @@ def create_doc_subset_table(client, docs, subsets):
                 })
     return doc_subset_table
 
-def create_doc_table(client, docs, subsets, themes):
+def create_doc_table(client, docs, subsets, themes, drivers):
 
     print('Creating doc table...')
     doc_table = []
@@ -228,6 +230,7 @@ def create_skt_table(client, skt):
 
 
 def add_score_drivers_to_project(client, docs, drivers):
+   
     mod_docs = []
     for doc in docs:
         for subset_to_score in drivers:
@@ -261,89 +264,131 @@ def create_themes_table(client, themes):
         theme['docs'] = sum([t['distinct_doc_count'] for t in theme['terms']])
         del theme['terms']
     return themes
+                    
 
-
-def create_drivers_table(client, drivers):
+def create_drivers_table(client, drivers, topic_drive):
     driver_table = []
-    for subset in drivers:
-        score_drivers = client.get('prediction/drivers', predictor_name=subset)
-        for driver in score_drivers['negative']:
-            row = {}
-            row['driver'] = driver['text']
-            row['subset'] = subset
-            row['impact'] = driver['regressor_dot']
-            row['score'] = driver['driver_score']
-            # ADDED RELATED TERMS
-            related_terms = driver['similar_terms']
-            list_terms = client.get('terms', terms=related_terms)
-            related_text = []
-            for term in list_terms:
-                related_text.append(term['text'])
-            row['related_terms'] = related_text
-            doc_count = client.get('terms/doc_counts', terms=related_terms, use_json=True)
-            count_sum = 0
-            for doc_dict in doc_count:
-                count_sum += doc_dict['num_exact_matches']
-            row['doc_count'] = count_sum
-            
-    
-            # Use the driver term to find related documents
-            search_docs = client.get('docs/search', terms=[driver['term']], limit=500, exact_only=True)
-    
-            # Sort documents based on their association with the coefficient vector
-            for doc in search_docs['search_results']:
-                document = doc[0]['document']
-                document['driver_as'] = get_as(score_drivers['coefficient_vector'],document['vector'])
+    if topic_drive:
+        for subset in drivers:
+            score_drivers = client.put('prediction/drivers', predictor_name=subset)
+            for driver in score_drivers:
+                row = {}
+                row['driver'] = driver['text']
+                row['subset'] = subset
+                row['impact'] = driver['regressor_dot']
+                row['score'] = driver['driver_score']
+                # ADDED RELATED TERMS
+                related_terms = driver['terms']
+                list_terms = client.get('terms', terms=related_terms)
+                related_text = []
+                for term in list_terms:
+                    related_text.append(term['text'])
+                row['related_terms'] = related_text
+                doc_count = client.get('terms/doc_counts', terms=related_terms, use_json=True)
+                count_sum = 0
+                for doc_dict in doc_count:
+                    count_sum += doc_dict['num_exact_matches']
+                row['doc_count'] = count_sum
 
-            docs = sorted(search_docs['search_results'], key=lambda k: k[0]['document']['driver_as']) 
-            row['example_doc'] = ''
-            row['example_doc2'] = ''
-            row['example_doc3'] = ''
-            if len(docs) >= 1:
-                row['example_doc'] = docs[0][0]['document']['text']
-            if len(docs) >= 2:
-                row['example_doc2'] = docs[1][0]['document']['text']
-            if len(docs) >= 3:
-                row['example_doc3'] = docs[2][0]['document']['text']
-            driver_table.append(row)
-        for driver in score_drivers['positive']:
-            row = {}
-            row['driver'] = driver['text']
-            row['subset'] = subset
-            row['impact'] = driver['regressor_dot']
-            row['score'] = driver['driver_score']
-            related_terms = driver['similar_terms']
-            list_terms = client.get('terms', terms=related_terms)
-            related_text = []
-            for term in list_terms:
-                related_text.append(term['text'])
-            row['related_terms'] = related_text
-            doc_count = client.get('terms/doc_counts', terms=related_terms, use_json=True)
-            count_sum = 0
-            for doc_dict in doc_count:
-                count_sum += doc_dict['num_exact_matches']
-            row['doc_count'] = count_sum
+                # Use the driver term to find related documents
+                search_docs = client.get('docs/search', terms=driver['terms'], limit=500, exact_only=True)
 
-            # Use the driver term to find related documents
-            search_docs = client.get('docs/search', terms=[driver['term']], limit=500, exact_only=True)
+                # Sort documents based on their association with the coefficient vector
+                for doc in search_docs['search_results']:
+                    document = doc[0]['document']
+                    document['driver_as'] = get_as(driver['vector'],document['vector'])
 
-            # Sort documents based on their association with the coefficient vector
-            for doc in search_docs['search_results']:
-                document = doc[0]['document']
-                document['driver_as'] = get_as(score_drivers['coefficient_vector'],document['vector'])
+                docs = sorted(search_docs['search_results'], key=lambda k: k[0]['document']['driver_as']) 
+                row['example_doc'] = ''
+                row['example_doc2'] = ''
+                row['example_doc3'] = ''
+                if len(docs) >= 1:
+                    row['example_doc'] = docs[0][0]['document']['text']
+                if len(docs) >= 2:
+                    row['example_doc2'] = docs[1][0]['document']['text']
+                if len(docs) >= 3:
+                    row['example_doc3'] = docs[2][0]['document']['text']
+                driver_table.append(row)
+    else:
+        for subset in drivers:
+            score_drivers = client.get('prediction/drivers', predictor_name=subset)
+            for driver in score_drivers['negative']:
+                row = {}
+                row['driver'] = driver['text']
+                row['subset'] = subset
+                row['impact'] = driver['regressor_dot']
+                row['score'] = driver['driver_score']
+                # ADDED RELATED TERMS
+                related_terms = driver['similar_terms']
+                list_terms = client.get('terms', terms=related_terms)
+                related_text = []
+                for term in list_terms:
+                    related_text.append(term['text'])
+                row['related_terms'] = related_text
+                doc_count = client.get('terms/doc_counts', terms=related_terms, use_json=True)
+                count_sum = 0
+                for doc_dict in doc_count:
+                    count_sum += doc_dict['num_exact_matches']
+                row['doc_count'] = count_sum
 
-            docs = sorted(search_docs['search_results'], key=lambda k: -k[0]['document']['driver_as'])
-            
-            row['example_doc'] = ''
-            row['example_doc2'] = ''
-            row['example_doc3'] = ''
-            if len(docs) >= 1:
-                row['example_doc'] = docs[0][0]['document']['text']
-            if len(docs) >= 2:
-                row['example_doc2'] = docs[1][0]['document']['text']
-            if len(docs) >= 3:
-                row['example_doc3'] = docs[2][0]['document']['text']
-            driver_table.append(row)
+
+                # Use the driver term to find related documents
+                search_docs = client.get('docs/search', terms=[driver['term']], limit=500, exact_only=True)
+
+                # Sort documents based on their association with the coefficient vector
+                for doc in search_docs['search_results']:
+                    document = doc[0]['document']
+                    document['driver_as'] = get_as(score_drivers['coefficient_vector'],document['vector'])
+
+                docs = sorted(search_docs['search_results'], key=lambda k: k[0]['document']['driver_as']) 
+                row['example_doc'] = ''
+                row['example_doc2'] = ''
+                row['example_doc3'] = ''
+                if len(docs) >= 1:
+                    row['example_doc'] = docs[0][0]['document']['text']
+                if len(docs) >= 2:
+                    row['example_doc2'] = docs[1][0]['document']['text']
+                if len(docs) >= 3:
+                    row['example_doc3'] = docs[2][0]['document']['text']
+                driver_table.append(row)
+            for driver in score_drivers['positive']:
+                row = {}
+                row['driver'] = driver['text']
+                row['subset'] = subset
+                row['impact'] = driver['regressor_dot']
+                row['score'] = driver['driver_score']
+                related_terms = driver['similar_terms']
+                list_terms = client.get('terms', terms=related_terms)
+                related_text = []
+                for term in list_terms:
+                    related_text.append(term['text'])
+                row['related_terms'] = related_text
+                doc_count = client.get('terms/doc_counts', terms=related_terms, use_json=True)
+                count_sum = 0
+                for doc_dict in doc_count:
+                    count_sum += doc_dict['num_exact_matches']
+                row['doc_count'] = count_sum
+
+                # Use the driver term to find related documents
+                search_docs = client.get('docs/search', terms=[driver['term']], limit=500, exact_only=True)
+
+                # Sort documents based on their association with the coefficient vector
+                for doc in search_docs['search_results']:
+                    document = doc[0]['document']
+                    document['driver_as'] = get_as(score_drivers['coefficient_vector'],document['vector'])
+
+                docs = sorted(search_docs['search_results'], key=lambda k: -k[0]['document']['driver_as'])
+
+                row['example_doc'] = ''
+                row['example_doc2'] = ''
+                row['example_doc3'] = ''
+                if len(docs) >= 1:
+                    row['example_doc'] = docs[0][0]['document']['text']
+                if len(docs) >= 2:
+                    row['example_doc2'] = docs[1][0]['document']['text']
+                if len(docs) >= 3:
+                    row['example_doc3'] = docs[2][0]['document']['text']
+                driver_table.append(row)
     
     return driver_table
 
@@ -461,14 +506,15 @@ def main():
     parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Generate doc_topic_table")
     #parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Generate doc_subset_table")
     parser.add_argument('-trends', '--trend_tables', default=False, action='store_true', help="Generate trends_table and trendingterms_table")
+    parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="Generate drivers_table with topics instead of drivers")
     args = parser.parse_args()
 
     client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, skt_limit=args.skt_limit, term_count=args.term_count)
     subsets = reorder_subsets(subsets)
 
-    doc_table, xref_table = create_doc_table(client, docs, subsets, themes)
+    doc_table, xref_table = create_doc_table(client, docs, subsets, themes, drivers)
     write_table_to_csv(doc_table, 'doc_table.csv')
-    #write_table_to_csv(xref_table, 'xref_table.csv')
+    write_table_to_csv(xref_table, 'xref_table.csv')
     
     if args.doc_term:
         doc_term_table = create_doc_term_table(client, docs, terms, args.assoc_threshold)
@@ -478,7 +524,7 @@ def main():
         doc_topic_table = create_doc_topic_table(client, docs, topics)
         write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
         
-    #if args.doc_subset:
+    if args.doc_subset:
     doc_subset_table = create_doc_subset_table(client, docs, subsets)
     write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
 
@@ -487,8 +533,8 @@ def main():
 
     skt_table = create_skt_table(client, skt)
     write_table_to_csv(skt_table, 'skt_table.csv')
-
-    driver_table = create_drivers_table(client, drivers)
+    
+    driver_table = create_drivers_table(client, drivers, args.topic_drive)
     write_table_to_csv(driver_table, 'drivers_table.csv')
     
     if args.trend_tables:
