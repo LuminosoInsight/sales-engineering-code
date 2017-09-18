@@ -274,7 +274,10 @@ def subset_filter():
     count = int(request.form['min_count'].strip())
     name = request.form['dest_name'].strip()
     more = (request.form.get('more') == 'on')
-    filter_subsets(client=client, account_id=from_acct, project_id=from_proj, proj_name=name, count=count, more=more)
+    subset_name = request.form['subset_name'].strip()
+    only = (request.form.get('only') == 'on')
+    filter_subsets(client=client, account_id=from_acct, project_id=from_proj, 
+                   proj_name=name, subset_name=subset_name, count=count, only=only, more=more)
     return render_template('subset_filter.html', urls=session['apps_to_show'])
     
 
