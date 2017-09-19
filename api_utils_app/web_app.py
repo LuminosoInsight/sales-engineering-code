@@ -9,6 +9,7 @@ from boilerplate_utilities import BPDetector, boilerplate_create_proj
 from qualtrics_utilities import *
 import redis
 from conjunction_disjunction import get_new_results, get_current_results
+from tableau_export_web import reorder_subsets, pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, create_trends_table, write_table_to_csv
 
 #Storage for live classifier demo
 classifiers = None
@@ -37,7 +38,8 @@ def login():
         ('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('compass_export_page'))),
         ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
         ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj'))),
-        ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo')))]
+        ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo'))),
+        ('Tableau', ('Tableau Export',url_for('tableau_export_page')))]
     print(session['apps_to_show'])
     try:
         LuminosoClient.connect('/projects/', username=session['username'],
@@ -51,6 +53,73 @@ def login():
 @app.route('/index')
 def index():
     return render_template('index.html', urls=session['apps_to_show'])
+
+@app.route('/tableau_export_page', methods=['GET'])
+def tableau_export_page():
+    return render_template('tableau_export.html', urls=session['apps_to_show'])
+
+@app.route('/tableau_export', methods=['POST'])
+def tableau_export():
+    url = request.form['url'].strip()
+    from_acct, from_proj = parse_url(url)
+    foldername = request.form['folder_name'].strip()
+    term_count = request.form['term_count'].strip()
+    if term_count == '':
+        term_count = 100
+    else:
+        term_count = int(term_count)
+    skt_limit = request.form['skt_limit'].strip()
+    if skt_limit == '':
+        skt_limit = 20
+    else:
+        skt_limit = int(skt_limit)
+    
+    doc_term = (request.form.get('doc_term') == 'on')
+    doc_topic = (request.form.get('doc_topic') == 'on')
+    doc_subset = (request.form.get('doc_subset') == 'on')
+    themes = (request.form.get('themes') == 'on')
+    skt = (request.form.get('skt') == 'on')
+    drivers = (request.form.get('drivers') == 'on')
+    trends = (request.form.get('trends') == 'on')
+    topic_drive = (request.form.get('topic_drive') == 'on')
+    
+    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(from_acct, from_proj, skt_limit=skt_limit, term_count=term_count)
+    subsets = reorder_subsets(subsets)
+
+    doc_table, xref_table = create_doc_table(client, docs, subsets, themes, drivers)
+    write_table_to_csv(doc_table, foldername, 'doc_table.csv')
+    write_table_to_csv(xref_table, foldername, 'xref_table.csv')
+    
+    if doc_term:
+        doc_term_table = create_doc_term_table(client, docs, terms, .3)
+        write_table_to_csv(doc_term_table, foldername, 'doc_term_table.csv')
+    
+    if doc_topic:
+        doc_topic_table = create_doc_topic_table(client, docs, topics)
+        write_table_to_csv(doc_topic_table, foldername, 'doc_topic_table.csv')
+        
+    if doc_subset:
+        doc_subset_table = create_doc_subset_table(client, docs, subsets)
+        write_table_to_csv(doc_subset_table, foldername, 'doc_subset_table.csv')
+    
+    if themes:
+        themes_table = create_themes_table(client, themes)
+        write_table_to_csv(themes_table, foldername, 'themes_table.csv')
+
+    if skt:
+        skt_table = create_skt_table(client, skt)
+        write_table_to_csv(skt_table, foldername, 'skt_table.csv')
+    
+    if drivers:
+        driver_table = create_drivers_table(client, drivers, topic_drive)
+        write_table_to_csv(driver_table, foldername, 'drivers_table.csv')
+    
+    if trends:
+        trends_table, trendingterms_table = create_trends_table(terms, topics, docs)
+        write_table_to_csv(trends_table, foldername, 'trends_table.csv')
+        write_table_to_csv(trendingterms_table, foldername, 'trendingterms_table.csv')
+    
+    return render_template('tableau_export.html', urls=session['apps_to_show'])
 
 @app.route('/classifier_demo', methods=['GET'])
 def classifier_demo():
