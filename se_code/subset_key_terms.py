@@ -57,7 +57,7 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
     return results
 
 
-def run(account_id, project_id, username, terms_per_subset,
+def run(account_id, project_id, username, terms_per_subset, scan_terms,
         api_url='https://analytics.luminoso.com/api/v4'):
     """
     Find key terms in all the subsets of a project, and print the results
@@ -68,7 +68,7 @@ def run(account_id, project_id, username, terms_per_subset,
         username=username
     )
     key_terms = subset_key_terms(client, terms_per_subset=terms_per_subset,
-                                 scan_terms=1000)
+                                 scan_terms)
 
     print('Subset\tText\tOdds ratio\tUncorrected p-value')
     for subset, text, fisher, pvalue in key_terms:
@@ -83,11 +83,12 @@ def main():
     parser.add_argument('account_id', help="The ID of the account that owns the project, such as 'demo'")
     parser.add_argument('project_id', help="The ID of the project to analyze, such as '2jsnm'")
     parser.add_argument('username', help="A Luminoso username with access to the project")
+    parser.add_argument('-scan', '--scan_terms', type=int, default=1000, help="Get number of top terms")
     parser.add_argument('-t', '--terms-per-subset', type=int, default=10, help="Maximum key terms to find in each subset")
     parser.add_argument('-a', '--api-url', default='https://analytics.luminoso.com/api/v4', help="The base URL for the Luminoso API (defaults to the production API, https://analytics.luminoso.com/api/v4)")
     args = parser.parse_args()
     run(args.account_id, args.project_id, args.username,
-        args.terms_per_subset, args.api_url)
+        args.terms_per_subset, args.scan_terms, args.api_url)
 
 
 if __name__ == '__main__':
