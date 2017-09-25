@@ -68,7 +68,7 @@ def run(account_id, project_id, username, terms_per_subset, scan_terms,
         username=username
     )
     key_terms = subset_key_terms(client, terms_per_subset=terms_per_subset,
-                                 scan_terms)
+                                 scan_terms=scan_terms)
 
     print('Subset\tText\tOdds ratio\tUncorrected p-value')
     for subset, text, fisher, pvalue in key_terms:
