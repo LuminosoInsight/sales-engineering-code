@@ -266,7 +266,7 @@ def create_themes_table(client, themes):
     return themes
                     
 
-def create_drivers_table(client, drivers, topic_drive):
+def create_drivers_table(client, drivers, topic_drive, average_score):
     driver_table = []
     #if topic_drive:
     #    for subset in drivers:
@@ -312,7 +312,6 @@ def create_drivers_table(client, drivers, topic_drive):
     #else:
     for subset in drivers:
         if topic_drive:
-            for subset in drivers:
             topic_drivers = client.put('prediction/drivers', predictor_name=subset)
             for driver in topic_drivers:
                 row = {}
@@ -343,15 +342,16 @@ def create_drivers_table(client, drivers, topic_drive):
 
                 docs = sorted(search_docs['search_results'], key=lambda k: k[0]['document']['driver_as']) 
                 # EXPERIMENTAL
-                avg_score = 0
-                for score_doc in docs:
-                    for category in score_doc[0]['document']['subsets']:
-                        if subset in category:
-                            avg_score += int(category.split(':')[1])
-                            break
-                avg_score = float(avg_score/len(docs))
-                row['average_score'] = avg_score
-                #
+                if average_score:
+                    avg_score = 0
+                    for score_doc in docs:
+                        for category in score_doc[0]['document']['subsets']:
+                            if subset in category:
+                                avg_score += int(category.split(':')[1])
+                                break
+                    avg_score = float(avg_score/len(docs))
+                    row['average_score'] = avg_score
+                    #
                 row['example_doc'] = ''
                 row['example_doc2'] = ''
                 row['example_doc3'] = ''
@@ -393,14 +393,15 @@ def create_drivers_table(client, drivers, topic_drive):
 
             docs = sorted(search_docs['search_results'], key=lambda k: k[0]['document']['driver_as']) 
             # EXPERIMENTAL
-            avg_score = 0
-            for score_doc in docs:
-                for category in score_doc[0]['document']['subsets']:
-                    if subset in category:
-                        avg_score += int(category.split(':')[1])
-                        break
-            avg_score = float(avg_score/len(docs))
-            row['average_score'] = avg_score
+            if average_score:
+                avg_score = 0
+                for score_doc in docs:
+                    for category in score_doc[0]['document']['subsets']:
+                        if subset in category:
+                            avg_score += int(category.split(':')[1])
+                            break
+                avg_score = float(avg_score/len(docs))
+                row['average_score'] = avg_score
             #
             row['example_doc'] = ''
             row['example_doc2'] = ''
@@ -440,14 +441,15 @@ def create_drivers_table(client, drivers, topic_drive):
 
             docs = sorted(search_docs['search_results'], key=lambda k: -k[0]['document']['driver_as'])
             # EXPERIMENTAL
-            avg_score = 0
-            for score_doc in docs:
-                for category in score_doc[0]['document']['subsets']:
-                    if subset in category:
-                        avg_score += int(category.split(':')[1])
-                        break
-            avg_score = float(avg_score/len(docs))
-            row['average_score'] = avg_score
+            if average_score:
+                avg_score = 0
+                for score_doc in docs:
+                    for category in score_doc[0]['document']['subsets']:
+                        if subset in category:
+                            avg_score += int(category.split(':')[1])
+                            break
+                avg_score = float(avg_score/len(docs))
+                row['average_score'] = avg_score
             #
             row['example_doc'] = ''
             row['example_doc2'] = ''
@@ -577,14 +579,15 @@ def main():
     #parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Generate doc_subset_table")
     parser.add_argument('-trends', '--trend_tables', default=False, action='store_true', help="Generate trends_table and trendingterms_table")
     parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="Generate drivers_table with topics instead of drivers")
+    parser.add_argument('-avg', '--average_score', default=False, action='store_true', help="Add average scores to drivers_table")
     args = parser.parse_args()
 
     client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, skt_limit=args.skt_limit, term_count=args.term_count)
     subsets = reorder_subsets(subsets)
 
-    #doc_table, xref_table = create_doc_table(client, docs, subsets, themes, drivers)
-    #write_table_to_csv(doc_table, 'doc_table.csv')
-    #write_table_to_csv(xref_table, 'xref_table.csv')
+    doc_table, xref_table = create_doc_table(client, docs, subsets, themes, drivers)
+    write_table_to_csv(doc_table, 'doc_table.csv')
+    write_table_to_csv(xref_table, 'xref_table.csv')
     
     if args.doc_term:
         doc_term_table = create_doc_term_table(client, docs, terms, args.assoc_threshold)
@@ -595,16 +598,16 @@ def main():
         write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
         
     #if args.doc_subset:
-    #doc_subset_table = create_doc_subset_table(client, docs, subsets)
-    #write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
+    doc_subset_table = create_doc_subset_table(client, docs, subsets)
+    write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
 
-    #themes_table = create_themes_table(client, themes)
-    #write_table_to_csv(themes_table, 'themes_table.csv')
+    themes_table = create_themes_table(client, themes)
+    write_table_to_csv(themes_table, 'themes_table.csv')
 
-    #skt_table = create_skt_table(client, skt)
-    #write_table_to_csv(skt_table, 'skt_table.csv')
+    skt_table = create_skt_table(client, skt)
+    write_table_to_csv(skt_table, 'skt_table.csv')
     
-    driver_table = create_drivers_table(client, drivers, args.topic_drive)
+    driver_table = create_drivers_table(client, drivers, args.topic_drive, args.average_score)
     write_table_to_csv(driver_table, 'drivers_table.csv')
     
     if args.trend_tables:
