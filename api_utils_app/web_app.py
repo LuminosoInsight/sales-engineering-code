@@ -84,6 +84,7 @@ def tableau_export():
     drivers = (request.form.get('drivers') == 'on')
     trends = (request.form.get('trends') == 'on')
     topic_drive = (request.form.get('topic_drive') == 'on')
+    average_score = (request.form.get('average_score') == 'on')
     
     client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(from_acct, from_proj, skt_limit=skt_limit, term_count=term_count)
     subsets = reorder_subsets(subsets)
@@ -113,7 +114,7 @@ def tableau_export():
         write_table_to_csv(skt_table, foldername, 'skt_table.csv')
     
     if drivers:
-        driver_table = create_drivers_table(client, drivers, topic_drive)
+        driver_table = create_drivers_table(client, drivers, topic_drive, average_score)
         write_table_to_csv(driver_table, foldername, 'drivers_table.csv')
     
     if trends:
