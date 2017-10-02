@@ -41,7 +41,7 @@ def login():
         ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj'))),
         ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo'))),
         ('Modify', ('Auto Emotions', url_for('plutchik_page'))),
-        ('Tableau', ('Tableau Export',url_for('tableau_export_page')))]
+        ('Dashboards', ('Tableau Export',url_for('tableau_export_page')))]
     print(session['apps_to_show'])
     try:
         LuminosoClient.connect('/projects/', username=session['username'],
