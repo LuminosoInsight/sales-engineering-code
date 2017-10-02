@@ -1,0 +1,32 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+	<div class="page-header"><p>
+       <h1>Automatically add Plutchik's wheel of emotions to a project</h1>
+    </div>
+
+     
+      <div id="content">
+      <h3>Automatically add wheel of emotions as topics</h3>
+      <form action="{{ url_for('plutchik') }}" method='post' >
+        
+        
+        <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
+        <input type="checkbox" name="delete" checked> Delete all other topics from the project<br><br>
+        
+        <input type="text" name="dest_name" class="form-control" placeholder="Desired Destination Project Name">
+        <input type="checkbox" name="copy" checked> Keep a copy of the current project as it is<br><br>
+        <input class="btn btn-lg btn-primary btn-block" type="submit" value="Plutchik"/>
+        <br>
+        <span id="errorLogin">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+
+
+      
+      
+      </div>
+
+{% endblock %}

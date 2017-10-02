@@ -9,6 +9,7 @@ from boilerplate_utilities import BPDetector, boilerplate_create_proj
 from qualtrics_utilities import *
 import redis
 from conjunction_disjunction import get_new_results, get_current_results
+from auto_plutchik import get_all_topics, delete_all_topics, add_plutchik, copy_project
 from tableau_export_web import reorder_subsets, pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, create_trends_table, write_table_to_csv
 
 #Storage for live classifier demo
@@ -39,6 +40,7 @@ def login():
         ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
         ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj'))),
         ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo'))),
+        ('Modify', ('Auto Emotions', url_for('plutchik_page'))),
         ('Tableau', ('Tableau Export',url_for('tableau_export_page')))]
     print(session['apps_to_show'])
     try:
@@ -182,6 +184,32 @@ def live_classifier():
         results.append(result)
 
     return render_template('classifier.html', urls=session['apps_to_show'], results=results[::-1])
+
+@app.route('/plutchik', methods=['POST'])
+def plutchik():
+    url = request.form['url'].strip()
+    from_acct, from_proj = parse_url(url)
+    client = LuminosoClient.connect('/projects/', username=session['username'],
+                                                password=session['password'])
+    client = client.change_path('/')
+    client = client.change_path('/projects/{}/{}'.format(from_acct, from_proj))
+    delete = (request.form.get('delete') == 'on')
+    name = request.form['dest_name'].strip()
+    copy = (request.form.get('copy') == 'on')
+    
+    topic_list = get_all_topics(client)
+    if copy:
+        client = copy_project(client, from_acct, name)
+    if delete:
+        delete_all_topics(client, topic_list)
+    add_plutchik(client)
+    return render_template('auto_plutchik.html', urls=session['apps_to_show'])
+    
+
+@app.route('/plutchik_page')
+def plutchik_page():
+    return render_template('auto_plutchik.html', urls=session['apps_to_show'])
+
 @app.route('/conj_disj', methods=['POST','GET'])
 def conj_disj():
     new_results = []
