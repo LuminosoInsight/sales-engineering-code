@@ -77,7 +77,7 @@ def compass_stream():
     stream_time = request.form['stream_time']
     total_time = 0
     while total_time < int(float(stream_time) * 60):
-        batch_size = randint(1, int(len(docs) / 10))
+        batch_size = randint(1, int(len(docs) / 100))
         interval = randint(int(batch_size / 10), int(batch_size / 5))
         
         curr_docs = []

@@ -55,5 +55,7 @@ def format_messages(docs):
 
 def post_messages(api_url, docs, interval, username, password):
     headers = get_headers(username, password, BASE_URL)
-    requests.post(api_url + 'messages/', json=docs, headers=headers)
+    response = requests.post(api_url + 'messages/', json=docs, headers=headers)
+    if not response.ok:
+        print(response.text)
     time.sleep(interval)
