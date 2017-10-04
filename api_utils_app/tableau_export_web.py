@@ -275,6 +275,7 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
             for driver in topic_drivers:
                 row = {}
                 row['driver'] = driver['text']
+                row['type'] = 'user_defined'
                 row['subset'] = subset
                 row['impact'] = driver['regressor_dot']
                 row['score'] = driver['driver_score']
@@ -325,6 +326,7 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
         for driver in score_drivers['negative']:
             row = {}
             row['driver'] = driver['text']
+            row['type'] = 'auto_found'
             row['subset'] = subset
             row['impact'] = driver['regressor_dot']
             row['score'] = driver['driver_score']
@@ -375,6 +377,7 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
         for driver in score_drivers['positive']:
             row = {}
             row['driver'] = driver['text']
+            row['type'] = 'auto_found'
             row['subset'] = subset
             row['impact'] = driver['regressor_dot']
             row['score'] = driver['driver_score']
