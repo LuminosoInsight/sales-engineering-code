@@ -543,7 +543,7 @@ def main():
     parser.add_argument('-avg', '--average_score', default=False, action='store_true', help="Add average scores to drivers_table")
     args = parser.parse_args()
 
-    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, skt_limit=args.skt_limit, term_count=args.term_count)
+    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, skt_limit=int(args.skt_limit), term_count=int(args.term_count))
     subsets = reorder_subsets(subsets)
 
     doc_table, xref_table = create_doc_table(client, docs, subsets, themes, drivers)
@@ -551,7 +551,7 @@ def main():
     write_table_to_csv(xref_table, 'xref_table.csv')
     
     if args.doc_term:
-        doc_term_table = create_doc_term_table(client, docs, terms, args.assoc_threshold)
+        doc_term_table = create_doc_term_table(client, docs, terms, float(args.assoc_threshold))
         write_table_to_csv(doc_term_table, 'doc_term_table.csv')
     
     if args.doc_topic:
