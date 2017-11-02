@@ -91,14 +91,13 @@ def normalize_score(current_score, other_scores):
 
 def sort_scores(scores, n_results):
     """
-    Sort using the harmonic mean of the sentiment and relevance scores. If either of a term's scores
-    is not positive, the score for the term is zero. The secondary sorting key is the sentiment
+    Sort using the harmonic mean of the sentiment and relevance scores. If either of a term's
+    scores is not positive, the score for the term is zero. The secondary sorting key is the sentiment
     score.
     """
     return sorted(scores,
-                  key=lambda sentiment, relevance: (hmean([sentiment, relevance])
-                                                    if all([sentiment, relevance]) else 0,
-                                                    sentiment),
+                  key=lambda scores: (hmean([scores[1], scores[2]])
+                                      if all([scores[1], scores[2]]) else 0, scores[1]),
                   reverse=True)[:n_results]
 
 
