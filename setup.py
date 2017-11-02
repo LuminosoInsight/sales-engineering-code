@@ -12,7 +12,7 @@ setup(
                    "will be given to customers"),
     packages=find_packages(),
     install_requires=[
-        'luminoso_api'
+        'luminoso_api', 'click', 'scipy'
         ],
     entry_points={
         'console_scripts': [
