@@ -64,7 +64,7 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
                              if s['subset'].partition(':')[0] == subset]
             if all([is_number(v) for v in subset_values]):
                 drivers.append(subset)
-        
+    
     if drivers:
         add_score_drivers_to_project(client, docs, drivers)
     return client, docs, topics, terms, subsets, drivers, skt, themes
@@ -184,7 +184,7 @@ def create_skt_table(client, skt):
     length = 0
     terms = []
     for s, t, o, p in skt:
-        if length > 15000 - len(t['term']):
+        if length > 10000 - len(t['term']):
             terms.extend(client.get('terms/doc_counts', terms=terms_to_get, format='json'))
             
             terms_to_get = []
@@ -535,10 +535,14 @@ def main():
     parser.add_argument('-t', '--term_count', default=100, help="The number of top terms to pull from the project")
     parser.add_argument('-a', '--assoc_threshold', default=.3, help="The minimum association threshold to display")
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
+    parser.add_argument('-d', '--doc', default=False, action='store_true', help="If you really do not want doc_table")
     parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Generate doc_term_table")
     parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Generate doc_topic_table")
-    #parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Generate doc_subset_table")
+    parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Do not generate doc_subset_table")
+    parser.add_argument('-themes', '--themes', default=False, action='store_true', help="Do not generate themes")
     parser.add_argument('-trends', '--trend_tables', default=False, action='store_true', help="Generate trends_table and trendingterms_table")
+    parser.add_argument('-sktt', '--skt_table', default=False, action='store_true',help="Do not generate skt_tables")
+    parser.add_argument('-drive', '--drive', default=False, action='store_true',help="Do not generate driver_table")
     parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="Generate drivers_table with topics instead of drivers")
     parser.add_argument('-avg', '--average_score', default=False, action='store_true', help="Add average scores to drivers_table")
     args = parser.parse_args()
@@ -546,9 +550,10 @@ def main():
     client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, skt_limit=int(args.skt_limit), term_count=int(args.term_count))
     subsets = reorder_subsets(subsets)
 
-    doc_table, xref_table = create_doc_table(client, docs, subsets, themes, drivers)
-    write_table_to_csv(doc_table, 'doc_table.csv')
-    write_table_to_csv(xref_table, 'xref_table.csv')
+    if not args.doc:
+        doc_table, xref_table = create_doc_table(client, docs, subsets, themes, drivers)
+        write_table_to_csv(doc_table, 'doc_table.csv')
+        write_table_to_csv(xref_table, 'xref_table.csv')
     
     if args.doc_term:
         doc_term_table = create_doc_term_table(client, docs, terms, float(args.assoc_threshold))
@@ -558,18 +563,21 @@ def main():
         doc_topic_table = create_doc_topic_table(client, docs, topics)
         write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
         
-    #if args.doc_subset:
-    doc_subset_table = create_doc_subset_table(client, docs, subsets)
-    write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
+    if not args.doc_subset:
+        doc_subset_table = create_doc_subset_table(client, docs, subsets)
+        write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
 
-    themes_table = create_themes_table(client, themes)
-    write_table_to_csv(themes_table, 'themes_table.csv')
+    if not args.themes:
+        themes_table = create_themes_table(client, themes)
+        write_table_to_csv(themes_table, 'themes_table.csv')
 
-    skt_table = create_skt_table(client, skt)
-    write_table_to_csv(skt_table, 'skt_table.csv')
+    if not args.skt_table:
+        skt_table = create_skt_table(client, skt)
+        write_table_to_csv(skt_table, 'skt_table.csv')
     
-    driver_table = create_drivers_table(client, drivers, args.topic_drive, args.average_score)
-    write_table_to_csv(driver_table, 'drivers_table.csv')
+    if not args.drive:
+        driver_table = create_drivers_table(client, drivers, args.topic_drive, args.average_score)
+        write_table_to_csv(driver_table, 'drivers_table.csv')
     
     if args.trend_tables:
         trends_table, trendingterms_table = create_trends_table(terms, topics, docs)
