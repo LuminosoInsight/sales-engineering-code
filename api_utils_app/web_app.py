@@ -135,7 +135,11 @@ def subset_search():
         else:
             project = client.get()['name']
             question = request.form['text']
-            query_info, results = search_subsets(client, question, subset_vecs, subset_stats)
+            query_info, results = search_subsets(client,
+                                                 question,
+                                                 subset_vecs,
+                                                 subset_stats,
+                                                 top_reviews=1)
             return render_template('subset_search.html',
                                    urls=session['apps_to_show'],
                                    query_info=query_info,
