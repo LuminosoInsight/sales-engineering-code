@@ -32,15 +32,15 @@ def get_project_terms(client, language, n_terms):
     for term in terms:
         term['vector'] = term['orig-vector'] = unpack64(term['vector'])
         term['orig-score'] = term['score']
-        term['sentiment'] = sentiment_scorer.term_sentiment(term['term'])
+        term['sentiment-score'] = sentiment_scorer.term_sentiment(term['term'])
     return terms
 
 
 def get_terms_to_include(terms, emotion):
     if emotion == 'pos':
-        return [term for term in terms if term['sentiment'] > 0]
+        return [term for term in terms if term['sentiment-score'] > 0]
     elif emotion == 'neg':
-        return [term for term in terms if term['sentiment'] < 0]
+        return [term for term in terms if term['sentiment-score'] < 0]
     elif emotion == 'love':
         vocab = ['wonderful|en', 'amaze|en', 'awesome|en', 'fabulous|en', 'fantastic|en']
         return [term for term in terms if term['term'] in vocab]
@@ -68,17 +68,15 @@ def get_sent_axis(proj_terms, sent):
     sent_terms = get_terms_to_include(proj_terms, sent)
 
     try:
-        axis_sum = sum(abs(term['sentiment']) for term in sent_terms)
+        axis_sum = sum(abs(term['sentiment-score']) for term in sent_terms)
         axis = sent_terms[0]['vector'] * 0
         for term in sent_terms:
-            axis += term['orig-vector'] * abs(term['sentiment']) * term['score'] / axis_sum
+            axis += term['orig-vector'] * abs(term['sentiment-score']) * term['score'] / axis_sum
         axis /= (axis.dot(axis)) ** 0.5
         return axis
     except IndexError:
         # TODO handle this more gracefully
         print('Can\'t create the axis')
-
-
 
 
 def list_sorted_sentiment_terms(client, terms, pos_or_neg, n_results):
@@ -89,25 +87,28 @@ def list_sorted_sentiment_terms(client, terms, pos_or_neg, n_results):
     """
     sentiment_terms = get_sentiment_terms(client, terms, pos_or_neg, n_results)
 
-    sentiment_scores = [term[1] for term in sentiment_terms]
-    relevance_scores = [term[0]['score'] for term in sentiment_terms]
+    sentiment_scores = [term['sentiment-matching-score'] for term in sentiment_terms]
+    relevance_scores = [term['score'] for term in sentiment_terms]
     norm_scores = []
-    for term, sentiment_score in sentiment_terms:
-        norm_sent_match_score = normalize_score(sentiment_score, sentiment_scores)
+    for term in sentiment_terms:
+        norm_sent_match_score = normalize_score(term['sentiment-matching-score'], sentiment_scores)
         norm_relevance_score = normalize_score(term['score'], relevance_scores)
         norm_scores.append((term['text'], norm_sent_match_score, norm_relevance_score))
     return sort_scores(norm_scores, n_results)
 
 
-def get_sentiment_terms(client, terms, pos_or_neg, n_results):
-    axis = get_sent_axis(terms, pos_or_neg)
-    sentiment_terms = [
-        term for term in client.get(
+def get_sentiment_terms(client, terms, sent, n_results):
+    axis = get_sent_axis(terms, sent)
+    sentiment_terms = client.get(
             'terms/search', vectors=json.dumps([pack64(axis)]),
             limit=n_results if n_results > 100 else 100
         )['search_results']
-        ]
-    return sentiment_terms
+
+    for term, sentiment_matching_score in sentiment_terms:
+        term['sentiment-matching-score'] = sentiment_matching_score
+        term['sentiment'] = sent
+
+    return [term[0] for term in sentiment_terms]
 
 
 def normalize_score(current_score, other_scores):
@@ -147,20 +148,24 @@ def get_sentiment_informed_clusters(client, terms, limit=100):
     sentiment axis and increase its score to ensure that it's more important during the
     clustering process.
     """
-    # TODO make get_sentiment_terms() return an axis as well
-    pos_terms = [term[0] for term in list_sorted_sentiment_terms(client, terms, 'pos', limit)]
-    neg_terms = [term[0] for term in list_sorted_sentiment_terms(client, terms, 'neg', limit)]
+    pos_terms = get_sentiment_terms(client, terms, 'pos', limit)
+    neg_terms = get_sentiment_terms(client, terms, 'neg', limit)
+    pos_terms_text = [term['text'] for term in pos_terms]
+    neg_terms_text = [term['text'] for term in neg_terms]
 
     pos_axis = get_sent_axis(proj_terms=terms, sent='pos')
     neg_axis = get_sent_axis(proj_terms=terms, sent='neg')
 
+    # I need to take a
     for term in terms:
-        if term['text'] in pos_terms or term['sentiment'] > 0:
+        if term['text'] in pos_terms_text or term['sentiment-score'] > 0:
             # term['vector'] = stretch_axis(term['orig-vector'], pos_axis, 1.2)
+            term['sentiment'] = 'pos'
             term['score'] = compute_new_relevance_score(term, pos_axis)
-        elif term['text'] in neg_terms or term['sentiment'] < 0:
+        elif term['text'] in neg_terms_text or term['sentiment-score'] < 0:
             # term['vector'] = stretch_axis(term['orig-vector'], neg_axis, 1.2)
             term['score'] = compute_new_relevance_score(term, neg_axis)
+            term['sentiment'] = 'neg'
 
     tree = ClusterTree.from_term_list(terms)
     return tree
@@ -185,6 +190,25 @@ def compute_new_relevance_score(term, axis):
     return term['orig-score'] * (1. + term['vector'].dot(axis))
 
 
+def get_cluster_label(subtree_terms):
+    score = 0
+
+    for term in subtree_terms:
+        try:
+            if term['sentiment'] == 'neg':
+                score -= 1
+            else:
+                score += 1
+        except KeyError:
+            continue
+    score = score/len(subtree_terms)
+    if score >= 0.6:
+        return 'POS'
+    elif score <= -0.6:
+        return 'NEG'
+    return None
+
+
 def print_clusters(tree, n=7, verbose=False):
     """
     Print the sentiment-informed clusters. If verbose-True, include the change in their relevance
@@ -192,26 +216,27 @@ def print_clusters(tree, n=7, verbose=False):
     """
     for subtree in tree.flat_cluster_list(n):
         subtree_terms = [term for term in subtree.filtered_termlist[:5]]
+        cluster_label = get_cluster_label(subtree_terms)
+        if cluster_label:
+            print('***{}***'.format(cluster_label))
         print(subtree.term['text'])
         for term in subtree_terms:
             output = '* {} '.format(term['text'])
             if verbose:
                 output += '{} ==> {}'.format(round(term['orig-score'], 2), round(term['score'], 2))
             print(output)
+        print()
 
 
 def cluster_sentiment_terms(client, terms):
-    # Perhaps make these be sorted by a relevance? Why?
-    # Or I can just get the terms that are among the top 1000 terms
-    # These will be sorted by matching the pos_axis, not by relevance
-    pos_terms = [term[0] for term in get_sentiment_terms(client, terms, 'pos', 100)]
-    neg_terms = [term[0] for term in get_sentiment_terms(client, terms, 'neg', 100)]
+    # These will be sorted by how well they match a sentiment_axis
+    pos_terms = get_sentiment_terms(client, terms, 'pos', 200)
+    neg_terms = get_sentiment_terms(client, terms, 'neg', 200)
     sent_terms = pos_terms + neg_terms
     for term in sent_terms:
         term['vector'] = unpack64(term['vector'])
     tree = ClusterTree.from_term_list(sent_terms)
     return tree
-
 
 
 @click.command()
