@@ -86,7 +86,7 @@ def compass_stream():
         messages = format_messages(curr_docs)
         post_messages(api_url, messages, interval, compass_username, compass_password)
         print('POSTed {}, sleeping for {}'.format(batch_size, interval))
-        total_time += interval
+        total_time += max(interval, 1)
     print('Done posting')
     return render_template('compass_demo.html', urls=session['apps_to_show'])
     

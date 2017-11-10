@@ -49,7 +49,7 @@ def format_messages(docs):
     for doc in docs:
         message = {}
         message['text'] = doc['text']
-        message['timestamp'] = datetime.datetime.strftime(datetime.datetime.fromtimestamp(time.time()+4*60*60), '%Y-%m-%d %H:%M:%S')
+        message['timestamp'] = time.time()#datetime.datetime.strftime(datetime.datetime.fromtimestamp(time.time()+4*60*60), '%Y-%m-%d %H:%M:%S')
         messages.append(message)
     return messages
 
