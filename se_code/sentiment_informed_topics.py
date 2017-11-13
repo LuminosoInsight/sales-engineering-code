@@ -1,6 +1,9 @@
 """
-Example use:
-python sentiment_informed_topics.py zoo vfzct --list-terms --pos --n-results=10 --n-terms=1000 -v
+Example uses:
+python sentiment_informed_topics.py zoo rjcfz --emotion pos --sentiment-terms --verbose
+python sentiment_informed_topics.py zoo rjcfz --sentiment-informed-clusters --baseline --verbose
+python sentiment_informed_topics.py zoo rjcfz --sentiment-clusters --n-terms=1000
+
 """
 
 import json
@@ -36,7 +39,11 @@ def get_project_terms(client, language, n_terms):
     return terms
 
 
-def get_terms_to_include(terms, emotion):
+def get_terms_to_include_in_axis(terms, emotion):
+    """
+    Get the terms from which a sentiment/emotion axis will be built. Experimentally, return seed
+    terms for emotion axes.
+    """
     if emotion == 'pos':
         return [term for term in terms if term['sentiment-score'] > 0]
     elif emotion == 'neg':
@@ -52,7 +59,6 @@ def get_terms_to_include(terms, emotion):
         vocab = ['frustrate|en', 'angry|en', 'mad|en', 'annoy|en', 'bother|en', 'hate|en']
         return [term for term in terms if term['term'] in vocab]
     elif emotion == 'interest':
-        # This one is weak
         vocab = ['interest|en', 'intrigue|en', 'curious|en', 'anticipation|en']
         return [term for term in terms if term['term'] in vocab]
     elif emotion == 'fear':
@@ -65,7 +71,7 @@ def get_sent_axis(proj_terms, sent):
     """
     Compute a sentiment or emotion axis.
     """
-    sent_terms = get_terms_to_include(proj_terms, sent)
+    sent_terms = get_terms_to_include_in_axis(proj_terms, sent)
 
     try:
         axis_sum = sum(abs(term['sentiment-score']) for term in sent_terms)
@@ -79,13 +85,13 @@ def get_sent_axis(proj_terms, sent):
         print('Can\'t create the axis')
 
 
-def list_sorted_sentiment_terms(client, terms, pos_or_neg, n_results):
+def get_sorted_sentiment_terms(client, terms, emotion, n_results):
     """
-    Get the project terms that best match the specified sentiment axis (positive or negative). Each
-    term is assigned a sentiment score (how well it matched the sentiment axis) and a relevance
-    score. The terms are then sorted using these two scores.
+    Get the project terms that best match the specified sentiment or emotion axis. Each
+    term is assigned a sentiment score (how well it matched the axis) and a relevance score. The
+    terms are then sorted using these two scores.
     """
-    sentiment_terms = get_sentiment_terms(client, terms, pos_or_neg, n_results)
+    sentiment_terms = get_sentiment_terms(client, terms, emotion, n_results)
 
     sentiment_scores = [term['sentiment-matching-score'] for term in sentiment_terms]
     relevance_scores = [term['score'] for term in sentiment_terms]
@@ -98,11 +104,14 @@ def list_sorted_sentiment_terms(client, terms, pos_or_neg, n_results):
 
 
 def get_sentiment_terms(client, terms, sent, n_results):
+    """
+    Get the terms in the project that best match the axis of sentiment/emotion passed in sent.
+    """
     axis = get_sent_axis(terms, sent)
     sentiment_terms = client.get(
-            'terms/search', vectors=json.dumps([pack64(axis)]),
-            limit=n_results if n_results > 100 else 100
-        )['search_results']
+        'terms/search', vectors=json.dumps([pack64(axis)]),
+        limit=n_results if n_results > 100 else 100
+    )['search_results']
 
     for term, sentiment_matching_score in sentiment_terms:
         term['sentiment-matching-score'] = sentiment_matching_score
@@ -121,8 +130,8 @@ def normalize_score(current_score, other_scores):
 def sort_scores(scores, n_results):
     """
     Sort using the harmonic mean of the sentiment and relevance scores. If either of a term's
-    scores is not positive, the score for the term is zero. The secondary sorting key is the sentiment
-    score.
+    scores is not positive, the score for the term is zero. The secondary sorting key is the
+    sentiment score.
     """
     return sorted(scores,
                   key=lambda scores: (hmean([scores[1], scores[2]])
@@ -156,14 +165,13 @@ def get_sentiment_informed_clusters(client, terms, limit=100):
     pos_axis = get_sent_axis(proj_terms=terms, sent='pos')
     neg_axis = get_sent_axis(proj_terms=terms, sent='neg')
 
-    # I need to take a
     for term in terms:
         if term['text'] in pos_terms_text or term['sentiment-score'] > 0:
-            # term['vector'] = stretch_axis(term['orig-vector'], pos_axis, 1.2)
+            term['vector'] = stretch_axis(term['orig-vector'], pos_axis, 1.2)
             term['sentiment'] = 'pos'
             term['score'] = compute_new_relevance_score(term, pos_axis)
         elif term['text'] in neg_terms_text or term['sentiment-score'] < 0:
-            # term['vector'] = stretch_axis(term['orig-vector'], neg_axis, 1.2)
+            term['vector'] = stretch_axis(term['orig-vector'], neg_axis, 1.2)
             term['score'] = compute_new_relevance_score(term, neg_axis)
             term['sentiment'] = 'neg'
 
@@ -172,6 +180,9 @@ def get_sentiment_informed_clusters(client, terms, limit=100):
 
 
 def get_baseline_clusters(client, language):
+    """
+    Cluster the top 500 terms in the project, for comparison with the new method.
+    """
     terms = get_project_terms(client, language, 500)
     return ClusterTree.from_term_list(terms)
 
@@ -191,6 +202,9 @@ def compute_new_relevance_score(term, axis):
 
 
 def get_cluster_label(subtree_terms):
+    """
+    When applicable, label a cluster with as positive or negative.
+    """
     score = 0
 
     for term in subtree_terms:
@@ -201,7 +215,7 @@ def get_cluster_label(subtree_terms):
                 score += 1
         except KeyError:
             continue
-    score = score/len(subtree_terms)
+    score /= len(subtree_terms)
     if score >= 0.6:
         return 'POS'
     elif score <= -0.6:
@@ -229,7 +243,9 @@ def print_clusters(tree, n=7, verbose=False):
 
 
 def cluster_sentiment_terms(client, terms):
-    # These will be sorted by how well they match a sentiment_axis
+    """
+    Get 200 positive terms and 200 negative terms, and cluster them.
+    """
     pos_terms = get_sentiment_terms(client, terms, 'pos', 200)
     neg_terms = get_sentiment_terms(client, terms, 'neg', 200)
     sent_terms = pos_terms + neg_terms
@@ -242,37 +258,36 @@ def cluster_sentiment_terms(client, terms):
 @click.command()
 @click.argument('account_id')
 @click.argument('project_id')
-@click.option('--emotion', default='pos')
+@click.option('--emotion', default='pos', help='pos, neg, love, sadness, anger, interest, or fear')
 @click.option('--language', '-l', default='en')
-@click.option('--sentiment-terms', is_flag=True, help='Use --list-terms to get a list of'
-                                                                 'sentiment terms. Use '
-                                                                 '--cluster-terms to get '
-                                                                 'sentiment-informed term clusters')
+@click.option('--sentiment-terms', is_flag=True, help='Use to get a list of sentiment terms')
 @click.option('--sentiment-informed-clusters', is_flag=True, help='Use to get 28 suggested topics, '
-                                                    'with sentiment topic being more prominent')
+                                                                  'with sentiment topic being more '
+                                                                  'prominent')
 @click.option('--sentiment-clusters', is_flag=True, help='Cluster only the sentiment terms')
 @click.option('--n-terms', default=500, help='Number of project terms to operate on. More terms '
                                              'usually means more accurate results.')
 @click.option('--n-results', default=30, help='Number of results to show')
 @click.option('--verbose', '-v', is_flag=True, help='Show details about the results')
 @click.option('--baseline', is_flag=True, help='Show baseline clusters.')
-def main(account_id, project_id, emotion, language, sentiment_terms, sentiment_informed_clusters,
-         sentiment_clusters, n_terms, n_results, verbose, baseline):
+def main(account_id, project_id, emotion, language, sentiment_terms,
+         sentiment_informed_clusters, sentiment_clusters, n_terms, n_results, verbose, baseline):
     client = connect(account_id, project_id)
+
     terms = get_project_terms(client, language, n_terms)
 
     if sentiment_terms:
-        sentiment_terms = list_sorted_sentiment_terms(client, terms, emotion, n_results)
-        print_sentiment_terms(sentiment_terms, verbose=verbose)
+        sorted_sentiment_terms = get_sorted_sentiment_terms(client, terms, emotion, n_results)
+        print_sentiment_terms(sorted_sentiment_terms, verbose=verbose)
 
     if sentiment_informed_clusters:
         sentiment_informed_clusters = get_sentiment_informed_clusters(client, terms)
         print_clusters(sentiment_informed_clusters, verbose=verbose)
 
         if baseline:
-            print('\n=== BASELINE ===')
+            print('\n= BASELINE =')
             baseline_clusters = get_baseline_clusters(client, language)
-            print_clusters(baseline_clusters, verbose=verbose)
+            print_clusters(baseline_clusters, verbose=False)
 
     if sentiment_clusters:
         sentiment_terms_clusters = cluster_sentiment_terms(client, terms)
