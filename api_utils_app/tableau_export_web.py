@@ -282,14 +282,15 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
                 # ADDED RELATED TERMS
                 related_terms = driver['terms']
                 list_terms = client.get('terms', terms=related_terms)
+                doc_count_terms_list = [related_terms[0]]
                 related_text = []
                 for term in list_terms:
                     related_text.append(term['text'])
                 row['related_terms'] = related_text
-                doc_count = client.get('terms/doc_counts', terms=related_terms, use_json=True)
+                doc_count = client.get('terms/doc_counts', terms=doc_count_terms_list, use_json=True)
                 count_sum = 0
                 for doc_dict in doc_count:
-                    count_sum += doc_dict['num_exact_matches']
+                    count_sum += (doc_dict['num_exact_matches'] + doc_dict['num_related_matches'])
                 row['doc_count'] = count_sum
 
                 # Use the driver term to find related documents
@@ -333,14 +334,15 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
             # ADDED RELATED TERMS
             related_terms = driver['similar_terms']
             list_terms = client.get('terms', terms=related_terms)
+            doc_count_terms_list = [related_terms[0]]
             related_text = []
             for term in list_terms:
                 related_text.append(term['text'])
             row['related_terms'] = related_text
-            doc_count = client.get('terms/doc_counts', terms=related_terms, use_json=True)
+            doc_count = client.get('terms/doc_counts', terms=doc_count_terms_list, use_json=True)
             count_sum = 0
             for doc_dict in doc_count:
-                count_sum += doc_dict['num_exact_matches']
+                count_sum += (doc_dict['num_exact_matches'] + doc_dict['num_related_matches'])
             row['doc_count'] = count_sum
 
 
@@ -383,14 +385,15 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
             row['score'] = driver['driver_score']
             related_terms = driver['similar_terms']
             list_terms = client.get('terms', terms=related_terms)
+            doc_count_terms_list = [related_terms[0]]
             related_text = []
             for term in list_terms:
                 related_text.append(term['text'])
             row['related_terms'] = related_text
-            doc_count = client.get('terms/doc_counts', terms=related_terms, use_json=True)
+            doc_count = client.get('terms/doc_counts', terms=doc_count_terms_list, use_json=True)
             count_sum = 0
             for doc_dict in doc_count:
-                count_sum += doc_dict['num_exact_matches']
+                count_sum += (doc_dict['num_exact_matches'] + doc_dict['num_related_matches'])
             row['doc_count'] = count_sum
 
                 # Use the driver term to find related documents
