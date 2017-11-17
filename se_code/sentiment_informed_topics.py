@@ -23,7 +23,7 @@ class SentimentTopics:
         self.sentiment_scorer = SentimentScorer(language)
         self.n_terms = n_terms
         self.project_terms = self._get_project_terms(self.n_terms)
-        self.axes = defaultdict(lambda: None)
+        self.axes = {}
         self.sentiment_terms = defaultdict(lambda: None)
 
     @staticmethod
@@ -51,16 +51,14 @@ class SentimentTopics:
         """
         Compute a sentiment or emotion axis.
         """
-        if self.axes[emotion] is not None:
+        if emotion in self.axes:
             return self.axes[emotion]
         else:
             sent_terms = self._get_terms_to_include_in_axis(emotion)
-
             axis_sum = sum(abs(term['sentiment-score']) for term in sent_terms)
             axis = sent_terms[0]['vector'] * 0
             for term in sent_terms:
-                axis += term['orig-vector'] * abs(term['sentiment-score']) * term[
-                    'score'] / axis_sum
+                axis += term['orig-vector'] * abs(term['sentiment-score']) * term['score'] / axis_sum
             axis /= (axis.dot(axis)) ** 0.5
             self.axes[emotion] = axis
             return self.axes[emotion]
@@ -142,8 +140,8 @@ class SentimentTopics:
     def sentiment_informed_clusters(self, limit=100):
         """
         Cluster the project terms taking the sentiment information into consideration. For each term
-        that is similar to either a positive or negative sentiment axis, make it more similar to that
-        sentiment axis and increase its score to ensure that it's more important during the
+        that is similar to either a positive or negative sentiment axis, make it more similar to
+        that sentiment axis and increase its score to ensure that it's more important during the
         clustering process.
         """
         pos_terms = self._get_sentiment_terms('pos', limit)
