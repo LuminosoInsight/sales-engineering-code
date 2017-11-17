@@ -58,7 +58,8 @@ class SentimentTopics:
             axis_sum = sum(abs(term['sentiment-score']) for term in sent_terms)
             axis = sent_terms[0]['vector'] * 0
             for term in sent_terms:
-                axis += term['orig-vector'] * abs(term['sentiment-score']) * term['score'] / axis_sum
+                axis += term['orig-vector'] * abs(term['sentiment-score']) * term[
+                    'score'] / axis_sum
             axis /= (axis.dot(axis)) ** 0.5
             self.axes[emotion] = axis
             return self.axes[emotion]
@@ -130,11 +131,7 @@ class SentimentTopics:
         sentiment score.
         """
         return sorted(self.sentiment_terms[(emotion, n_results)],
-                      key=lambda term: (hmean([term['norm-axis-score'],
-                                               term['norm-relevance-score']])
-                                        if all([term['norm-axis-score'],
-                                                term['norm-relevance-score']]) else 0,
-                                        term['norm-axis-score']),
+                      key=self._sorting_function,
                       reverse=True)[:n_results]
 
     def sentiment_informed_clusters(self, limit=100):
@@ -205,6 +202,14 @@ class SentimentTopics:
         Increase the relevance score of the terms that match the sentiment axis.
         """
         return term['orig-score'] * (1. + term['vector'].dot(axis))
+
+    @staticmethod
+    def _sorting_function(term):
+        return (hmean([term['norm-axis-score'],
+                       term['norm-relevance-score']])
+                if all([term['norm-axis-score'],
+                        term['norm-relevance-score']]) else 0,
+                term['norm-axis-score'])
 
 
 def get_cluster_label(subtree_terms):
