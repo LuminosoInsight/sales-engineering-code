@@ -81,7 +81,7 @@ def compass_stream():
     stream_time = request.form['stream_time']
     total_time = 0
     while total_time < int(float(stream_time) * 60):
-        batch_size = randint(1, int(len(docs) / 100))
+        batch_size = randint(1, int(len(docs) / 10))
         interval = randint(int(batch_size / 10), int(batch_size / 5))
         
         curr_docs = []
@@ -376,25 +376,6 @@ def text_filter():
     return render_template('text_filter.html', urls=session['apps_to_show'])
     #return jsonify(filter_project(from_acct, from_proj, name, text, reconcile, branch, exact))
     
-@app.route('/plutchik', methods=['POST'])
-def plutchik():
-    url = request.form['url'].strip()
-    from_acct, from_proj = parse_url(url)
-    client = LuminosoClient.connect('/projects/', username=session['username'],
-                                                password=session['password'])
-    client = client.change_path('/')
-    client = client.change_path('/projects/{}/{}'.format(from_acct, from_proj))
-    delete = (request.form.get('delete') == 'on')
-    name = request.form['dest_name'].strip()
-    copy = (request.form.get('copy') == 'on')
-    
-    topic_list = get_all_topics(client)
-    if copy:
-        client = copy_project(client, from_acct, name)
-    if delete:
-        delete_all_topics(client, topic_list)
-    add_plutchik(client)
-    return render_template('auto_plutchik.html', urls=session['apps_to_show'])
 
 @app.route('/subset_filter', methods=['POST'])
 def subset_filter():
@@ -410,11 +391,6 @@ def subset_filter():
     filter_subsets(client=client, account_id=from_acct, project_id=from_proj, 
                    proj_name=name, subset_name=subset_name, count=count, only=only, more=more)
     return render_template('subset_filter.html', urls=session['apps_to_show'])
-    
-
-@app.route('/plutchik_page')
-def plutchik_page():
-    return render_template('auto_plutchik.html', urls=session['apps_to_show'])
 
 @app.route('/subset_filter_page')
 def subset_filter_page():
