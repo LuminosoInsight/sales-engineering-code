@@ -180,7 +180,6 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
                                      **dict(zip(list(classifiers['simple'].classes_), z[2])))
                                 for z in zip(test_docs, test_labels, classification)]
             else:
-
                 results_dict = [dict({'text': z[0]['text'],
                                       'truth': z[1],
                                       'prediction': list(classifiers['simple'].classes_)[np.argmax(z[2])],
