@@ -1,8 +1,10 @@
 from flask import Flask, jsonify, render_template, request, session, url_for, Response
 from luminoso_api import LuminosoClient
+from pack64 import unpack64
 from topic_utilities import copy_topics, del_topics, parse_url
 from se_code.run_voting_classifier import return_label, train_classifier, get_all_docs, split_train_test
 from term_utilities import get_terms, ignore_terms, merge_terms
+from rd_utilities import search_subsets
 from deduper_utilities import dedupe
 import numpy as np
 from boilerplate_utilities import BPDetector, boilerplate_create_proj
@@ -42,7 +44,7 @@ def login():
         ('Cleaning',('Deduper',url_for('deduper_page')), ('Boilerplate Cleaner',url_for('boilerplate_page'))),
         ('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('compass_export_page'))),
         ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
-        ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj'))),
+        ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj')),('Conceptual Subset Search',url_for('subset_search'))),
         ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo')), ('Compass Demo',url_for('compass_demo'))),
         ('Modify', ('Text Filter', url_for('text_filter_page')), ('Auto Emotions', url_for('plutchik_page')), ('Subset Filter', url_for('subset_filter_page'))),
         ('Dashboards', ('Tableau Export',url_for('tableau_export_page')))]
@@ -246,6 +248,39 @@ def plutchik():
 @app.route('/plutchik_page')
 def plutchik_page():
     return render_template('auto_plutchik.html', urls=session['apps_to_show'])
+
+@app.route('/subset_search', methods=['GET','POST'])
+def subset_search():
+    
+    global client, subset_stats, subset_vecs
+    
+    if request.method == 'POST':
+        if 'url' in request.form:
+            url = request.form['url'].strip()
+            from_acct, from_proj = parse_url(url)
+            client = LuminosoClient.connect('/projects/{}/{}'.format(from_acct,from_proj),
+                                            username=session['username'],
+                                            password=session['password'])
+            project = client.get()['name']
+            subset_stats = client.get('/subsets/stats')
+            subset_vecs = [unpack64(s['mean']) for s in subset_stats]
+        else:
+            project = client.get()['name']
+            question = request.form['text']
+            query_info, results = search_subsets(client,
+                                                 question,
+                                                 subset_vecs,
+                                                 subset_stats,
+                                                 top_reviews=1)
+            return render_template('subset_search.html',
+                                   urls=session['apps_to_show'],
+                                   query_info=query_info,
+                                   results=results,
+                                   project=project)
+    else:
+        project = ''
+        
+    return render_template('subset_search.html', urls=session['apps_to_show'], project=project)
 
 @app.route('/conj_disj', methods=['POST','GET'])
 def conj_disj():
