@@ -38,7 +38,7 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
         #actual_subset_terms = []
         all_terms = []
         for term in subset_terms:
-            if length + len(term['term']) > 5000:
+            if length + len(term['term']) > 1000:
                 all_terms.extend(client.get('terms', terms=termlist))
                 termlist = []
                 length = 0
