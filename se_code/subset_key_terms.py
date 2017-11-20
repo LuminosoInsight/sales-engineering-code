@@ -28,17 +28,35 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
     """
     subset_counts = client.get()['counts']
     pvalue_cutoff = 1 / scan_terms / 20
-
     results = []
-
+    index = 0
     for subset in sorted(subset_counts):
+        index += 1
         subset_terms = client.get('terms', subset=subset, limit=scan_terms)
-        termlist = [term['term'] for term in subset_terms]
-        all_terms = client.get('terms', terms=termlist)
+        length = 0
+        termlist = []
+        #actual_subset_terms = []
+        all_terms = []
+        for term in subset_terms:
+            if length + len(term['term']) > 5000:
+                all_terms.extend(client.get('terms', terms=termlist))
+                termlist = []
+                length = 0
+            termlist.append(term['term'])
+                #actual_subset_terms.append(term)
+            length += len(term['term'])
+        #termlist = [term['term'] for term in subset_terms]
+        #length = 0
+        #for term in termlist:
+        #    length += len(term)
+        #print(length)
+        if len(termlist) > 0:
+            all_terms.extend(client.get('terms', terms=termlist))
         all_term_dict = {term['term']: term['distinct_doc_count'] for term in all_terms}
 
         subset_scores = []
         for term in subset_terms:
+        #for term in actual_subset_terms:
             term_in_subset = term['distinct_doc_count']
             term_outside_subset = all_term_dict[term['term']] - term_in_subset + 1
             docs_in_subset = subset_counts[subset]
@@ -49,9 +67,10 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
             ])
             odds_ratio, pvalue = fisher_exact(table, alternative='greater')
             if pvalue < pvalue_cutoff:
-                subset_scores.append((subset, term['text'], odds_ratio, pvalue))
+                subset_scores.append((subset, term, odds_ratio, pvalue))
 
-        subset_scores.sort(key=lambda x: (x[0], -x[2], x[1]))
+        if len(subset_scores) > 0:
+            subset_scores.sort(key=lambda x: (x[0], -x[2]))
         results.extend(subset_scores[:terms_per_subset])
 
     return results
@@ -71,8 +90,8 @@ def run(account_id, project_id, username, terms_per_subset, scan_terms,
                                  scan_terms=scan_terms)
 
     print('Subset\tText\tOdds ratio\tUncorrected p-value')
-    for subset, text, fisher, pvalue in key_terms:
-        print('%s\t%s\t%6.5g\t%6.5g' % (subset, text, fisher, pvalue))
+    for subset, term, fisher, pvalue in key_terms:
+        print('%s\t%s\t%6.5g\t%6.5g' % (subset, term['text'], fisher, pvalue))
 
 
 

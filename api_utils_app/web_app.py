@@ -14,6 +14,7 @@ from subset_filter import filter_subsets
 from auto_plutchik import get_all_topics, delete_all_topics, add_plutchik, copy_project
 from compass_utilities import get_all_docs, post_messages, format_messages
 from random import randint
+from tableau_export_web import reorder_subsets, pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, create_trends_table, write_table_to_csv
 
 #Storage for live classifier demo
 classifiers = None
@@ -43,7 +44,8 @@ def login():
         ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
         ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj'))),
         ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo')), ('Compass Demo',url_for('compass_demo'))),
-        ('Modify', ('Text Filter', url_for('text_filter_page')), ('Auto Emotions', url_for('plutchik_page')), ('Subset Filter', url_for('subset_filter_page')))]
+        ('Modify', ('Text Filter', url_for('text_filter_page')), ('Auto Emotions', url_for('plutchik_page')), ('Subset Filter', url_for('subset_filter_page'))),
+        ('Dashboards', ('Tableau Export',url_for('tableau_export_page')))]
     print(session['apps_to_show'])
     try:
         LuminosoClient.connect('/projects/', username=session['username'],
@@ -90,6 +92,74 @@ def compass_stream():
     print('Done posting')
     return render_template('compass_demo.html', urls=session['apps_to_show'])
     
+@app.route('/tableau_export_page', methods=['GET'])
+def tableau_export_page():
+    return render_template('tableau_export.html', urls=session['apps_to_show'])
+
+@app.route('/tableau_export', methods=['POST'])
+def tableau_export():
+    url = request.form['url'].strip()
+    from_acct, from_proj = parse_url(url)
+    foldername = request.form['folder_name'].strip()
+    term_count = request.form['term_count'].strip()
+    if term_count == '':
+        term_count = 100
+    else:
+        term_count = int(term_count)
+    skt_limit = request.form['skt_limit'].strip()
+    if skt_limit == '':
+        skt_limit = 20
+    else:
+        skt_limit = int(skt_limit)
+    
+    doc_term = (request.form.get('doc_term') == 'on')
+    doc_topic = (request.form.get('doc_topic') == 'on')
+    doc_subset = (request.form.get('doc_subset') == 'on')
+    themes = (request.form.get('themes') == 'on')
+    skt = (request.form.get('skt') == 'on')
+    drivers = (request.form.get('drivers') == 'on')
+    trends = (request.form.get('trends') == 'on')
+    topic_drive = (request.form.get('topic_drive') == 'on')
+    average_score = (request.form.get('average_score') == 'on')
+    
+    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(from_acct, from_proj, skt_limit=skt_limit, term_count=term_count)
+    subsets = reorder_subsets(subsets)
+
+    doc_table, xref_table = create_doc_table(client, docs, subsets, themes, drivers)
+    write_table_to_csv(doc_table, foldername, 'doc_table.csv')
+    write_table_to_csv(xref_table, foldername, 'xref_table.csv')
+    
+    if doc_term:
+        doc_term_table = create_doc_term_table(client, docs, terms, .3)
+        write_table_to_csv(doc_term_table, foldername, 'doc_term_table.csv')
+    
+    if doc_topic:
+        doc_topic_table = create_doc_topic_table(client, docs, topics)
+        write_table_to_csv(doc_topic_table, foldername, 'doc_topic_table.csv')
+        
+    if doc_subset:
+        doc_subset_table = create_doc_subset_table(client, docs, subsets)
+        write_table_to_csv(doc_subset_table, foldername, 'doc_subset_table.csv')
+    
+    if themes:
+        themes_table = create_themes_table(client, themes)
+        write_table_to_csv(themes_table, foldername, 'themes_table.csv')
+
+    if skt:
+        skt_table = create_skt_table(client, skt)
+        write_table_to_csv(skt_table, foldername, 'skt_table.csv')
+    
+    if drivers:
+        driver_table = create_drivers_table(client, drivers, topic_drive, average_score)
+        write_table_to_csv(driver_table, foldername, 'drivers_table.csv')
+    
+    if trends:
+        trends_table, trendingterms_table = create_trends_table(terms, topics, docs)
+        write_table_to_csv(trends_table, foldername, 'trends_table.csv')
+        write_table_to_csv(trendingterms_table, foldername, 'trendingterms_table.csv')
+    
+    return render_template('tableau_export.html', urls=session['apps_to_show'])
+
 @app.route('/classifier_demo', methods=['GET'])
 def classifier_demo():
     return render_template('setup_classifier.html', urls=session['apps_to_show'])
@@ -151,6 +221,32 @@ def live_classifier():
         results.append(result)
 
     return render_template('classifier.html', urls=session['apps_to_show'], results=results[::-1])
+
+@app.route('/plutchik', methods=['POST'])
+def plutchik():
+    url = request.form['url'].strip()
+    from_acct, from_proj = parse_url(url)
+    client = LuminosoClient.connect('/projects/', username=session['username'],
+                                                password=session['password'])
+    client = client.change_path('/')
+    client = client.change_path('/projects/{}/{}'.format(from_acct, from_proj))
+    delete = (request.form.get('delete') == 'on')
+    name = request.form['dest_name'].strip()
+    copy = (request.form.get('copy') == 'on')
+    
+    topic_list = get_all_topics(client)
+    if copy:
+        client = copy_project(client, from_acct, name)
+    if delete:
+        delete_all_topics(client, topic_list)
+    add_plutchik(client)
+    return render_template('auto_plutchik.html', urls=session['apps_to_show'])
+    
+
+@app.route('/plutchik_page')
+def plutchik_page():
+    return render_template('auto_plutchik.html', urls=session['apps_to_show'])
+
 @app.route('/conj_disj', methods=['POST','GET'])
 def conj_disj():
     new_results = []
