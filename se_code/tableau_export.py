@@ -184,15 +184,15 @@ def create_skt_table(client, skt):
     length = 0
     terms = []
     for s, t, o, p in skt:
-        if length > 10000 - len(t['term']):
-            terms.extend(client.get('terms/doc_counts', terms=terms_to_get, format='json'))
-            
-            terms_to_get = []
-            length = 0
-        terms_to_get.append(t['term'])
-        length += len(t['term'])
-    if length > 0:
-        terms.extend(client.get('terms/doc_counts', terms=terms_to_get, format='json'))
+        terms.extend(client.get('terms/doc_counts', terms=[t['term']], subsets=[s], format='json'))
+        #if length > 10000 - len(t['term']):
+        #    terms.extend(client.get('terms/doc_counts', terms=terms_to_get, subsets=[s], format='json'))
+        #    terms_to_get = []
+        #    length = 0
+        #terms_to_get.append(t['term'])
+        #length += len(t['term'])
+    #if length > 0:
+     #   terms.extend(client.get('terms/doc_counts', terms=terms_to_get, subsets=[s], format='json'))
         
     
     terms = {t['text']: t for t in terms}
@@ -309,7 +309,10 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
                             if subset in category:
                                 avg_score += int(category.split(':')[1])
                                 break
-                    avg_score = float(avg_score/len(docs))
+                    try:
+                        avg_score = float(avg_score/len(docs))
+                    except ZeroDivisionError as e:
+                        avg_score = 0
                     row['average_score'] = avg_score
                     #
                 row['example_doc'] = ''
@@ -362,7 +365,10 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
                         if subset in category:
                             avg_score += int(category.split(':')[1])
                             break
-                avg_score = float(avg_score/len(docs))
+                try:
+                    avg_score = float(avg_score/len(docs))
+                except ZeroDivisionError as e:
+                    avg_score = 0
                 row['average_score'] = avg_score
             #
             row['example_doc'] = ''
@@ -412,7 +418,10 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
                         if subset in category:
                             avg_score += int(category.split(':')[1])
                             break
-                avg_score = float(avg_score/len(docs))
+                try:
+                    avg_score = float(avg_score/len(docs))
+                except ZeroDivisionError as e:
+                    avg_score = 0
                 row['average_score'] = avg_score
             #
             row['example_doc'] = ''
