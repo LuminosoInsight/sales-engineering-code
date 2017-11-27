@@ -1,13 +1,19 @@
 import argparse
 import csv
 import numpy as np
+import sys
 import json
+import ntpath
 from sklearn.model_selection import train_test_split
 
 from luminoso_api import LuminosoClient
 from voting_classifier.util import train_classifier, classify_documents
 from voting_classifier.serialization import serialize, deserialize, validate
 
+
+def path_leaf(path):
+    head, tail = ntpath.split(path)
+    return tail or ntpath.basename(head)
 
 def extract_labels(labels):
     '''
@@ -92,7 +98,10 @@ def get_test_docs_from_file(filename, label_func=None):
             if label_func:
                 label = label_func(doc['label'])
             else:
-                label = doc['label'].strip()
+                if 'label' in doc:
+                    label = doc['label'].strip()
+                else:
+                    label = ''
 
             if label is None:
                 continue
@@ -104,9 +113,9 @@ def get_test_docs_from_file(filename, label_func=None):
 
     return all_docs, all_labels
 
-
+# ADDED FLAG
 def classify_test_documents(train_client, test_docs, test_labels, classifiers,
-                            vectorizers, save_results=False):
+                            vectorizers, filename, flag, threshold, measure_percentage, measure_max_score, save_results=False):
     '''
     Inputs:
 
@@ -122,25 +131,87 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
     Returns a list of classes assigned to the documents in order, and the
     decision matrix, whose dimensions are (n_docs, n_classes).
     '''
-
-    processed_test_docs = []
-    for i in range(0, len(test_docs), 5000):
-        processed_test_docs.extend(train_client.upload('docs/vectors', test_docs[i:i+5000]))
-
-    classification = classify_documents(processed_test_docs, classifiers, vectorizers)
-
+    test_docs = train_client.upload('docs/vectors', test_docs)
+    classification = classify_documents(test_docs, classifiers, vectorizers)
+    percentage = .1
+    
     if save_results:
-        results_dict = [dict({'text': z[0]['text'], 'truth': z[1]},
-                             **dict(zip(list(classifiers['simple'].classes_), z[2])))
-                        for z in zip(processed_test_docs, test_labels, classification)]
+        results_dict = []
+        percentage_results_dict = []
+        if measure_percentage:
+            for z in zip(test_docs, test_labels, classification):
+                text = z[0]['text']
+                truth = z[1]
+                max_score = np.max(z[2])
+                max_index = np.argmax(z[2])
+                difference = percentage * max_score
+                dif_threshold = max_score - difference
+                class_list = list(classifiers['simple'].classes_)
+                max_is_correct = True
+                prediction = args.unclassified
+                 #This line enforces a high enough score
+                max_past_threshold = max_score > threshold
+                if max_past_threshold:
+                    for i in range(0, len(z[2])):
+                        if z[2][i] > dif_threshold and i != max_index:
+                            max_is_correct = False
+                    if max_is_correct:
+                        prediction = class_list[max_index]
+                if flag == 3:
+                    percentage_results_dict.append(dict({'text': text,
+                                              'label': prediction,
+                                              'max_score': max_score},
+                                            **dict(zip(class_list, z[2]))))
+                else:
+                    percentage_results_dict.append(dict({'text': text,
+                                              'truth': truth,
+                                              'prediction': prediction,
+                                              'correct': z[1] == prediction,                           
+                                              'max_score': max_score},
+                                         **dict(zip(class_list, z[2]))))
+            print('Saving results to ' + filename +'_percentage.csv file...')
 
-        with open('results.csv', 'w', encoding='utf-8') as file:
-            writer = csv.DictWriter(file, ['text', 'truth'] +
-                                    list(classifiers['simple'].classes_))
-            writer.writeheader()
-            writer.writerows(results_dict)
-
+# MAX (replaces entire for loop):    
+        if measure_max_score:
+            if flag == 3:
+                results_dict = [dict({'text': z[0]['text'],
+                                      'label': list(classifiers['simple'].classes_)[np.argmax(z[2])],
+                                      'max_score': np.max(z[2])},
+                                     **dict(zip(list(classifiers['simple'].classes_), z[2])))
+                                for z in zip(test_docs, test_labels, classification)]
+            else:
+                results_dict = [dict({'text': z[0]['text'],
+                                      'truth': z[1],
+                                      'prediction': list(classifiers['simple'].classes_)[np.argmax(z[2])],
+                                      'correct': z[1]==list(classifiers['simple'].classes_)[np.argmax(z[2])],
+                                      'max_score': np.max(z[2])},
+                                     **dict(zip(list(classifiers['simple'].classes_), z[2])))
+                                for z in zip(test_docs, test_labels, classification)]
+        if args.pickle_path:
+            filename = args.pickle_path + '/' + filename
+        if measure_max_score:
+            with open(filename + '.csv', 'w', encoding='utf-8') as file:
+                if flag == 3:
+                    writer = csv.DictWriter(file, ['text', 'label', 'max_score'] + 
+                                            list(classifiers['simple'].classes_))
+                else:
+                    writer = csv.DictWriter(file, ['text', 'truth', 'prediction', 'correct', 'max_score'] +
+                                        list(classifiers['simple'].classes_))
+                writer.writeheader()
+                writer.writerows(results_dict)
+        if measure_percentage:
+            with open(filename + '_percentage.csv', 'w', encoding='utf-8') as percentage_file:
+                if flag == 3:
+                    writer = csv.DictWriter(percentage_file, ['text', 'label', 'max_score'] +
+                                            list(classifiers['simple'].classes_))
+                else:
+                    writer = csv.DictWriter(percentage_file, ['text', 'truth', 'prediction', 'correct', 'max_score'] +
+                                            list(classifiers['simple'].classes_))
+                writer.writeheader()
+                writer.writerows(percentage_results_dict)
+    
     return classification
+        
 
 
 def return_label(new_text, classifiers, vectorizers, train_client):
@@ -183,69 +254,93 @@ def main(args):
     for POC purposes, projects should be split into training & test.
     '''
 
-    if not args.account_id:
-        args.account_id = input('Enter the account id: ')
-    if not args.training_project_id:
-        args.training_project_id = input('Enter the id of the training project: ')
-    if not args.testing_data:
-        args.testing_data = input('Enter the id of the testing project: ')
-    if not args.subset_field:
-        args.subset_field = input('Subset field prefix holding the label("Category label"): ')
 
     client = LuminosoClient.connect(url=args.api_url, username=args.username)
 
     train_client = client.change_path('/projects/{}/{}'.format(args.account_id, args.training_project_id))
 
     print('Loading Testing & Training documents...')
+    # ADDED FLAG
     if args.csv_file:
         test_docs, test_labels = get_test_docs_from_file(args.testing_data)
         train_docs, train_labels = get_all_docs(train_client, args.subset_field)
+        flag = 1
     elif args.testing_data == args.training_project_id:
         docs, labels = get_all_docs(train_client, args.subset_field)
-        train_docs, test_docs, train_labels, test_labels = split_train_test(docs, labels)
+        train_docs, test_docs, train_labels, test_labels = split_train_test(docs,labels,float(args.split))
+        flag = 2
+    # ADDED FOURTH OPTION
+    elif args.no_test:
+        test_client = client.change_path('/projects/{}/{}'.format(args.account_id, args.testing_data))
+        train_docs, train_labels = get_all_docs(train_client, args.subset_field)
+        #test_docs = test_client.get('docs')
+        test_docs = []
+        offset = 0
+        batch_size = 20000
+        newdocs = test_client.get('docs', offset=offset, limit=batch_size)
+        test_docs.extend(newdocs)
+        offset += batch_size
+        while newdocs:
+            newdocs = test_client.get('docs', offset=offset, limit=batch_size)
+            #if not newdocs:
+            #    break
+            test_docs.extend(newdocs)
+            offset += batch_size
+            
+        test_labels = []
+        for i in range(0, len(test_docs)):
+            test_labels.append('Other')
+        flag = 3
+        print(len(test_docs))
     else:
         test_client = client.change_path('/projects/{}/{}'.format(args.account_id, args.testing_data))
         train_docs, train_labels = get_all_docs(train_client, args.subset_field)
         test_docs, test_labels = get_all_docs(test_client, args.subset_field)
+        flag = 4
 
-    # Allows for live demo-ing in Python notebook
-    if args.live:
+    
+    if args.pickle_path:
+        try:
+            classifiers, vectorizers, _, _ = deserialize(args.pickle_path)
+            print('Loaded classifier from {}.'.format(args.pickle_path))
+        except FileNotFoundError:
+            print('No classifier found in {}.'.format(args.pickle_path))
+            print('Training classifier...')
+            classifiers, vectorizers = train_classifier(train_docs, train_labels)
+            serialize(classifiers, vectorizers, args.pickle_path)
+        except PermissionError:
+            print('No access to {}, cannot save/load classifier.'.format(args.pickle_path))
+    else:
         print('Training classifier...')
-        classifiers, vectorizers = train_classifier(
-            train_client, train_docs, train_labels
-            )
-        print('Classifier trained. Enter example text below or "exit" to exit.\n\n')
+        classifiers, vectorizers = train_classifier(train_docs, train_labels)
+
+    if args.live:
+        print('Live Demo Mode:\nEnter example text below or "exit" to exit.\n\n')
         while True:
             new_text = input('Enter text to be classified: ')
             if new_text == 'exit':
                 break
             else:
-                print('The predicted value is: "{0}".\n The model is {1:.2%} confident.\n'.format(
+                print('The predicted value is: "{0}",\n with a confidence score of {1:.2}.\n'.format(
                     *return_label(new_text, classifiers, vectorizers, train_client))
                       )
     else:
-        if args.pickle_path:
-            try:
-                classifiers, vectorizers, _, _ = deserialize(args.pickle_path)
-            except FileNotFoundError:
-                print('No classifier found in {}.'.format(args.pickle_path))
-                print('Training classifier...')
-                classifiers, vectorizers = train_classifier(train_docs, train_labels)
-                serialize(classifiers, vectorizers, args.pickle_path)
-            except PermissionError:
-                print('No access to {}, cannot save/load classifier.'.format(args.pickle_path))
+    # ADDED FLAG SEPARATION
+        if flag == 1:
+            filename = path_leaf(args.testing_data)
+        elif flag == 2:
+            filename = train_client.get()['name']
         else:
-            print('Training classifier...')
-            classifiers, vectorizers = train_classifier(train_docs, train_labels)
-
+            filename = test_client.get()['name']
         print('Testing classifier...')
         classification = classify_test_documents(
             train_client, test_docs, test_labels, classifiers,
-            vectorizers, args.save_results
-            )
-        print('Test Accuracy:{:.2%}'.format(
-            score_results(test_labels, classifiers, classification))
-            )
+            vectorizers, filename, flag, args.assoc_threshold, args.percentage, args.max, args.save_results
+        )
+        if flag != 3 or args.no_display_test:
+            print('Test Accuracy:{:.2%}'.format(
+                  score_results(test_labels, classifiers, classification))
+                 )
 
 if __name__ == '__main__':
     '''
@@ -274,6 +369,17 @@ if __name__ == '__main__':
         help="The ID of the project, or name of the CSV containing testing data"
         )
     parser.add_argument(
+        'subset_field',
+        help='A prefix on the subset names that will be used for classification.'
+        'These subset names should begin with the prefix, '
+        'followed by a colon, such as "Label: positive".'
+        )
+    parser.add_argument(
+        'unclassified',
+        help='The name of the subset that you want all unclassified data to be '
+        'sorted into.'
+        )
+    parser.add_argument(
         '-u', '--username',
         help='Username (email) of Luminoso account'
         )
@@ -286,23 +392,44 @@ if __name__ == '__main__':
         help="CSV file with testing data: (text,label) columns"
         )
     parser.add_argument(
-        '-f', '--subset_field',
-        help='A prefix on the subset names that will be used for classification.'
-        'These subset names should begin with the prefix, '
-        'followed by a colon, such as "Label: positive".'
-        )
-    parser.add_argument(
         '-l', '--live', default=False, action='store_true',
         help="Run the classifier in live mode (classifying entries via terminal/notebook)",
         )
     parser.add_argument(
         '-s', '--save_results', default=False, action='store_true',
-        help="Save the results of the test set to a CSV file named results.csv"
+        help="Save the results of the test set to a CSV file named after the file or project name"
+        )
+    parser.add_argument(
+        '-t', '--assoc_threshold', default=.3,
+        help="The minimum score needed for a document to be considered for classification."
         )
     parser.add_argument(
         '-p', '--pickle_path',
         help="Specify a path to save the classifier to or load a classifier from"
         "If a classifier is found, it will be loaded, if not one will be created"
         )
+    parser.add_argument(
+        '-z', '--split',
+        help="Fraction of documents to hold for testing set. (.3 = 30%%) "
+        "For when training/testing documents are in the same project.",
+        default=.3
+        )
+    # ADDED THIS
+    parser.add_argument(
+        '-n', '--no_test', default=False, action='store_true',
+        help="Simply run the classifier, do not compare to validation set (Because there is no validation label data."
+        )
+    parser.add_argument(
+        '-f', '--percentage', default=False, action='store_true',
+        help="Whether or not to run the classification on difference of score compared to max score"
+        )
+    parser.add_argument(
+        '-m', '--max', default=True, action='store_false',
+        help="Whether or not to run the classification on max score"
+        )
+    parser.add_argument(
+        '-d', '--no_display_test', default=False, action='store_true',
+        help="Just don\'t display the accuracy on standard output. Ignore this"
+    )
     args = parser.parse_args()
     main(args)

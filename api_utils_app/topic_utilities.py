@@ -24,6 +24,9 @@ def copy_topics(cli, from_acct, from_proj, to_acct, to_proj):
         __post_topic(dest_proj, topic)
 
 def parse_url(url):
-    acct = re.search("\?account=(.*)&", url).group(1)
-    proj = re.search("&projectId=(.*)", url).group(1)
+    if '?account=' in url: #old url format
+        acct = re.search("\?account=(.*)&", url).group(1)
+        proj = re.search("&projectId=(.*)", url).group(1)
+    else:
+        acct,proj = url.split('app/#/projects/')[1].split('/')
     return (acct, proj)

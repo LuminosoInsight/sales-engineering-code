@@ -1,0 +1,64 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+<script type="text/javascript">
+ $(function() {
+    $('input[name=train]').bind('click', function() {
+        $("#loading").show();
+        var statusCode = 'Training...please wait';       
+      }); 
+  });  
+
+</script>
+	<div class="page-header"><p>
+       <h1>Train classifier and start live demo</h1>
+    </div>
+
+     
+      <div id="content">
+      <h3>Train classifier and start live demo</h3>
+      <h3>Important Notes:</h3>
+      <h4>
+      <ul>  
+      <li>The Voting Classifier is a supervised classifier, and requires a labeled training set and testing set.</li>
+      <li>The set of classes to be trained and predicted on are defined within document subsets, through the use of a prefix.
+      For example, the default demo has 3 classes (Billing Issue, Cancel Account, Tech Support), these classes are defined 
+      as the following subsets (Category Tag:Billing Issue, Category Tag:Cancel Account, Category Tag:Tech Support). 
+      To run the demo you'll need to provide the subset prefix ("Category Tag") below.</li>
+      <li>The training project and testing project can be the same project. In this case, the project will be automatically split
+      into a training set and testing set (70/30 split). Typically the results from this auto-splitting will match the results
+      of a data set split beforehand, and be suitable for a demo. In a POC setting, more rigorous testing should be performed.</li>
+      <li><b>Default Demo:</b>
+      	<ul>
+      	<li>Training project: https://analytics.luminoso.com/explore.html?account=demo&projectId=pr9ng3td</li>
+      	<li>Testing project: https://analytics.luminoso.com/explore.html?account=demo&projectId=pr9ng3td </li>
+      	<li>Subset prefix: Category Tag</li>
+      	</ul>
+      </li>
+      </ul>
+      </h4>
+      <br>
+      <form action="{{ url_for('setup_classifier') }}" method='post' >
+        
+        
+        <input type="text" name="train_url" class="form-control" placeholder="Analytics Project URL for Training Project" required autofocus>
+        <input type="text" name="test_url" class="form-control" placeholder="Analytics Project URL for Testing Project" required>
+        <input type="text" name="subset_label" class="form-control" placeholder="Subset Prefix for Classes (ex. Label, Tag, Class)" required>
+        
+        <input name='train' class="btn btn-lg btn-primary btn-block" type="submit" value="Train"/>
+        <div id="loading" style="display:none">
+        	Training Classifier...<img id="loading" height="25px" alt="" src={{ url_for('static', filename = 'images/ajaxSpinner.gif') }}>
+        </div>
+        <br>
+        <span id="errorLogin">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+
+
+      
+      
+      </div>
+
+{% endblock %}

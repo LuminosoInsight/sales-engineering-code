@@ -1,0 +1,41 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+	<div class="page-header"><p>
+       <h1>Export all relevant CSVs from a project to use in Tableau</h1>
+    </div>
+
+     
+      <div id="content">
+      <h3>Export all relevant CSVs from a project to use in Tableau</h3>
+      <form action="{{ url_for('tableau_export') }}" method='post' >
+        
+        
+        <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
+        <input type="text" name="folder_name" class="form-control" placeholder="Folder to save CSVs to (Specify full path to folder e.g. ~/Documents/.../<FOLDER NAME>)" required>
+        <input type="number" name="term_count" class="form-control" placeholder="Number of top terms to pull from project (default 100)">
+        <input type="number" name="skt_limit" class="form-control" placeholder="Max number of key terms to display per subset (default 20)"> 
+        <input type="checkbox" name="doc_term">Export doc-term association table<br>
+        <input type="checkbox" name="doc_topic">Export doc-topic association table<br>
+        <input type="checkbox" name="doc_subset" checked="checked">Export doc-subset association table<br>
+        <input type="checkbox" name="themes" checked="checked">Export themes table<br>
+        <input type="checkbox" name="skt" checked="checked">Export subset key terms table<br>
+        <input type="checkbox" name="drivers" checked="checked">Export score drivers table<br>
+        <input type="checkbox" name="trends">Export tables related to trends<br><br>
+        <input type="checkbox" name="topic_drive">Use topics as drivers instead of auto defined drivers<br>
+        <input type="checkbox" name="average_score">Include average scores of drivers in table<br>
+        
+        <input class="btn btn-lg btn-primary btn-block" type="submit" value="Export"/>
+        <br>
+        <span id="errorLogin">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+
+
+      
+      
+      </div>
+
+{% endblock %}
