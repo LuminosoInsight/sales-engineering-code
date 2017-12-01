@@ -205,11 +205,15 @@ class SentimentTopics:
 
     @staticmethod
     def _sorting_function(term):
-        return (hmean([term['norm-axis-score'],
-                       term['norm-relevance-score']])
-                if all([term['norm-axis-score'],
-                        term['norm-relevance-score']]) else 0,
-                term['norm-axis-score'])
+        """
+        If the norm-axis-score and the norm-relevance-score are positive, return their harmonic
+        mean. Otherwise, return 0. The secondary sorting key is norm-axis-score.
+        """
+        scores = (term['norm-axis-score'], term['norm-relevance-score'])
+        if all(scores): # harmonic mean is defined
+            return hmean(scores), term['norm-axis-score']
+        else:
+            return 0, term['norm-axis-score']
 
 
 def get_cluster_label(subtree_terms):
