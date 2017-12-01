@@ -240,13 +240,13 @@ def print_clusters(tree, n=7, verbose=False):
     scores.
     """
     for subtree in tree.flat_cluster_list(n):
-        subtree_terms = [term for term in subtree.filtered_termlist[:4]]
+        subtree_terms = [term for term in subtree.filtered_termlist[:3]]
         cluster_label = get_cluster_label(subtree_terms)
         if cluster_label:
-            print('***{}***'.format(cluster_label))
+            print('{}'.format(cluster_label))
         print(subtree.term['text'])
         for term in subtree_terms:
-            output = '* {} '.format(term['text'])
+            output = '{} '.format(term['text'])
             if verbose:
                 output += '{} ==> {}'.format(round(term['orig-score'], 2), round(term['score'], 2))
             print(output)
@@ -259,9 +259,9 @@ def print_sentiment_terms(terms, verbose=False):
     relevance score.
     """
     for term in terms:
-        output = '* {}'.format(term['text'])
+        output = '{}'.format(term['text'])
         if verbose:
-            output += ' [sentiment: {}, relevance: {}]'.format(term['norm-axis-score'],
+            output += '\t{}\t{}'.format(term['norm-axis-score'],
                                                                term['norm-relevance-score'])
         print(output)
 
