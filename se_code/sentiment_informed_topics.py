@@ -74,18 +74,27 @@ class SentimentTopics:
             return [term for term in self.project_terms if term['sentiment-score'] > 0]
         elif emotion == 'neg':
             return [term for term in self.project_terms if term['sentiment-score'] < 0]
+
+        # Not in the original Plutchik wheel, but present in our data
         elif emotion == 'love':
             vocab = ['wonderful|en', 'amaze|en', 'awesome|en', 'fabulous|en', 'fantastic|en']
+
         elif emotion == 'sadness':
             vocab = ['sad|en', 'upset|en', 'depress|en', 'miserable|en', 'sadly|en', 'cry|en',
                      'sorry|en', 'unhappy|en', 'unfortunate|en', 'depress|en']
+
         elif emotion == 'anger':
             vocab = ['frustrate|en', 'angry|en', 'mad|en', 'annoy|en', 'bother|en', 'hate|en']
-        elif emotion == 'interest':
+
+        elif emotion == 'anticipation':
             vocab = ['interest|en', 'intrigue|en', 'curious|en', 'anticipation|en']
+
         elif emotion == 'fear':
             vocab = ['anxiety|en', 'worry|en', 'nervous|en', 'fear|en', 'dread|en', 'bother|en',
                      'anxious|en', 'scare|en', 'apprehensive|en']
+
+        elif emotion == 'surprise':
+            vocab = []
         return [term for term in self.project_terms if term['term'] in vocab]
 
     def _get_sentiment_terms(self, emotion, n_results):
@@ -134,7 +143,7 @@ class SentimentTopics:
                       key=self._sorting_function,
                       reverse=True)[:n_results]
 
-    def sentiment_informed_clusters(self, limit=100):
+    def sentiment_informed_clusters(self, limit=100, stretch=False):
         """
         Cluster the project terms taking the sentiment information into consideration. For each term
         that is similar to either a positive or negative sentiment axis, make it more similar to
@@ -151,13 +160,15 @@ class SentimentTopics:
 
         for term in self.project_terms:
             if term['text'] in pos_terms_text or term['sentiment-score'] > 0:
-                # term['vector'] = self._stretch_axis(term['orig-vector'], pos_axis, 1.2)
                 term['sentiment'] = 'pos'
                 term['score'] = self._compute_new_relevance_score(term, pos_axis)
+                if stretch:
+                    term['vector'] = self._stretch_axis(term['orig-vector'], pos_axis, 1.2)
             elif term['text'] in neg_terms_text or term['sentiment-score'] < 0:
-                # term['vector'] = self._stretch_axis(term['orig-vector'], neg_axis, 1.2)
                 term['score'] = self._compute_new_relevance_score(term, neg_axis)
                 term['sentiment'] = 'neg'
+                if stretch:
+                    term['vector'] = self._stretch_axis(term['orig-vector'], neg_axis, 1.2)
 
         tree = ClusterTree.from_term_list(self.project_terms)
         return tree
