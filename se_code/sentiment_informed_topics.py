@@ -227,28 +227,6 @@ class SentimentTopics:
             return 0, term['norm-axis-score']
 
 
-def get_cluster_label(subtree_terms):
-    """
-    When applicable, label a cluster with as positive or negative.
-    """
-    score = 0
-
-    for term in subtree_terms:
-        try:
-            if term['sentiment'] == 'neg':
-                score -= 1
-            else:
-                score += 1
-        except KeyError:
-            continue
-    score /= len(subtree_terms)
-    if score >= 0.6:
-        return 'POS'
-    elif score <= -0.6:
-        return 'NEG'
-    return None
-
-
 def print_clusters(tree, n=7, verbose=False):
     """
     Print the sentiment-informed clusters. If verbose=True, include the change in their relevance
@@ -256,9 +234,6 @@ def print_clusters(tree, n=7, verbose=False):
     """
     for subtree in tree.flat_cluster_list(n):
         subtree_terms = [term for term in subtree.filtered_termlist[:3]]
-        cluster_label = get_cluster_label(subtree_terms)
-        if cluster_label:
-            print('{}'.format(cluster_label))
         print(subtree.term['text'])
         for term in subtree_terms:
             output = '{} '.format(term['text'])
@@ -276,8 +251,7 @@ def print_sentiment_terms(terms, verbose=False):
     for term in terms:
         output = '{}'.format(term['text'])
         if verbose:
-            output += '\t{}\t{}'.format(term['norm-axis-score'],
-                                                               term['norm-relevance-score'])
+            output += '\t{}\t{}'.format(term['norm-axis-score'], term['norm-relevance-score'])
         print(output)
 
 
