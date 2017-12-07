@@ -75,13 +75,20 @@ def create_doc_term_table(client, docs, terms, threshold):
     for doc in docs:
         if doc['vector']:
             doc_vector = unpack64(doc['vector'])
+            terms_in_docs = []
+            for t in doc['terms']:
+                terms_in_docs.append(t[0])
             for term in terms:
+                term_in_doc = 0
+                if term['term'] in terms_in_docs:
+                    term_in_doc = 1
                 if term['vector']:
                     term_vector = unpack64(term['vector'])
                     if np.dot(doc_vector, term_vector) >= threshold:
                         doc_term_table.append({'doc_id': doc['_id'], 
                                                'term': term['text'],
-                                               'association': np.dot(doc_vector, term_vector)})
+                                               'association': np.dot(doc_vector, term_vector),
+                                               'exact_match': term_in_doc})
     return doc_term_table
     
 def create_doc_topic_table(client, docs, topics):
@@ -98,11 +105,35 @@ def create_doc_topic_table(client, docs, topics):
                     score = np.dot(doc_vector, topic_vector)
                     if score > max_score:
                         max_score = score
-                        max_topic = topic['text']
+                        max_topic = topic['name']
             doc_topic_table.append({'doc_id': doc['_id'], 
                                     'topic': max_topic,
                                     'association': max_score})
     return doc_topic_table
+
+def create_topic_topic_table(client, topics):
+    topic_topic_table = []
+    for topic in topics:
+        for t in topics:
+            if topic['vector'] and t['vector'] and topic['name'] != t['name']:
+                topic_vector = unpack64(topic['vector'])
+                t_vector = unpack64(t['vector'])
+                topic_topic_table.append({'topic': topic['name'],
+                                          'second topic': t['name'],
+                                          'association': np.dot(topic_vector, t_vector)})
+    return topic_topic_table
+
+def create_term_topic_table(client, terms, topics):
+    term_topic_table = []
+    for term in terms:
+        for t in topics:
+            if term['vector'] and t['vector']:
+                term_vector = unpack64(term['vector'])
+                topic_vector = unpack64(t['vector'])
+                term_topic_table.append({'term': term['text'],
+                                         'topic': t['name'],
+                                         'association': np.dot(term_vector, topic_vector)})
+    return term_topic_table
 
 def create_doc_subset_table(client, docs, subsets):
     doc_subset_table = []
@@ -540,7 +571,9 @@ def main():
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
     parser.add_argument('-d', '--doc', default=False, action='store_true', help="If you really do not want doc_table")
     parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Generate doc_term_table")
+    parser.add_argument('-tterm', '--term_topic', default=False, action='store_true', help="Generate term_topic_table")
     parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Generate doc_topic_table")
+    parser.add_argument('-ttopic', '--topic_topic', default=False, action='store_true', help="Generate topic_topic_table")
     parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Do not generate doc_subset_table")
     parser.add_argument('-themes', '--themes', default=False, action='store_true', help="Do not generate themes")
     parser.add_argument('-trends', '--trend_tables', default=False, action='store_true', help="Generate trends_table and trendingterms_table")
@@ -565,6 +598,14 @@ def main():
     if args.doc_topic:
         doc_topic_table = create_doc_topic_table(client, docs, topics)
         write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
+        
+    if args.topic_topic:
+        topic_topic_table = create_topic_topic_table(client, topics)
+        write_table_to_csv(topic_topic_table, 'topic_topic_table.csv')
+        
+    if args.term_topic:
+        term_topic_table = create_term_topic_table(client, terms, topics)
+        write_table_to_csv(term_topic_table, 'term_topic_table.csv')
         
     if not args.doc_subset:
         doc_subset_table = create_doc_subset_table(client, docs, subsets)
