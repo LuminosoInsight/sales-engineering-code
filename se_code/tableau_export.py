@@ -567,7 +567,7 @@ def main():
     parser.add_argument('account_id', help="The ID of the account that owns the project, such as 'demo'")
     parser.add_argument('project_id', help="The ID of the project to analyze, such as '2jsnm'")
     parser.add_argument('-t', '--term_count', default=100, help="The number of top terms to pull from the project")
-    parser.add_argument('-a', '--assoc_threshold', default=.3, help="The minimum association threshold to display")
+    parser.add_argument('-a', '--assoc_threshold', default=.5, help="The minimum association threshold to display")
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
     parser.add_argument('-d', '--doc', default=False, action='store_true', help="If you really do not want doc_table")
     parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Generate doc_term_table")
