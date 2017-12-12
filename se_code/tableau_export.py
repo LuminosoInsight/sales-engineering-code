@@ -284,6 +284,17 @@ def add_score_drivers_to_project(client, docs, drivers):
     client.post('prediction/train')
     print('Done training.')
 
+def create_terms_table(client, terms):
+    print('Creating terms table...')
+    table = []
+    for t in terms:
+        row = {}
+        row['Term'] = t['text']
+        search_result = client.get('docs/search', terms=[t['term']])
+        row['Exact Matches'] = search_result['num_exact_matches']
+        row['Related Matches'] = search_result['num_related_matches']
+        table.append(row)
+    return table
 
 def create_themes_table(client, themes):
     print('Creating themes table...')
@@ -570,6 +581,7 @@ def main():
     parser.add_argument('-a', '--assoc_threshold', default=.5, help="The minimum association threshold to display")
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
     parser.add_argument('-d', '--doc', default=False, action='store_true', help="If you really do not want doc_table")
+    parser.add_argument('-terms', '--terms', default=False, action='store_true', help="Do not generate terms_table")
     parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Generate doc_term_table")
     parser.add_argument('-tterm', '--term_topic', default=False, action='store_true', help="Generate term_topic_table")
     parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Generate doc_topic_table")
@@ -591,6 +603,10 @@ def main():
         write_table_to_csv(doc_table, 'doc_table.csv')
         write_table_to_csv(xref_table, 'xref_table.csv')
     
+    if not args.terms:
+        terms_table = create_terms_table(client, terms)
+        write_table_to_csv(terms_table, 'terms_table.csv')
+        
     if args.doc_term:
         doc_term_table = create_doc_term_table(client, docs, terms, float(args.assoc_threshold))
         write_table_to_csv(doc_term_table, 'doc_term_table.csv')
