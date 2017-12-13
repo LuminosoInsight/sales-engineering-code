@@ -53,7 +53,7 @@ class SentimentTopics:
         if emotion in self.axes:
             return self.axes[emotion]
         else:
-            sent_terms = self._get_terms_to_include_in_axis(emotion)
+            sent_terms = self._get_known_sentiment_terms(emotion)
             axis_sum = sum(abs(term['sentiment-score']) for term in sent_terms)
             axis = sent_terms[0]['vector'] * 0
             for term in sent_terms:
@@ -63,7 +63,7 @@ class SentimentTopics:
             self.axes[emotion] = axis
             return self.axes[emotion]
 
-    def _get_terms_to_include_in_axis(self, emotion):
+    def _get_known_sentiment_terms(self, emotion):
         """
         Get the terms from which a sentiment/emotion axis will be built. Experimentally, return seed
         terms for emotion axes.
@@ -96,8 +96,7 @@ class SentimentTopics:
             vocab = []
         return [term for term in self.project_terms if term['term'] in vocab]
 
-
-    def _get_sentiment_terms(self, emotion, n_results):
+    def get_domain_sentiment_terms(self, emotion, n_results):
         """
         Get the terms in the project that best match the axis of sentiment/emotion passed in sent.
         """
@@ -123,7 +122,7 @@ class SentimentTopics:
         term is assigned a sentiment score (how well it matched the axis) and a relevance score. The
         terms are then sorted using these two scores.
         """
-        sentiment_terms = self._get_sentiment_terms(emotion, n_results)
+        sentiment_terms = self.get_domain_sentiment_terms(emotion, n_results)
 
         sentiment_scores = [term['axis-score'] for term in sentiment_terms]
         relevance_scores = [term['score'] for term in sentiment_terms]
@@ -154,8 +153,8 @@ class SentimentTopics:
         """
         Get 200 positive terms and 200 negative terms, and cluster them.
         """
-        pos_terms = self._get_sentiment_terms('pos', 200)
-        neg_terms = self._get_sentiment_terms('neg', 200)
+        pos_terms = self.get_domain_sentiment_terms('pos', 200)
+        neg_terms = self.get_domain_sentiment_terms('neg', 200)
         sent_terms = pos_terms + neg_terms
         for term in sent_terms:
             term['vector'] = unpack64(term['vector'])
