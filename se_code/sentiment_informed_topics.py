@@ -6,7 +6,6 @@ python sentiment_informed_topics.py zoo rjcfz --sentiment-clusters --n-terms=100
 """
 
 import json
-import random
 from collections import defaultdict
 
 import click
@@ -15,7 +14,6 @@ from lumi_science.tree_clustering import ClusterTree
 from luminoso_api import LuminosoClient
 from pack64 import unpack64, pack64
 from scipy.stats import hmean
-from sklearn.linear_model import LogisticRegression
 
 
 class SentimentTopics:
@@ -64,84 +62,6 @@ class SentimentTopics:
             axis /= (axis.dot(axis)) ** 0.5
             self.axes[emotion] = axis
             return self.axes[emotion]
-
-    def get_sent_classifier(self):
-        SEED = 217
-        random.seed(SEED)
-        pos_term = self._get_terms_to_include_in_axis('pos')
-        neg_term = self._get_terms_to_include_in_axis('neg')
-
-        # get 100 random neither positive nor negative terms
-        neither_terms = [term for term in self.project_terms if term['sentiment-score'] == 0]
-        random.shuffle(neither_terms,)
-        neither_terms = neither_terms[:100]
-
-        X = [term['orig-vector'] for term in pos_term + neg_term + neither_terms]
-        y = ['pos' for term in pos_term]
-        y.extend(['neg' for term in neg_term])
-        y.extend(['neither' for term in neither_terms])
-        cls = LogisticRegression()
-        cls.fit(X, y)
-        print(cls.classes_)
-
-        neg_terms = []
-        pos_terms = []
-        for term in self.project_terms:
-            pred = cls.predict_proba(term['orig-vector'].reshape(1, -1))
-            if pred[0][0] > 0.5:
-                term['classifier-score'] = pred[0][0]
-                neg_terms.append(term)
-            if pred[0][2] > 0.5:
-                term['classifier-score'] = pred[0][2]
-                pos_terms.append(term)
-
-        neg_terms = sorted(neg_terms, key= lambda x: x['classifier-score'], reverse=True)
-        pos_terms = sorted(pos_terms, key=lambda x: x['classifier-score'], reverse=True)
-        return pos_terms, neg_terms
-
-    @staticmethod
-    def _classifier_sorting_function(term):
-        """
-        If the norm-axis-score and the norm-relevance-score are positive, return their harmonic
-        mean. Otherwise, return 0. The secondary sorting key is norm-axis-score.
-        """
-        scores = (term['norm-classifier-score'], term['norm-relevance-score'])
-        if all(scores):  # harmonic mean is defined
-            return hmean(scores), term['norm-classifier-score']
-        else:
-            return 0, term['norm-classifier-score']
-
-
-    def sorted_classifier_terms(self):
-        pos_terms, neg_terms = self.get_sent_classifier()
-
-        pos_relevance_scores = [term['score'] for term in pos_terms]
-        neg_relevance_scores = [term['score'] for term in neg_terms]
-        pos_classifier_scores = [term['classifier-score'] for term in pos_terms]
-        neg_classifier_scores = [term['classifier-score'] for term in neg_terms]
-        for term in pos_terms:
-            term['norm-relevance-score'] = self._normalize_score(term['score'],
-                                                                 pos_relevance_scores)
-            term['norm-classifier-score'] = self._normalize_score(term['classifier-score'], pos_classifier_scores)
-
-        for term in neg_terms:
-            term['norm-relevance-score'] = self._normalize_score(term['score'],
-                                                                 neg_relevance_scores)
-            term['norm-classifier-score'] = self._normalize_score(term['classifier-score'], neg_classifier_scores)
-
-        sorted_pos = sorted(pos_terms,
-                            key = self._classifier_sorting_function,
-                            reverse=True)
-        sorted_neg = sorted(neg_terms,
-                            key = self._classifier_sorting_function,
-                            reverse=True)
-        for term in sorted_pos[:50]:
-            print('{}\t{}\t{}'.format(term['text'], term['norm-classifier-score'], term['norm-relevance-score']))
-
-        for term in sorted_neg[:50]:
-            print('{}\t{}\t{}'.format(term['text'], term['norm-classifier-score'],
-                                      term['norm-relevance-score']))
-
 
     def _get_terms_to_include_in_axis(self, emotion):
         """
@@ -305,13 +225,12 @@ def print_sentiment_terms(terms, verbose=False):
 @click.option('--language', '-l', default='en')
 @click.option('--sentiment-terms', is_flag=True, help='Use to get a list of sentiment terms')
 @click.option('--sentiment-clusters', is_flag=True, help='Cluster only the sentiment terms')
-@click.option('--classifier', is_flag=True)
 @click.option('--n-terms', default=500, help='Number of project terms to operate on. More terms '
                                              'usually means more accurate results.')
 @click.option('--n-results', default=30, help='Number of results to show')
 @click.option('--verbose', '-v', is_flag=True, help='Show details about the results')
-def main(account_id, project_id, emotion, language, sentiment_terms, sentiment_clusters,
-         classifier, n_terms, n_results, verbose):
+def main(account_id, project_id, emotion, language, sentiment_terms, sentiment_clusters, n_terms,
+         n_results, verbose):
 
     sentiment_topics = SentimentTopics(account_id, project_id, language, n_terms)
 
@@ -320,11 +239,7 @@ def main(account_id, project_id, emotion, language, sentiment_terms, sentiment_c
                               verbose=verbose)
 
     if sentiment_clusters:
-        print_clusters(sentiment_topics.cluster_sentiment_terms(), verbose=False)
-
-    if classifier:
-        sentiment_topics.sorted_classifier_terms()
-
+        print_clusters(sentiment_topics.cluster_sentiment_terms())
 
 if __name__ == '__main__':
     main()
