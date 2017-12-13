@@ -1,7 +1,6 @@
 """
 Example uses:
 python sentiment_informed_topics.py zoo rjcfz --emotion pos --sentiment-terms --verbose
-python sentiment_informed_topics.py zoo rjcfz --sentiment-informed-clusters --baseline --verbose
 python sentiment_informed_topics.py zoo rjcfz --sentiment-clusters --n-terms=1000
 
 """
@@ -89,10 +88,10 @@ class SentimentTopics:
         pos_terms = []
         for term in self.project_terms:
             pred = cls.predict_proba(term['orig-vector'].reshape(1, -1))
-            if pred[0][0] > 0.8:
+            if pred[0][0] > 0.5:
                 term['classifier-score'] = pred[0][0]
                 neg_terms.append(term)
-            if pred[0][2] > 0.8:
+            if pred[0][2] > 0.5:
                 term['classifier-score'] = pred[0][2]
                 pos_terms.append(term)
 
@@ -136,11 +135,12 @@ class SentimentTopics:
         sorted_neg = sorted(neg_terms,
                             key = self._classifier_sorting_function,
                             reverse=True)
-        for term in sorted_pos[:30]:
-            print(term['text'], term['norm-classifier-score'], term['norm-relevance-score'])
+        for term in sorted_pos[:50]:
+            print('{}\t{}\t{}'.format(term['text'], term['norm-classifier-score'], term['norm-relevance-score']))
 
-        for term in sorted_neg[:30]:
-            print(term['text'], term['norm-classifier-score'], term['norm-relevance-score'])
+        for term in sorted_neg[:50]:
+            print('{}\t{}\t{}'.format(term['text'], term['norm-classifier-score'],
+                                      term['norm-relevance-score']))
 
 
     def _get_terms_to_include_in_axis(self, emotion):
@@ -223,36 +223,6 @@ class SentimentTopics:
                       key=self._sorting_function,
                       reverse=True)[:n_results]
 
-    def sentiment_informed_clusters(self, limit=100, stretch=False):
-        """
-        Cluster the project terms taking the sentiment information into consideration. For each term
-        that is similar to either a positive or negative sentiment axis, make it more similar to
-        that sentiment axis and increase its score to ensure that it's more important during the
-        clustering process.
-        """
-        pos_terms = self._get_sentiment_terms('pos', limit)
-        neg_terms = self._get_sentiment_terms('neg', limit)
-        pos_terms_text = [term['text'] for term in pos_terms]
-        neg_terms_text = [term['text'] for term in neg_terms]
-
-        pos_axis = self._get_sent_axis(emotion='pos')
-        neg_axis = self._get_sent_axis(emotion='neg')
-
-        for term in self.project_terms:
-            if term['text'] in pos_terms_text or term['sentiment-score'] > 0:
-                term['sentiment'] = 'pos'
-                term['score'] = self._compute_new_relevance_score(term, pos_axis)
-                if stretch:
-                    term['vector'] = self._stretch_axis(term['orig-vector'], pos_axis, 1.2)
-            elif term['text'] in neg_terms_text or term['sentiment-score'] < 0:
-                term['score'] = self._compute_new_relevance_score(term, neg_axis)
-                term['sentiment'] = 'neg'
-                if stretch:
-                    term['vector'] = self._stretch_axis(term['orig-vector'], neg_axis, 1.2)
-
-        tree = ClusterTree.from_term_list(self.project_terms)
-        return tree
-
     def baseline_clusters(self):
         """
         Cluster the top 500 terms in the project, for comparison with the new method.
@@ -279,13 +249,6 @@ class SentimentTopics:
         """
         return round((current_score - min(other_scores)) / (max(other_scores) - min(other_scores)),
                      3)
-
-    @staticmethod
-    def _stretch_axis(vec, axis, magnitude=1.):
-        """
-        Stretch the term vector along the sentiment axis.
-        """
-        return vec + vec.dot(axis) * axis * magnitude
 
     @staticmethod
     def _compute_new_relevance_score(term, axis):
@@ -341,31 +304,20 @@ def print_sentiment_terms(terms, verbose=False):
 @click.option('--emotion', default='pos', help='pos, neg, love, sadness, anger, interest, or fear')
 @click.option('--language', '-l', default='en')
 @click.option('--sentiment-terms', is_flag=True, help='Use to get a list of sentiment terms')
-@click.option('--sentiment-informed-clusters', is_flag=True, help='Use to get 28 suggested topics, '
-                                                                  'with sentiment topic being more '
-                                                                  'prominent')
 @click.option('--sentiment-clusters', is_flag=True, help='Cluster only the sentiment terms')
 @click.option('--classifier', is_flag=True)
 @click.option('--n-terms', default=500, help='Number of project terms to operate on. More terms '
                                              'usually means more accurate results.')
 @click.option('--n-results', default=30, help='Number of results to show')
 @click.option('--verbose', '-v', is_flag=True, help='Show details about the results')
-@click.option('--baseline', is_flag=True, help='Show baseline clusters.')
-def main(account_id, project_id, emotion, language, sentiment_terms,
-         sentiment_informed_clusters, sentiment_clusters, classifier, n_terms, n_results, verbose,
-         baseline):
+def main(account_id, project_id, emotion, language, sentiment_terms, sentiment_clusters,
+         classifier, n_terms, n_results, verbose):
+
     sentiment_topics = SentimentTopics(account_id, project_id, language, n_terms)
 
     if sentiment_terms:
         print_sentiment_terms(sentiment_topics.sorted_sentiment_terms(emotion, n_results),
                               verbose=verbose)
-
-    if sentiment_informed_clusters:
-        print_clusters(sentiment_topics.sentiment_informed_clusters(), verbose=verbose)
-
-        if baseline:
-            print('\n= BASELINE =')
-            print_clusters(sentiment_topics.baseline_clusters(), verbose=False)
 
     if sentiment_clusters:
         print_clusters(sentiment_topics.cluster_sentiment_terms(), verbose=False)
