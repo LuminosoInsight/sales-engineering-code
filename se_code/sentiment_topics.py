@@ -188,7 +188,7 @@ def print_sentiment_terms(terms, verbose=False):
 @click.option('--language', '-l', default='en')
 @click.option('--terms', is_flag=True, help='Use to get a list of sentiment terms')
 @click.option('--clusters', is_flag=True, help='Cluster only the sentiment terms')
-@click.option('--n-terms', default=1000, help='Number of project terms among which to find terms '
+@click.option('--n-terms', default=500, help='Number of project terms among which to find terms '
                                               'with original sentiment score. This list will be '
                                               'used to create a sentiment axis.')
 @click.option('--n-results', default=30, help='Number of results to show')
