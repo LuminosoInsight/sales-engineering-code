@@ -25,7 +25,6 @@ class SentimentTopics:
 
     @staticmethod
     def _connect(account_id, project_id):
-        # TODO move to v5
         client = LuminosoClient.connect(
             'https://analytics.luminoso.com/api/v4/projects/{}/{}'.format(account_id, project_id))
         return client
@@ -79,15 +78,16 @@ class SentimentTopics:
             return self.sentiment_terms[(sentiment, n_results)]
 
         axis = self._get_sent_axis(sentiment)
-        sentiment_terms = self.client.get(
+        terms = self.client.get(
             'terms/search', vectors=json.dumps([pack64(axis)]),
             limit=n_results if n_results > 100 else 100)['search_results']
 
-        for term, axis_score in sentiment_terms:
+        sentiment_terms = []
+        for term, axis_score in terms:
             term['axis-score'] = axis_score
-            term['sent'] = sentiment
+            term['vector'] = unpack64(term['vector'])
+            sentiment_terms.append(term) # drop axis_score
 
-        sentiment_terms = [term[0] for term in sentiment_terms]  # drop the axis matching score
         self.sentiment_terms[(sentiment, n_results)] = sentiment_terms
         return self.sentiment_terms[(sentiment, n_results)]
 
@@ -123,9 +123,6 @@ class SentimentTopics:
         pos_terms = self.get_domain_sentiment_terms('pos', 200)
         neg_terms = self.get_domain_sentiment_terms('neg', 200)
         sent_terms = pos_terms + neg_terms
-        #TODO should I do the unpacking earlier, like when getting the terms?
-        for term in sent_terms:
-            term['vector'] = unpack64(term['vector'])
         tree = ClusterTree.from_term_list(sent_terms)
         return tree
 
