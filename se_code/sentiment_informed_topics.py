@@ -21,7 +21,7 @@ class SentimentTopics:
         self.n_terms = n_terms
         self.project_terms = self._get_project_terms()
         self.axes = {}
-        self.sentiment_terms = {}
+        self.domain_sentiment_terms = {}
 
     @staticmethod
     def _connect(account_id, project_id):
@@ -31,35 +31,31 @@ class SentimentTopics:
 
     def _get_project_terms(self):
         """
-        Get the top n terms in the project. 'vector' and 'score' fields of each term will be
-        overwritten, so save the original values in 'orig-vector' and 'orig-score'. Assign a
-        sentiment to each term.
+        Get the top n terms in the project. Assign a sentiment score to each term according to
+        the sentiment scorer. Unpack each term's vector and overwrite its 'vector' field.
         """
         terms = self.client.get('terms', limit=self.n_terms)
         terms = [term for term in terms if term['vector']]
         for term in terms:
-            term['vector'] = term['orig-vector'] = unpack64(term['vector'])
-            term['orig-score'] = term['score']
+            term['vector'] = unpack64(term['vector'])
             term['sentiment-score'] = self.sentiment_scorer.term_sentiment(term['term'])
         return terms
 
     def _get_sent_axis(self, sentiment):
         """
-        Compute a sentiment axis.
-        TODO: document the steps here
+        Compute the sentiment axis. #TODO more documentation
         """
         if sentiment in self.axes:
             return self.axes[sentiment]
-        else:
-            sent_terms = self._get_known_sentiment_terms(sentiment)
-            axis_sum = sum(abs(term['sentiment-score']) for term in sent_terms)
-            axis = sent_terms[0]['vector'] * 0
-            for term in sent_terms:
-                axis += term['orig-vector'] * abs(term['sentiment-score']) * term[
-                    'score'] / axis_sum
-            axis /= (axis.dot(axis)) ** 0.5
-            self.axes[sentiment] = axis
-            return self.axes[sentiment]
+
+        sent_terms = self._get_known_sentiment_terms(sentiment)
+        axis = sent_terms[0]['vector'] * 0
+        axis_sum = sum(abs(term['sentiment-score']) for term in sent_terms)
+        for term in sent_terms:
+            axis += term['vector'] * abs(term['sentiment-score']) * term['score'] / axis_sum
+        axis /= (axis.dot(axis)) ** 0.5
+        self.axes[sentiment] = axis
+        return self.axes[sentiment]
 
     def _get_known_sentiment_terms(self, sentiment):
         """
@@ -74,8 +70,8 @@ class SentimentTopics:
         """
         Get the terms in the project that best match the sentiment axis.
         """
-        if (sentiment, n_results) in self.sentiment_terms:
-            return self.sentiment_terms[(sentiment, n_results)]
+        if (sentiment, n_results) in self.domain_sentiment_terms:
+            return self.domain_sentiment_terms[(sentiment, n_results)]
 
         axis = self._get_sent_axis(sentiment)
         terms = self.client.get(
@@ -88,8 +84,8 @@ class SentimentTopics:
             term['vector'] = unpack64(term['vector'])
             sentiment_terms.append(term) # drop axis_score
 
-        self.sentiment_terms[(sentiment, n_results)] = sentiment_terms
-        return self.sentiment_terms[(sentiment, n_results)]
+        self.domain_sentiment_terms[(sentiment, n_results)] = sentiment_terms
+        return self.domain_sentiment_terms[(sentiment, n_results)]
 
     def sorted_sentiment_terms(self, sentiment, n_results):
         """
@@ -105,16 +101,34 @@ class SentimentTopics:
             term['norm-axis-score'] = self._normalize_score(term['axis-score'],
                                                             sentiment_scores)
             term['norm-relevance-score'] = self._normalize_score(term['score'], relevance_scores)
-        # TODO: don't pass n_results, just cut the list here
         return self._sort_scores(sentiment, n_results)
+
+    @staticmethod
+    def _normalize_score(score, all_scores):
+        """
+        Normalize the scores to be between 0 and 1
+        """
+        return round((score - min(all_scores)) / (max(all_scores) - min(all_scores)), 3)
 
     def _sort_scores(self, sentiment, n_results):
         """
         Sort using the harmonic mean of the sentiment and relevance scores.
         """
-        return sorted(self.sentiment_terms[(sentiment, n_results)],
-                      key=self._sorting_function,
+        return sorted(self.domain_sentiment_terms[(sentiment, n_results)],
+                      key=self._harmonic_mean,
                       reverse=True)[:n_results]
+
+    @staticmethod
+    def _harmonic_mean(term):
+        """
+        If the norm-axis-score and the norm-relevance-score are positive, return their harmonic
+        mean. Otherwise, return 0. The secondary sorting key is norm-axis-score.
+        """
+        scores = (term['norm-axis-score'], term['norm-relevance-score'])
+        if all(scores):  # harmonic mean is defined
+            return hmean(scores), term['norm-axis-score']
+        else:
+            return 0, term['norm-axis-score']
 
     def cluster_sentiment_terms(self):
         """
@@ -125,28 +139,6 @@ class SentimentTopics:
         sent_terms = pos_terms + neg_terms
         tree = ClusterTree.from_term_list(sent_terms)
         return tree
-
-    @staticmethod
-    def _normalize_score(current_score, other_scores):
-        #TODO better names
-        """
-        Normalize the scores to be between 0 and 1
-        """
-        return round((current_score - min(other_scores)) / (max(other_scores) - min(other_scores)),
-                     3)
-
-    @staticmethod
-    def _sorting_function(term):
-        # TODO move it closer to where the sorting actually happens
-        """
-        If the norm-axis-score and the norm-relevance-score are positive, return their harmonic
-        mean. Otherwise, return 0. The secondary sorting key is norm-axis-score.
-        """
-        scores = (term['norm-axis-score'], term['norm-relevance-score'])
-        if all(scores):  # harmonic mean is defined
-            return hmean(scores), term['norm-axis-score']
-        else:
-            return 0, term['norm-axis-score']
 
 
 def print_clusters(tree, n_clusters=7):
