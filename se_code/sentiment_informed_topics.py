@@ -5,7 +5,6 @@ python sentiment_informed_topics.py zoo rjcfz --clusters --n-terms=1000
 """
 
 import json
-from collections import defaultdict
 
 import click
 from lumi_science.sentiment import SentimentScorer
@@ -20,9 +19,9 @@ class SentimentTopics:
         self.client = self._connect(account_id, project_id)
         self.sentiment_scorer = SentimentScorer(language)
         self.n_terms = n_terms
-        self.project_terms = self._get_project_terms(self.n_terms)
+        self.project_terms = self._get_project_terms()
         self.axes = {}
-        self.sentiment_terms = defaultdict(lambda: None)
+        self.sentiment_terms = {}
 
     @staticmethod
     def _connect(account_id, project_id):
@@ -31,13 +30,13 @@ class SentimentTopics:
             'https://analytics.luminoso.com/api/v4/projects/{}/{}'.format(account_id, project_id))
         return client
 
-    def _get_project_terms(self, limit):
+    def _get_project_terms(self):
         """
         Get the top n terms in the project. 'vector' and 'score' fields of each term will be
         overwritten, so save the original values in 'orig-vector' and 'orig-score'. Assign a
         sentiment to each term.
         """
-        terms = self.client.get('terms', limit=limit)
+        terms = self.client.get('terms', limit=self.n_terms)
         terms = [term for term in terms if term['vector']]
         for term in terms:
             term['vector'] = term['orig-vector'] = unpack64(term['vector'])
@@ -76,7 +75,7 @@ class SentimentTopics:
         """
         Get the terms in the project that best match the sentiment axis.
         """
-        if self.sentiment_terms[(sentiment, n_results)] is not None:
+        if (sentiment, n_results) in self.sentiment_terms:
             return self.sentiment_terms[(sentiment, n_results)]
 
         axis = self._get_sent_axis(sentiment)
@@ -153,11 +152,11 @@ class SentimentTopics:
             return 0, term['norm-axis-score']
 
 
-def print_clusters(tree, n=7):
+def print_clusters(tree, n_clusters=7):
     """
     Print the sentiment clusters.
     """
-    for subtree in tree.flat_cluster_list(n):
+    for subtree in tree.flat_cluster_list(n_clusters):
         subtree_terms = [term for term in subtree.filtered_termlist[:3]]
         print(subtree.term['text'])
         for term in subtree_terms:
@@ -184,12 +183,13 @@ def print_sentiment_terms(terms, verbose=False):
 @click.option('--language', '-l', default='en')
 @click.option('--terms', is_flag=True, help='Use to get a list of sentiment terms')
 @click.option('--clusters', is_flag=True, help='Cluster only the sentiment terms')
-@click.option('--n-terms', default=500, help='Number of project terms to operate on. More terms '
+@click.option('--n-terms', default=1000, help='Number of project terms to operate on. More terms '
                                              'usually means more accurate results.')
 @click.option('--n-results', default=30, help='Number of results to show')
+@click.option('--n-clusters', default=7, help='Show clusters')
 @click.option('--verbose', '-v', is_flag=True, help='Show details about the results')
-@click.option('--n-clusters', is_flag=True, help='Show clusters ')
-def main(account_id, project_id, sentiment, language, terms, clusters, n_terms, n_results, verbose):
+def main(account_id, project_id, sentiment, language, terms, clusters, n_terms, n_results,
+         n_clusters, verbose):
 
     sentiment_topics = SentimentTopics(account_id, project_id, language, n_terms)
 
@@ -198,7 +198,7 @@ def main(account_id, project_id, sentiment, language, terms, clusters, n_terms, 
                               verbose=verbose)
 
     if clusters:
-        print_clusters(sentiment_topics.cluster_sentiment_terms())
+        print_clusters(sentiment_topics.cluster_sentiment_terms(), n_clusters)
 
 if __name__ == '__main__':
     main()
