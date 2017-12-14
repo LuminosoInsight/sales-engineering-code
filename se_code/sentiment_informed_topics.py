@@ -31,15 +31,25 @@ class SentimentTopics:
 
     def _get_project_terms(self):
         """
-        Get the top n terms in the project. Assign a sentiment score to each term according to
-        the sentiment scorer. Unpack each term's vector and overwrite its 'vector' field.
+        Get the top n terms in the project. Assign a sentiment score (orig-sentiment-score) to each
+        term according to the sentiment scorer. Unpack each term's vector and overwrite its
+        'vector' field.
         """
         terms = self.client.get('terms', limit=self.n_terms)
         terms = [term for term in terms if term['vector']]
         for term in terms:
             term['vector'] = unpack64(term['vector'])
-            term['sentiment-score'] = self.sentiment_scorer.term_sentiment(term['term'])
+            term['orig-sentiment-score'] = self.sentiment_scorer.term_sentiment(term['term'])
         return terms
+
+    def _get_known_sentiment_terms(self, sentiment):
+        """
+        Get the terms from which a sentiment axis will be built.
+        """
+        if sentiment == 'pos':
+            return [term for term in self.project_terms if term['orig-sentiment-score'] > 0]
+        elif sentiment == 'neg':
+            return [term for term in self.project_terms if term['orig-sentiment-score'] < 0]
 
     def _get_sent_axis(self, sentiment):
         """
@@ -50,25 +60,18 @@ class SentimentTopics:
 
         sent_terms = self._get_known_sentiment_terms(sentiment)
         axis = sent_terms[0]['vector'] * 0
-        axis_sum = sum(abs(term['sentiment-score']) for term in sent_terms)
+        axis_sum = sum(abs(term['orig-sentiment-score']) for term in sent_terms)
         for term in sent_terms:
-            axis += term['vector'] * abs(term['sentiment-score']) * term['score'] / axis_sum
+            axis += term['vector'] * abs(term['orig-sentiment-score']) * term['score'] / axis_sum
         axis /= (axis.dot(axis)) ** 0.5
         self.axes[sentiment] = axis
         return self.axes[sentiment]
 
-    def _get_known_sentiment_terms(self, sentiment):
-        """
-        Get the terms from which a sentiment axis will be built.
-        """
-        if sentiment == 'pos':
-            return [term for term in self.project_terms if term['sentiment-score'] > 0]
-        elif sentiment == 'neg':
-            return [term for term in self.project_terms if term['sentiment-score'] < 0]
-
     def get_domain_sentiment_terms(self, sentiment, n_results):
         """
-        Get the terms in the project that best match the sentiment axis.
+        Get the terms in the project that best match the sentiment axis. Each term's new
+        sentiment score (as opposed to the original sentiment score, which is assigned by
+        SentimentScorer) is the matching strength returned by the search terms endpoint.
         """
         if (sentiment, n_results) in self.domain_sentiment_terms:
             return self.domain_sentiment_terms[(sentiment, n_results)]
@@ -79,10 +82,10 @@ class SentimentTopics:
             limit=n_results if n_results > 100 else 100)['search_results']
 
         sentiment_terms = []
-        for term, axis_score in terms:
-            term['axis-score'] = axis_score
+        for term, matching_strength in terms:
+            term['new-sentiment-score'] = matching_strength
             term['vector'] = unpack64(term['vector'])
-            sentiment_terms.append(term) # drop axis_score
+            sentiment_terms.append(term)
 
         self.domain_sentiment_terms[(sentiment, n_results)] = sentiment_terms
         return self.domain_sentiment_terms[(sentiment, n_results)]
@@ -95,40 +98,37 @@ class SentimentTopics:
         """
         sentiment_terms = self.get_domain_sentiment_terms(sentiment, n_results)
 
-        sentiment_scores = [term['axis-score'] for term in sentiment_terms]
-        relevance_scores = [term['score'] for term in sentiment_terms]
+        all_sentiment_scores = []
+        all_relevance_scores = []
         for term in sentiment_terms:
-            term['norm-axis-score'] = self._normalize_score(term['axis-score'],
-                                                            sentiment_scores)
-            term['norm-relevance-score'] = self._normalize_score(term['score'], relevance_scores)
-        return self._sort_scores(sentiment, n_results)
+            all_sentiment_scores.append(term['new-sentiment-score'])
+            all_relevance_scores.append(term['score'])
+
+        for term in sentiment_terms:
+            term['norm-new-sent-score'] = self._normalize(term['new-sentiment-score'],
+                                                          all_sentiment_scores)
+            term['norm-relevance-score'] = self._normalize(term['score'], all_relevance_scores)
+
+        return sorted(sentiment_terms, key=self._harmonic_mean, reverse=True)[:n_results]
 
     @staticmethod
-    def _normalize_score(score, all_scores):
+    def _normalize(score, all_scores):
         """
         Normalize the scores to be between 0 and 1
         """
         return round((score - min(all_scores)) / (max(all_scores) - min(all_scores)), 3)
 
-    def _sort_scores(self, sentiment, n_results):
-        """
-        Sort using the harmonic mean of the sentiment and relevance scores.
-        """
-        return sorted(self.domain_sentiment_terms[(sentiment, n_results)],
-                      key=self._harmonic_mean,
-                      reverse=True)[:n_results]
-
     @staticmethod
     def _harmonic_mean(term):
         """
-        If the norm-axis-score and the norm-relevance-score are positive, return their harmonic
-        mean. Otherwise, return 0. The secondary sorting key is norm-axis-score.
+        If the norm-new-sent-score and the norm-relevance-score are positive, return their
+        harmonic mean. Otherwise, return 0. The secondary sorting key is norm-new-sent-score.
         """
-        scores = (term['norm-axis-score'], term['norm-relevance-score'])
+        scores = (term['norm-new-sent-score'], term['norm-relevance-score'])
         if all(scores):  # harmonic mean is defined
-            return hmean(scores), term['norm-axis-score']
+            return hmean(scores), term['norm-new-sent-score']
         else:
-            return 0, term['norm-axis-score']
+            return 0, term['norm-new-sent-score']
 
     def cluster_sentiment_terms(self):
         """
@@ -161,7 +161,7 @@ def print_sentiment_terms(terms, verbose=False):
     for term in terms:
         output = '{}'.format(term['text'])
         if verbose:
-            output += '\t{}\t{}'.format(term['norm-axis-score'], term['norm-relevance-score'])
+            output += '\t{}\t{}'.format(term['norm-new-sent-score'], term['norm-relevance-score'])
         print(output)
 
 
