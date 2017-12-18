@@ -75,7 +75,8 @@ def tableau_export():
         skt_limit = 20
     else:
         skt_limit = int(skt_limit)
-    
+        
+    term_table = (request.form.get('terms') == 'on')
     doc_term = (request.form.get('doc_term') == 'on')
     doc_topic = (request.form.get('doc_topic') == 'on')
     doc_subset = (request.form.get('doc_subset') == 'on')
@@ -93,6 +94,9 @@ def tableau_export():
     write_table_to_csv(doc_table, foldername, 'doc_table.csv')
     write_table_to_csv(xref_table, foldername, 'xref_table.csv')
     
+    if term_table:
+        terms_table = create_terms_table(client, terms)
+        write_table_to_csv(terms_table, foldername, 'terms_table.csv')
     if doc_term:
         doc_term_table = create_doc_term_table(client, docs, terms, .3)
         write_table_to_csv(doc_term_table, foldername, 'doc_term_table.csv')

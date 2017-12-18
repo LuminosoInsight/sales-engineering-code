@@ -254,7 +254,18 @@ def add_score_drivers_to_project(client, docs, drivers):
     client.post('prediction/train')
     print('Done training.')
 
-
+def create_terms_table(client, terms):
+    print('Creating terms table...')
+    table = []
+    for t in terms:
+        row = {}
+        row['Term'] = t['text']
+        search_result = client.get('docs/search', terms=[t['term']])
+        row['Exact Matches'] = search_result['num_exact_matches']
+        row['Related Matches'] = search_result['num_related_matches']
+        table.append(row)
+    return table
+    
 def create_themes_table(client, themes):
     print('Creating themes table...')
     for i, theme in enumerate(themes):
