@@ -47,5 +47,5 @@ def search_subsets(client, question, subset_vecs, subset_stats, min_docs=20, top
             matches += 1
             if matches >= top_subsets:
                 break
-            
+    print(results)
     return question, results
