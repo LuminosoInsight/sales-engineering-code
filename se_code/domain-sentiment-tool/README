@@ -1,0 +1,74 @@
+Example uses:
+
+python sentiment_topics.py zoo rjcfz --sentiment pos --terms --verbose
+
+Output:
+enjoyed
+entertaining
+wonderful
+enjoyable
+story
+highly recommend
+novel
+exciting
+fantastic
+definitely
+truly
+excellent
+amazing
+captivating
+enjoyable read
+great
+delightful
+well written
+fun
+terrific
+intriguing
+awesome
+unique
+wonderfully
+suspenseful
+historical fiction
+enjoyed this book
+fabulous
+thoroughly enjoyed
+page turner
+
+
+python sentiment_topics.py zoo rjcfz --clusters --n-terms=1000
+
+Output:
+highly recommend
+recommend this book
+definitely
+enjoyed this book
+
+excellent
+intriguing
+adventure
+enjoyable
+
+wonderful
+truly
+appreciate
+inspiring
+
+trouble
+sad
+horrible
+disturbing
+
+tragedy
+lost
+fear
+disappointment
+
+victim
+killed
+torture
+death
+
+blame
+doesn't seem
+appalled
+no fault
