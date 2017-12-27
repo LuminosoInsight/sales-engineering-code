@@ -1,6 +1,6 @@
+from __future__ import division
 from luminoso_api import LuminosoClient
 from pack64 import pack64, unpack64
-from __future__ import division
 from scipy.stats import fisher_exact
 
 import numpy as np
@@ -107,13 +107,14 @@ def personalized_search_conceptual(previous_selections, categories, q_vec, weigh
     #return (q_vec * 4 + avg_vec) / 5?
     return q_vec + avg_vec
     
-def search_content(description, client, categories, filters, history, second, personalize=False, display=3):
+def search_content(description, client, categories, filters, history, second, personalize=False, display=3, min_count=0):
     shared = subset_shared_terms(client)
     shared_text = []
     for _, term, _, _ in shared:
         for text in term['all_texts']:
             shared_text.append(text)
-            
+    
+    # TODO: Get term vectors of the words and downweight subset shared terms instead of removing them
     description_words = description.split(' ')
     for word in description_words:
         if word in shared_text:
@@ -146,17 +147,17 @@ def search_content(description, client, categories, filters, history, second, pe
     
     count = 0
     for idx in match_indexes:
-        #if titles[idx]['doc_count'] > 1:
+        if titles[idx]['doc_count'] > min_count:
         #if titles[idx]['doc_count'] == 1:
-        print(categories[idx]['name'])
-        print(match_scores[idx]*q_term_dot)
-        print(categories[idx]['doc_count'])
-        if second:
-            print(categories[idx][second])
-        print()
-        count += 1
-        if count > display - 1:
-            break
+            print(categories[idx]['name'])
+            print(match_scores[idx]*q_term_dot)
+            print(categories[idx]['doc_count'])
+            if second:
+                print(categories[idx][second])
+            print()
+            count += 1
+            if count > display - 1:
+                break
 
 def add_previous_search(selections, result):
     selections.append(result)
@@ -196,9 +197,11 @@ def main():
         'search',
         help="Text to search project on"
         )
-    parser.add_argument('-u', '--source', defaut=False, action='store_true', help="Relevant data stored in Source field instead of subset")
+    parser.add_argument('-u', '--source', default=False, action='store_true', help="Relevant data stored in Source field instead of subset")
     parser.add_argument('-s', '--second', help="\'Category\' of selection e.g. genre of film, type of food. Only applies if information is stored in the source field")
     parser.add_argument('-p', '--personalize', default=False, action='store_true', help="Assign weighting onto previous personalized searches")
+    parser.add_argument('-d', '--display_count', default=3, help="Number of choices to display")
+    parser.add_argument('=m', '--min_doc_count', default=1, help="Only display choices with more than this number of documents")
     args = parser.parse_args()
     
     client = LuminosoClient.connect('/projects/%s/%s' % (args.account_id, args.project_id))
@@ -308,7 +311,7 @@ def main():
     #selection = 'Documentary'
     #previous_selections = add_previous_search(previous_selections, selection)
     #previous_selections = clear_previous_search(previous_selections)
-    qtr = search_content(args.search, client, categories, [], previous_selections, second, args.personalize)
+    qtr = search_content(args.search, client, categories, [], previous_selections, second, args.personalize, int(args.display_count), int(args.min_doc_count))
     
 if __name__ == '__main__':
     main()
