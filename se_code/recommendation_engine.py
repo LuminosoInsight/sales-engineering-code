@@ -197,7 +197,7 @@ def main():
         help="Text to search project on"
         )
     parser.add_argument('-u', '--source', defaut=False, action='store_true', help="Relevant data stored in Source field instead of subset")
-    parser.add_argument('-s', '--second', help="\'Category\' of selection e.g. genre of film, type of food")
+    parser.add_argument('-s', '--second', help="\'Category\' of selection e.g. genre of film, type of food. Only applies if information is stored in the source field")
     parser.add_argument('-p', '--personalize', default=False, action='store_true', help="Assign weighting onto previous personalized searches")
     args = parser.parse_args()
     
@@ -211,68 +211,97 @@ def main():
     field = 'subsets'
     if args.source:
         field = 'source'
-#    titles = []
-#    titleList = {}
-#    for doc in docs:
-#        if 'Title' in doc['source']:
-#            if doc['source']['Title'] in titleList:
-#                titles[titleList[doc['source']['Title']]]['doc_count'] += 1
-#                titles[titleList[doc['source']['Title']]]['vector'] = np.sum([unpack64(doc['vector']),
-#                    titles[titleList[doc['source']['Title']]]['vector']], axis=0)
-#            else:
-#                titleList[doc['source']['Title']] = len(titles)
-#                titles.append({'name':doc['source']['Title'],
-#                             'doc_count':1,
-#                             'vector':unpack64(doc['vector']),
-#                             'genre':doc['source']['Genre']})
                 
     categories = []
     category_list = {}
-    for doc in docs:
-        if field == 'subsets:
-            subsets = {}
-            for subset in doc['subsets']:
-                if subset != '__all__':
-                    subset_name = subset.split(':')[0].strip()
-                    subset_value = subset.split(':')[1].strip()
-                    subsets[subset_name] = subset_value
-            if args.subset in subsets:
-                subset_value = subsets[args.subset]
-                if subset_value in category_list:
-                    categories[category_list[subset_value]]['doc_count'] += 1
-                    categories[category_list[subset_value]]['vector'] = np.sum([unpack64(doc['vector']), categories[category_list[subset_value]]['vector']], axis=0)
-                else:
-                    category_list[subset_value] = len(categories)
-                    if second and second in subsets:
-                        categories.append({'name': subset_value,
-                                           'doc_count': 1,
-                                           'vector': unpack64(doc['vector']),
-                                           second: subsets[second]})
-                    else:
-                        categories.append({'name': subset_value,
-                                           'doc_count': 1,
-                                           'vector': unpack64(doc['vector'])})
-        else:
-            #source_fields = [f.lower() for f in doc['source']]
+    if field == 'subsets':
+        subset_stats = client.get('subsets/stats')
+        #subsets = {}
+        for s in subset_stats:
+            if s['subset'] != '__all__':
+                subset_name = s['subset'].split(':')[0].strip()
+                subset_value = s['subset'].split(':')[1].strip()
+                if args.subset == subset_name:
+                    #terms = client.get('terms', subset=s['subset'], limit=500)
+                    #term_vecs = []
+                    #term_weights = []
+                    #for term in terms:
+                        #term_vecs.append(unpack64(term['vector']))
+                        #term_weights.append(term['score'])
+                    #terms_vector = np.average(term_vecs, weights=term_weights)
+                    categories.append({'name': subset_value,
+                                       'doc_count': s['count'],
+                                       #'vector': terms_vector,
+                                       'vector': unpack64(s['mean'])})
+                #subsets[subset_name] = subset_value
+    else:
+        for doc in docs:
             if args.subset in doc['source']:
                 if doc['source'][args.subset] in category_list:
                     categories[category_list[doc['source'][args.subset]]]['doc_count'] += 1
-                    categories[category_list[doc['source'][args.subset]]]['vector'] = np.sum([unpack64(doc['vector']), categories[category_list[doc['source'][args.subset]]]['vector']], axis=0)
+                    #categories[category_list[doc['source'][args.subset]]]['vector'] = np.sum([unpack64(doc['vector']), categories[category_list[doc['source'][args.subset]]]['vector']], axis=0)
+                    categories[category_list[doc['source'][args.subset]]]['vector'].append(unpack64(doc['vector']))
                 else:
                     category_list[doc['source'][args.subset]] = len(categories)
+                    # HOW DO WE GET AVERAGE TERM VECTORS OF SOURCES?
                     if second and second in doc['source']:
                         categories.append({'name': doc['source'][args.subset],
                                            'doc_count': 1,
-                                           'vector': unpack64(doc['vector']),
+                                           'vector': [unpack64(doc['vector'])],
                                            second: doc['source'][second]})
                     else:
                         categories.append({'name': doc['source'][args.subset],
                                            'doc_count': 1,
-                                           'vector': unpack64(doc['vector'])})
+                                           'vector': [unpack64(doc['vector'])]})
+        for category in categories:
+            category['vector'] = np.mean(category['vector'], axis=0)
+                    
+    
+    #for doc in docs:
+    #    if field == 'subsets':
+    #        subsets = {}
+    #        for subset in doc['subsets']:
+    #            if subset != '__all__':
+    #                subset_name = subset.split(':')[0].strip()
+    #                subset_value = subset.split(':')[1].strip()
+    #                subsets[subset_name] = subset_value
+    #        if args.subset in subsets:
+    #            subset_value = subsets[args.subset]
+    #            if subset_value in category_list:
+    #                categories[category_list[subset_value]]['doc_count'] += 1
+    #                categories[category_list[subset_value]]['vector'] = np.sum([unpack64(doc['vector']), categories[category_list[subset_value]]['vector']], axis=0)
+    #            else:
+    #                category_list[subset_value] = len(categories)
+    #                if second and second in subsets:
+    #                    categories.append({'name': subset_value,
+    #                                       'doc_count': 1,
+    #                                       'vector': unpack64(doc['vector']),
+    #                                       second: subsets[second]})
+    #                else:
+    #                    categories.append({'name': subset_value,
+    #                                       'doc_count': 1,
+    #                                       'vector': unpack64(doc['vector'])})
+    #    else:
+    #        #source_fields = [f.lower() for f in doc['source']]
+    #        if args.subset in doc['source']:
+    #            if doc['source'][args.subset] in category_list:
+    #                categories[category_list[doc['source'][args.subset]]]['doc_count'] += 1
+    #                categories[category_list[doc['source'][args.subset]]]['vector'] = np.sum([unpack64(doc['vector']), categories[category_list[doc['source'][args.subset]]]['vector']], axis=0)
+    #            else:
+    #                category_list[doc['source'][args.subset]] = len(categories)
+    #                if second and second in doc['source']:
+    #                    categories.append({'name': doc['source'][args.subset],
+    #                                       'doc_count': 1,
+    #                                       'vector': unpack64(doc['vector']),
+    #                                       second: doc['source'][second]})
+    #                else:
+    #                    categories.append({'name': doc['source'][args.subset],
+    #                                       'doc_count': 1,
+    #                                       'vector': unpack64(doc['vector'])})
                 
     
-    for category in categories:
-        category['vector'] = category['vector']/category['doc_count']
+    #for category in categories:
+    #    category['vector'] = category['vector']/category['doc_count']
         
     # PICKLE?
     previous_selections = []
