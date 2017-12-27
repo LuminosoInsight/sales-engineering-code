@@ -252,26 +252,48 @@ def plutchik_page():
 @app.route('/subset_search', methods=['GET','POST'])
 def subset_search():
     
-    global client, subset_stats, subset_vecs
+    global client, subset_list, subset_vecs, field
     
     if request.method == 'POST':
         if 'url' in request.form:
             url = request.form['url'].strip()
+            field = request.form['field'].strip()
             from_acct, from_proj = parse_url(url)
             client = LuminosoClient.connect('/projects/{}/{}'.format(from_acct,from_proj),
                                             username=session['username'],
                                             password=session['password'])
             project = client.get()['name']
-            subset_stats = client.get('/subsets/stats')
-            subset_vecs = [unpack64(s['mean']) for s in subset_stats]
+            if field:
+                docs = get_all_docs(client)
+                subset_list = {}
+                for doc in docs:
+                    if field in doc['source']:
+                        subset = doc['source'][field]
+                        if doc['source'][field] in subset_list:
+                            subset_list[subset]['count'] += 1
+                            subset_list[subset]['vector'] = np.sum([unpack64(doc['vector']),
+                                subset_list[subset]['vector']], axis=0)
+                        else:
+                            subset_list[subset] = {'count':1,
+                                         'vector':unpack64(doc['vector']),
+                                         'subset':subset}
+                #print(subset_list)
+                subset_vecs = [s['vector']/s['count'] for k,s in subset_list.items()]
+                subset_names = subset_list.keys()
+                subset_list = list(subset_list.values())         
+            else:
+                subset_list = client.get('/subsets/stats')
+                subset_vecs = [unpack64(s['mean']) for s in subset_list]
+                subset_names = [s['subset'] for s in subset_list]
         else:
             project = client.get()['name']
             question = request.form['text']
             query_info, results = search_subsets(client,
                                                  question,
                                                  subset_vecs,
-                                                 subset_stats,
-                                                 top_reviews=1)
+                                                 subset_list,
+                                                 top_reviews=1,
+                                                 field=field)
             return render_template('subset_search.html',
                                    urls=session['apps_to_show'],
                                    query_info=query_info,
