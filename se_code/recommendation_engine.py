@@ -166,9 +166,9 @@ def vectorize_query(description, client, min_count=0):
     term_vectors = []
     term_weights = []
     for word in description_words:
-        term = client.get('terms/search', terms=[word], limit=1)
+        term = client.get('terms/search', terms=[word], limit=1)['search_results'][0][0]
         if term['vector']:
-            texts.append(term['search_results'][0][0]['text'])
+            texts.append(term['text'])
             term_vectors.append(unpack64(term['vector']))
             if word in shared_text:
                 term_weights.append(term['score'] * .1)
