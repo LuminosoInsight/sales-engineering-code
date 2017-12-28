@@ -194,3 +194,52 @@ def recommend_subset(client, description, field, subset_input, display=3):
             count += 1
             if count > display - 1:
                 break
+
+def find_example_docs(client, subset, query_vec, n_docs=1, source_field=None):
+    '''
+    Find documents from the selected subset that best match the search query.
+    If the subset is specified in a source field, a broad search must be
+    performed, as opposed to traditional subsets that can be filtered
+    directly using the docs/search endpoint.
+    '''
+
+    # Get sentiment vectors
+    topics = client.get('topics')
+    pos = [unpack64(t['vector']) for t in topics if t['name'] == 'Positive'][0]
+    neg = [unpack64(t['vector']) for t in topics if t['name'] == 'Negative'][0]
+
+    if source_field:
+        example_doc_pool = client.get('docs/search',
+                                      vector=query_vec,
+                                      limit=20000,
+                                      doc_fields=['text', 'source', 'vector']
+                                      )['search_results']
+
+        example_doc_pool = [e[0]['document'] for e in example_doc_pool
+                        if e[0]['document']['source'][source_field] == subset]
+
+        if len(example_doc_pool) == 0:
+            # If no docs are found, return a set of blank docs with 0 scores
+            return [('', 0) for i in range(n_docs)]
+    else:
+        example_doc_pool = client.get('docs/search',
+                                      vector=query_vec,
+                                      subset=subset,
+                                      limit=100)['search_results']
+        example_doc_pool = [e[0]['document'] for e in example_doc_pool]
+
+    vector_matches = []
+    for doc in example_doc_pool:
+        score = 0
+        score += np.dot(unpack64(doc['vector']), unpack64(query_vec))
+        score += np.dot(unpack64(doc['vector']), pos)
+        score -= np.dot(unpack64(doc), neg)
+        vector_matches.append(score)
+
+    doc_indexes = np.argsort(vector_matches)[::-1]
+
+    example_docs = []
+    for i in range(n_docs):
+        example_docs.append((example_doc_pool[doc_indexes[i]]['text'],
+                             vector_matches[doc_indexes[i]]))
+    return example_docs
