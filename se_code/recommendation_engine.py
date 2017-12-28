@@ -7,6 +7,7 @@ import numpy as np
 import csv
 import json
 import argparse
+import pickle
 
 
 def get_all_docs(client):
@@ -243,4 +244,24 @@ def find_example_docs(client, subset, query_vec, n_docs=1, source_field=None):
     for i in range(n_docs):
         example_docs.append((example_doc_pool[doc_indexes[i]]['text'],
                              vector_matches[doc_indexes[i]]))
+
     return example_docs
+
+
+def save_subset_vectors(filename, subset_vectors):
+    '''
+    Saves subset vector object as a pickled file for reuse.
+    '''
+
+    file = open(filename, 'w')
+    pickle.dump(subset_vectors, file)
+
+
+def load_subset_vectors(filename):
+    '''
+    Loads subset vector object from a pickled file.
+    '''
+
+    file = open(filename, 'r')
+    subset_vectors = pickle.load(file)
+    return subset_vectors
