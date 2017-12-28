@@ -20,11 +20,12 @@ def get_all_docs(client):
             return docs
 
 
-def create_subset_vectors_v1(client, docs, field, subset_input):
+def create_subset_vectors_v1(client, field, subset_input):
     '''
     Creates a list of dictionaries holding each subset's name, doc count, and
     average vector
     '''
+    docs = get_all_docs(client)
     categories = []
     category_list = {}
     if field == 'subsets':
@@ -54,12 +55,13 @@ def create_subset_vectors_v1(client, docs, field, subset_input):
     return categories
 
 
-def create_subset_vectors_v3(client, docs, shared_text, field, subset_input):
+def create_subset_vectors_v3(client, shared_text, field, subset_input):
     '''
     Creates a list of dictionaries holding each subset's name, doc count, and
     average vector based on the subset's top terms, with the terms shared
     between subsets down-weighted
     '''
+    docs = get_all_docs(client)
     categories = []
     category_list = {}
     if field == 'subsets':
@@ -188,23 +190,25 @@ def recommend_subset(client, description, field, subset_input, display=3, min_co
     '''
     Output recommended subsets based on the user input search query
     '''
-    docs = get_all_docs(client)
-    categories = create_subset_vectors_v1(client, docs, field, subset_input)
+    categories = create_subset_vectors_v1(client, field, subset_input)
     subset_vecs = [c['vector'] for c in categories]
     question_vec, match_score_weight, doc_term_count = vectorize_query(description, client)
     match_scores = np.dot(subset_vecs, question_vec) / doc_term_count
     match_indices = np.argsort(match_scores)[::-1]
 
-    count = 0
+    #count = 0
+    results = []
     for idx in match_indices:
         if categories[idx]['doc_count'] > min_count:
-            print(categories[idx]['name'])
-            print(match_scores[idx] * match_score_weight)
-            print(categories[idx]['doc_count'])
-            print()
-            count += 1
-            if count > display - 1:
-                break
+            results.append(categories[idx])
+            #print(categories[idx]['name'])
+            #print(match_scores[idx] * match_score_weight)
+            #print(categories[idx]['doc_count'])
+            #print()
+            #count += 1
+            #if count > display - 1:
+            #    break
+    return results
 
 
 def find_example_docs(client, subset, query_vec, n_docs=1, source_field=None):
