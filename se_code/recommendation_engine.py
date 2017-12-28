@@ -147,7 +147,7 @@ def search_content(description, client, categories, filters, history, second, pe
     
     count = 0
     for idx in match_indexes:
-        if titles[idx]['doc_count'] > min_count:
+        if categories[idx]['doc_count'] > min_count:
         #if titles[idx]['doc_count'] == 1:
             print(categories[idx]['name'])
             print(match_scores[idx]*q_term_dot)
@@ -201,7 +201,7 @@ def main():
     parser.add_argument('-s', '--second', help="\'Category\' of selection e.g. genre of film, type of food. Only applies if information is stored in the source field")
     parser.add_argument('-p', '--personalize', default=False, action='store_true', help="Assign weighting onto previous personalized searches")
     parser.add_argument('-d', '--display_count', default=3, help="Number of choices to display")
-    parser.add_argument('=m', '--min_doc_count', default=1, help="Only display choices with more than this number of documents")
+    parser.add_argument('-m', '--min_doc_count', default=1, help="Only display choices with more than this number of documents")
     args = parser.parse_args()
     
     client = LuminosoClient.connect('/projects/%s/%s' % (args.account_id, args.project_id))
