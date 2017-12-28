@@ -159,12 +159,13 @@ def vectorize_query(description, client, min_count=0):
     term_weights = []
     for word in description_words:
         term = client.get('terms/search', terms=[word], limit=1)
-        texts.append(term['search_results'][0][0]['text'])
-        term_vectors.append(unpack64(term['vector']))
-        if word in shared_text:
-            term_weights.append(term['score'] * .1)
-        else:
-            term_weights.append(term['score'])
+        if term['vector']:
+            texts.append(term['search_results'][0][0]['text'])
+            term_vectors.append(unpack64(term['vector']))
+            if word in shared_text:
+                term_weights.append(term['score'] * .1)
+            else:
+                term_weights.append(term['score'])
     question_vec = np.average(term_vectors, weights=term_weights, axis=0)
     
     if len(texts) > 1:
