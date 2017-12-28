@@ -21,7 +21,7 @@ def get_all_docs(client):
             return docs
 
 
-def create_subset_vectors_v1(client, field, subset_input):
+def create_subset_details_v1(client, field, subset_input):
     '''
     Creates a list of dictionaries holding each subset's name, doc count, and
     average vector
@@ -56,7 +56,7 @@ def create_subset_vectors_v1(client, field, subset_input):
     return subset_details
 
 
-def create_subset_vectors_v3(client, shared_text, field, subset_input):
+def create_subset_details_v3(client, shared_text, field, subset_input):
     '''
     Creates a list of dictionaries holding each subset's name, doc count, and
     average vector based on the subset's top terms, with the terms shared
@@ -254,26 +254,26 @@ def find_example_docs(client, subset, query_vec, n_docs=1, source_field=None):
     return example_docs
 
 
-def save_subset_vectors(filename, subset_vectors):
+def save_subset_details(filename, subset_details):
     '''
     Saves subset vector object as a pickled file for reuse.
     '''
 
     file = open(filename, 'w')
-    pickle.dump(subset_vectors, file)
+    pickle.dump(subset_details, file)
 
 
-def load_subset_vectors(filename):
+def load_subset_details(filename):
     '''
     Loads subset vector object from a pickled file.
     '''
 
     file = open(filename, 'r')
-    subset_vectors = pickle.load(file)
-    return subset_vectors
+    subset_details = pickle.load(file)
+    return subset_details
 
 
-def test_queries(client, queries_filename, vectors_filename, results_filename):
+def test_queries(client, queries_filename, details_filename, results_filename):
     '''
     Reads a set of queries from a CSV file and outputs a CSV file with
     recommendation results.
@@ -293,10 +293,12 @@ def test_queries(client, queries_filename, vectors_filename, results_filename):
     queries_reader = csv.DictReader(open(queries_filename, 'r'))
     for row in queries_reader:
         queries.append(row)
-    subset_vectors = load_subset_vectors(vectors_filename)
+    subset_details = load_subset_details(details_filename)
     for query in queries:
         query_vector = vectorize_query(query, client)
-        recommendation = recommend_subset(client, query_vector, subset_vectors)
+        recommendation = recommend_subset(query_vector,
+                                          subset_details,
+                                          num_results=1)
         query['new_result'] = recommendation
     writer = csv.DictWriter(open(results_filename, 'w'),
                             fieldnames=queries[0].keys())
