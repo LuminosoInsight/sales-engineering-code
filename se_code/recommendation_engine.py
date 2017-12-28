@@ -1,12 +1,9 @@
 from __future__ import division
-from luminoso_api import LuminosoClient
-from pack64 import pack64, unpack64
+from pack64 import unpack64
 from scipy.stats import fisher_exact
 
 import numpy as np
-import csv
 import json
-import argparse
 import pickle
 
 
@@ -21,10 +18,12 @@ def get_all_docs(client):
             docs.extend(newdocs)
         else:
             return docs
-        
+
+
 def create_subset_vectors_v1(client, docs, field, subset_input):
     '''
-    Creates a list of dictionaries holding each subset's name, doc count, and average vector
+    Creates a list of dictionaries holding each subset's name, doc count, and
+    average vector
     '''
     categories = []
     category_list = {}
@@ -42,22 +41,24 @@ def create_subset_vectors_v1(client, docs, field, subset_input):
         for doc in docs:
             if subset_input in doc['source']:
                 if doc['source'][subset_input] in category_list:
-                    categories[category_list[doc['source'][subset_input]]]['doc_count'] += 1
-                    categories[category_list[doc['source'][subset_input]]]['vector'].append(unpack64(doc['vector']))
+                    cat = category_list[doc['source'][subset_input]]
+                    categories[cat]['doc_count'] += 1
+                    categories[cat]['vector'].append(unpack64(doc['vector']))
                 else:
-                    category_list[doc['source'][subset_input]] = len(categories)
                     categories.append({'name': doc['source'][subset_input],
                                        'doc_count': 1,
                                        'vector': [unpack64(doc['vector'])]})
         for category in categories:
             category['vector'] = np.mean(category['vector'], axis=0)
-           
+
     return categories
+
 
 def create_subset_vectors_v3(client, docs, shared_text, field, subset_input):
     '''
-    Creates a list of dictionaries holding each subset's name, doc count, and average vector based
-    on the subset's top terms, with the terms shared between subsets downweighted
+    Creates a list of dictionaries holding each subset's name, doc count, and
+    average vector based on the subset's top terms, with the terms shared
+    between subsets down-weighted
     '''
     categories = []
     category_list = {}
@@ -85,21 +86,23 @@ def create_subset_vectors_v3(client, docs, shared_text, field, subset_input):
         for doc in docs:
             if subset_input in doc['source']:
                 if doc['source'][subset_input] in category_list:
-                    categories[category_list[doc['source'][subset_input]]]['doc_count'] += 1
-                    categories[category_list[doc['source'][subset_input]]]['vector'].append(unpack64(doc['vector']))
+                    cat = category_list[doc['source'][subset_input]]
+                    categories[cat]['doc_count'] += 1
+                    categories[cat]['vector'].append(unpack64(doc['vector']))
                 else:
-                    category_list[doc['source'][subset_input]] = len(categories)
                     categories.append({'name': doc['source'][subset_input],
                                        'doc_count': 1,
                                        'vector': [unpack64(doc['vector'])]})
         for category in categories:
             category['vector'] = np.mean(category['vector'], axis=0)
-           
+
     return categories
+
 
 def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
     '''
-    Returns terms that are well represented across multiple subsets in the entire project
+    Returns terms that are well represented across multiple subsets in the
+    entire project
     '''
     subset_counts = client.get()['counts']
     pvalue_cutoff = .95
@@ -120,7 +123,8 @@ def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
             length += len(term['term'])
         if len(termlist) > 0:
             all_terms.extend(client.get('terms', terms=termlist))
-        all_term_dict = {term['term']: term['distinct_doc_count'] for term in all_terms}
+        all_term_dict = {term['term']: term['distinct_doc_count']
+                         for term in all_terms}
 
         subset_scores = []
         for term in subset_terms:
@@ -139,21 +143,24 @@ def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
         if len(subset_scores) > 0:
             subset_scores.sort(key=lambda x: (x[0], -x[2]))
         results.extend(subset_scores[:terms_per_subset])
-        
+
     shared_text = []
     for _, term, _, _ in results:
         for text in term['all_texts']:
             shared_text.append(text)
-        
+
     return shared_text
-    
+
+
 def vectorize_query(description, client, min_count=0):
     '''
-    Create a search vector based on the search query inputted by the user and the weighting
-    of the resulting match score based on the search query's length
+    Create a search vector based on the search query input by the user and
+    weighting of the resulting match score based on the search query's length
     '''
     shared_text = subset_shared_terms(client)
-    question_doc = client.post_data('docs/vectors', json.dumps([{'text': description}]), content_type='application/json')[0]
+    question_doc = client.post_data('docs/vectors',
+                                    json.dumps([{'text': description}]),
+                                    content_type='application/json')[0]
     description_words = [t[0] for t in question_doc['terms']]
     texts = []
     term_vectors = []
@@ -168,16 +175,18 @@ def vectorize_query(description, client, min_count=0):
             else:
                 term_weights.append(term['score'])
     question_vec = np.average(term_vectors, weights=term_weights, axis=0)
-    
+
     if len(texts) > 1:
-        match_score_weight = np.mean(np.dot(term_vectors, np.transpose(term_vectors)))
+        match_score_weight = np.mean(np.dot(term_vectors,
+                                            np.transpose(term_vectors)))
     else:
         match_score_weight = 1
     return question_vec, match_score_weight, len(texts)
-    
-def recommend_subset(client, description, field, subset_input, display=3):
+
+
+def recommend_subset(client, description, field, subset_input, display=3, min_count=50):
     '''
-    Output recommended subsets based on the user inputted search query
+    Output recommended subsets based on the user input search query
     '''
     docs = get_all_docs(client)
     categories = create_subset_vectors_v1(client, docs, field, subset_input)
@@ -185,7 +194,7 @@ def recommend_subset(client, description, field, subset_input, display=3):
     question_vec, match_score_weight, doc_term_count = vectorize_query(description, client)
     match_scores = np.dot(subset_vecs, question_vec) / doc_term_count
     match_indices = np.argsort(match_scores)[::-1]
-    
+
     count = 0
     for idx in match_indices:
         if categories[idx]['doc_count'] > min_count:
@@ -196,6 +205,7 @@ def recommend_subset(client, description, field, subset_input, display=3):
             count += 1
             if count > display - 1:
                 break
+
 
 def find_example_docs(client, subset, query_vec, n_docs=1, source_field=None):
     '''
