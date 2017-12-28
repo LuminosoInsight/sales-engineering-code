@@ -187,7 +187,7 @@ def vectorize_query(description, client):
     return question_vec, match_score_weight
 
 
-def recommend_subset(question_vec, subset_details, display=3, min_count=50):
+def recommend_subset(question_vec, subset_details, num_results=3, min_count=50):
     '''
     Output recommended subsets based on the user input search query
     '''
@@ -195,18 +195,11 @@ def recommend_subset(question_vec, subset_details, display=3, min_count=50):
     match_scores = np.dot(subset_vecs, question_vec)
     match_indices = np.argsort(match_scores)[::-1]
 
-    #count = 0
     results = []
-    for idx in match_indices:
+    for idx in match_indices[:num_results]:
         if subset_details[idx]['doc_count'] > min_count:
+            subset_details[idx]['match_score'] = match_scores[idx]
             results.append(subset_details[idx])
-            #print(subset_details[idx]['name'])
-            #print(match_scores[idx] * match_score_weight)
-            #print(subset_details[idx]['doc_count'])
-            #print()
-            #count += 1
-            #if count > display - 1:
-            #    break
     return results
 
 
