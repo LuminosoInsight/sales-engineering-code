@@ -152,7 +152,7 @@ def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
     return shared_text
 
 
-def vectorize_query(description, client, min_count=0):
+def vectorize_query(description, client):
     '''
     Create a search vector based on the search query input by the user and
     weighting of the resulting match score based on the search query's length
