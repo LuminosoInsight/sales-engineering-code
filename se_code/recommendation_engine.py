@@ -27,7 +27,7 @@ def create_subset_vectors_v1(client, field, subset_input):
     average vector
     '''
     docs = get_all_docs(client)
-    categories = []
+    subset_details = []
     category_list = {}
     if field == 'subsets':
         subset_stats = client.get('subsets/stats')
@@ -36,24 +36,24 @@ def create_subset_vectors_v1(client, field, subset_input):
                 subset_name = s['subset'].split(':')[0].strip()
                 subset_value = s['subset'].split(':')[1].strip()
                 if subset_input == subset_name:
-                    categories.append({'name': subset_value,
+                    subset_details.append({'name': subset_value,
                                        'doc_count': s['count'],
                                        'vector': unpack64(s['mean'])})
     else:
         for doc in docs:
             if subset_input in doc['source']:
                 if doc['source'][subset_input] in category_list:
-                    cat = category_list[doc['source'][subset_input]]
-                    categories[cat]['doc_count'] += 1
-                    categories[cat]['vector'].append(unpack64(doc['vector']))
+                    category = category_list[doc['source'][subset_input]]
+                    subset_details[category]['doc_count'] += 1
+                    subset_details[category]['vector'].append(unpack64(doc['vector']))
                 else:
-                    categories.append({'name': doc['source'][subset_input],
+                    subset_details.append({'name': doc['source'][subset_input],
                                        'doc_count': 1,
                                        'vector': [unpack64(doc['vector'])]})
-        for category in categories:
-            category['vector'] = np.mean(category['vector'], axis=0)
+        for s in subset_details:
+            s['vector'] = np.mean(s['vector'], axis=0)
 
-    return categories
+    return subset_details
 
 
 def create_subset_vectors_v3(client, shared_text, field, subset_input):
@@ -63,7 +63,7 @@ def create_subset_vectors_v3(client, shared_text, field, subset_input):
     between subsets down-weighted
     '''
     docs = get_all_docs(client)
-    categories = []
+    subset_details = []
     category_list = {}
     if field == 'subsets':
         subset_stats = client.get('subsets/stats')
@@ -82,24 +82,24 @@ def create_subset_vectors_v3(client, shared_text, field, subset_input):
                         else:
                             term_weights.append(term['score'])
                     terms_vector = np.average(term_vecs, weights=term_weights)
-                    categories.append({'name': subset_value,
+                    subset_details.append({'name': subset_value,
                                        'doc_count': s['count'],
                                        'vector': terms_vector})
     else:
         for doc in docs:
             if subset_input in doc['source']:
                 if doc['source'][subset_input] in category_list:
-                    cat = category_list[doc['source'][subset_input]]
-                    categories[cat]['doc_count'] += 1
-                    categories[cat]['vector'].append(unpack64(doc['vector']))
+                    category = category_list[doc['source'][subset_input]]
+                    subset_details[category]['doc_count'] += 1
+                    subset_details[category]['vector'].append(unpack64(doc['vector']))
                 else:
-                    categories.append({'name': doc['source'][subset_input],
+                    subset_details.append({'name': doc['source'][subset_input],
                                        'doc_count': 1,
                                        'vector': [unpack64(doc['vector'])]})
-        for category in categories:
-            category['vector'] = np.mean(category['vector'], axis=0)
+        for s in subset_details:
+            s['vector'] = np.mean(s['vector'], axis=0)
 
-    return categories
+    return subset_details
 
 
 def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
@@ -184,27 +184,25 @@ def vectorize_query(description, client):
                                             np.transpose(term_vectors)))
     else:
         match_score_weight = 1
-    return question_vec, match_score_weight, len(texts)
+    return question_vec, match_score_weight
 
 
-def recommend_subset(client, description, field, subset_input, display=3, min_count=50):
+def recommend_subset(question_vec, subset_details, display=3, min_count=50):
     '''
     Output recommended subsets based on the user input search query
     '''
-    categories = create_subset_vectors_v1(client, field, subset_input)
-    subset_vecs = [c['vector'] for c in categories]
-    question_vec, match_score_weight, doc_term_count = vectorize_query(description, client)
-    match_scores = np.dot(subset_vecs, question_vec) / doc_term_count
+    subset_vecs = [c['vector'] for c in subset_details]
+    match_scores = np.dot(subset_vecs, question_vec)
     match_indices = np.argsort(match_scores)[::-1]
 
     #count = 0
     results = []
     for idx in match_indices:
-        if categories[idx]['doc_count'] > min_count:
-            results.append(categories[idx])
-            #print(categories[idx]['name'])
+        if subset_details[idx]['doc_count'] > min_count:
+            results.append(subset_details[idx])
+            #print(subset_details[idx]['name'])
             #print(match_scores[idx] * match_score_weight)
-            #print(categories[idx]['doc_count'])
+            #print(subset_details[idx]['doc_count'])
             #print()
             #count += 1
             #if count > display - 1:
