@@ -5,6 +5,7 @@ from scipy.stats import fisher_exact
 import numpy as np
 import json
 import pickle
+import csv
 
 
 def get_all_docs(client):
@@ -279,3 +280,34 @@ def load_subset_vectors(filename):
     file = open(filename, 'r')
     subset_vectors = pickle.load(file)
     return subset_vectors
+
+
+def test_queries(client, queries_filename, vectors_filename, results_filename):
+    '''
+    Reads a set of queries from a CSV file and outputs a CSV file with
+    recommendation results.
+
+    CSV file needs the following headers:
+    query - the search query
+    result - the expected result for the query
+    score - score of result against query
+
+    Scoring:
+    0 - Not enough data for query to perform well
+    1 - Irrelevant result
+    2 - Reasonable result, but not ideal
+    3 - Ideal result
+    '''
+    queries = []
+    queries_reader = csv.DictReader(open(queries_filename, 'r'))
+    for row in queries_reader:
+        queries.append(row)
+    subset_vectors = load_subset_vectors(vectors_filename)
+    for query in queries:
+        query_vector = vectorize_query(query, client)
+        recommendation = recommend_subset(client, query_vector, subset_vectors)
+        query['new_result'] = recommendation
+    writer = csv.DictWriter(open(results_filename, 'w'),
+                            fieldnames=queries[0].keys())
+    writer.writeheader()
+    writer.writerows(queries)
