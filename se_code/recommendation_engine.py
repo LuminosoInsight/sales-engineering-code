@@ -1,11 +1,12 @@
 from __future__ import division
 from pack64 import unpack64
 from scipy.stats import fisher_exact
+from luminoso_api import LuminosoClient
 
 import numpy as np
 import json
-import pickle
 import csv
+import pickle
 
 
 def get_all_docs(client):
@@ -37,19 +38,20 @@ def create_subset_details_v1(client, field, subset_input):
                 subset_value = s['subset'].split(':')[1].strip()
                 if subset_input == subset_name:
                     subset_details.append({'name': subset_value,
-                                       'doc_count': s['count'],
-                                       'vector': unpack64(s['mean'])})
+                                           'doc_count': s['count'],
+                                           'vector': unpack64(s['mean'])})
     else:
         for doc in docs:
+            doc_vec = unpack64(doc['vector'])
             if subset_input in doc['source']:
                 if doc['source'][subset_input] in category_list:
                     category = category_list[doc['source'][subset_input]]
                     subset_details[category]['doc_count'] += 1
-                    subset_details[category]['vector'].append(unpack64(doc['vector']))
+                    subset_details[category]['vector'].append(doc_vec)
                 else:
                     subset_details.append({'name': doc['source'][subset_input],
-                                       'doc_count': 1,
-                                       'vector': [unpack64(doc['vector'])]})
+                                           'doc_count': 1,
+                                           'vector': [doc_vec]})
         for s in subset_details:
             s['vector'] = np.mean(s['vector'], axis=0)
 
@@ -81,21 +83,22 @@ def create_subset_details_v3(client, shared_text, field, subset_input):
                             term_weights.append(term['score'] * .1)
                         else:
                             term_weights.append(term['score'])
-                    terms_vector = np.average(term_vecs, weights=term_weights)
+                    terms_vector = np.average(term_vecs, weights=term_weights, axis=0)
                     subset_details.append({'name': subset_value,
-                                       'doc_count': s['count'],
-                                       'vector': terms_vector})
+                                           'doc_count': s['count'],
+                                           'vector': terms_vector})
     else:
         for doc in docs:
+            doc_vec = unpack64(doc['vector'])
             if subset_input in doc['source']:
                 if doc['source'][subset_input] in category_list:
                     category = category_list[doc['source'][subset_input]]
                     subset_details[category]['doc_count'] += 1
-                    subset_details[category]['vector'].append(unpack64(doc['vector']))
+                    subset_details[category]['vector'].append(doc_vec)
                 else:
                     subset_details.append({'name': doc['source'][subset_input],
-                                       'doc_count': 1,
-                                       'vector': [unpack64(doc['vector'])]})
+                                           'doc_count': 1,
+                                           'vector': [doc_vec]})
         for s in subset_details:
             s['vector'] = np.mean(s['vector'], axis=0)
 
@@ -155,12 +158,12 @@ def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
     return shared_text
 
 
-def vectorize_query(description, client):
+def vectorize_query(description, client, shared_text):
     '''
     Create a search vector based on the search query input by the user and
     weighting of the resulting match score based on the search query's length
     '''
-    shared_text = subset_shared_terms(client)
+
     question_doc = client.post_data('docs/vectors',
                                     json.dumps([{'text': description}]),
                                     content_type='application/json')[0]
@@ -196,11 +199,11 @@ def recommend_subset(question_vec, subset_details, num_results=3, min_count=50):
     match_indices = np.argsort(match_scores)[::-1]
 
     results = []
-    for idx in match_indices[:num_results]:
+    for idx in match_indices:
         if subset_details[idx]['doc_count'] > min_count:
             subset_details[idx]['match_score'] = match_scores[idx]
             results.append(subset_details[idx])
-    return results
+    return results[:num_results]
 
 
 def find_example_docs(client, subset, query_vec, n_docs=1, source_field=None):
@@ -254,26 +257,7 @@ def find_example_docs(client, subset, query_vec, n_docs=1, source_field=None):
     return example_docs
 
 
-def save_subset_details(filename, subset_details):
-    '''
-    Saves subset vector object as a pickled file for reuse.
-    '''
-
-    file = open(filename, 'w')
-    pickle.dump(subset_details, file)
-
-
-def load_subset_details(filename):
-    '''
-    Loads subset vector object from a pickled file.
-    '''
-
-    file = open(filename, 'r')
-    subset_details = pickle.load(file)
-    return subset_details
-
-
-def test_queries(client, queries_filename, details_filename, results_filename):
+def test_queries(client, queries_filename, details_filename, sst_filename, results_filename):
     '''
     Reads a set of queries from a CSV file and outputs a CSV file with
     recommendation results.
@@ -282,6 +266,7 @@ def test_queries(client, queries_filename, details_filename, results_filename):
     query - the search query
     result - the expected result for the query
     score - score of result against query
+    new_result - the new recommendation
 
     Scoring:
     0 - Not enough data for query to perform well
@@ -293,14 +278,23 @@ def test_queries(client, queries_filename, details_filename, results_filename):
     queries_reader = csv.DictReader(open(queries_filename, 'r'))
     for row in queries_reader:
         queries.append(row)
-    subset_details = load_subset_details(details_filename)
+    subset_details = pickle.load(open(details_filename, 'rb'))
+    shared_text = pickle.load(open(sst_filename, 'rb'))
     for query in queries:
-        query_vector = vectorize_query(query, client)
-        recommendation = recommend_subset(query_vector,
-                                          subset_details,
-                                          num_results=1)
-        query['new_result'] = recommendation
+        query_vector, _ = vectorize_query(query['query'], client, shared_text)
+        recommendations = recommend_subset(query_vector,
+                                           subset_details,
+                                           num_results=1)
+        query['new_result'] = recommendations[0]['name']
     writer = csv.DictWriter(open(results_filename, 'w'),
                             fieldnames=queries[0].keys())
     writer.writeheader()
     writer.writerows(queries)
+
+if __name__ == '__main__':
+    client = LuminosoClient.connect('/projects/x86x624r/prj5n6zx')
+    test_queries(client,
+                 'testqueries.csv',
+                 'V1_1228.p',
+                 'V1_1228sst.p',
+                 'V1_1228_results.csv')
