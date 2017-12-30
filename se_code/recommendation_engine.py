@@ -85,13 +85,13 @@ def create_subset_details_v3(client, shared_text, field, subset_input):
                 subset_name = s['subset'].split(':')[0].strip()
                 subset_value = s['subset'].split(':')[1].strip()
                 if subset_input == subset_name:
-                    terms = client.get('terms', subset=s['subset'], limit=500)
+                    terms = client.get('terms', subset=s['subset'], limit=250)
                     term_vecs = []
                     term_weights = []
                     for term in terms:
                         term_vecs.append(unpack64(term['vector']))
                         if term['text'] in shared_text:
-                            term_weights.append(term['score'] * .1)
+                            term_weights.append(term['score'] * .01)
                         else:
                             term_weights.append(term['score'])
                     terms_vector = np.average(term_vecs, weights=term_weights, axis=0)
@@ -106,13 +106,15 @@ def create_subset_details_v3(client, shared_text, field, subset_input):
                     category = category_list[doc['source'][subset_input]]
                     subset_details[category]['doc_count'] += 1
                     subset_details[category]['vector'].append(doc_vec)
+                    subset_details[category]['doc_terms'].append(len(doc['terms']))
                 else:
                     subset_details.append({'name': doc['source'][subset_input],
                                            'doc_count': 1,
-                                           'vector': [doc_vec]})
+                                           'vector': [doc_vec],
+                                           'doc_terms': [len(doc['terms'])]})
         for s in subset_details:
-            s['vector'] = np.mean(s['vector'], axis=0)
-
+            s['doc_terms'] /= np.max(s['doc_terms'])
+            s['vector'] = np.mean(s['vector'], weights=doc['doc_terms'], axis=0)
     return subset_details
 
 
