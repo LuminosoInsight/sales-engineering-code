@@ -22,10 +22,11 @@ def get_all_docs(client):
             return docs
 
 
-def create_subset_details_v1(client, field, subset_input):
+def create_subset_details_v1(client, shared_text, field, subset_input):
     '''
     Creates a list of dictionaries holding each subset's name, doc count, and
-    average vector
+    average vector based on the subset's top terms, with the terms shared
+    between subsets down-weighted
     '''
     docs = get_all_docs(client)
     subset_details = []
@@ -37,9 +38,19 @@ def create_subset_details_v1(client, field, subset_input):
                 subset_name = s['subset'].split(':')[0].strip()
                 subset_value = s['subset'].split(':')[1].strip()
                 if subset_input == subset_name:
+                    terms = client.get('terms', subset=s['subset'], limit=500)
+                    term_vecs = []
+                    term_weights = []
+                    for term in terms:
+                        term_vecs.append(unpack64(term['vector']))
+                        if term['text'] in shared_text:
+                            term_weights.append(term['score'] * .1)
+                        else:
+                            term_weights.append(term['score'])
+                    terms_vector = np.average(term_vecs, weights=term_weights, axis=0)
                     subset_details.append({'name': subset_value,
                                            'doc_count': s['count'],
-                                           'vector': unpack64(s['mean'])})
+                                           'vector': terms_vector})
     else:
         for doc in docs:
             doc_vec = unpack64(doc['vector'])
