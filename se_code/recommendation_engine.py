@@ -69,56 +69,120 @@ def create_subset_details_v1(client, shared_text, field, subset_input):
     return subset_details
 
 
-def create_subset_details_v3(client, shared_text, key_text, field, subset_input):
-    '''
-    Creates a list of dictionaries holding each subset's name, doc count, and
-    average vector based on the subset's top terms, with the terms shared
-    between subsets down-weighted
-    '''
-    docs = get_all_docs(client)
-    subset_details = []
-    category_list = {}
-    if field == 'subsets':
-        subset_stats = client.get('subsets/stats')
-        for s in subset_stats:
-            if s['subset'] != '__all__':
-                subset_name = s['subset'].split(':')[0].strip()
-                subset_value = s['subset'].split(':')[1].strip()
-                if subset_input == subset_name:
-                    terms = client.get('terms', subset=s['subset'], limit=500)
-                    term_vecs = []
-                    term_weights = []
-                    for term in terms:
-                        term_vecs.append(unpack64(term['vector']))
-                        if term['text'] in shared_text:
-                            term_weights.append(term['score'] * .1)
-                        elif term['text'] in key_text[s['subset']]:
-                            term_weights.append(term['score'] * 2)
-                        else:
-                            term_weights.append(term['score'])
-                    terms_vector = np.average(term_vecs, weights=term_weights, axis=0)
-                    subset_details.append({'name': subset_value,
-                                           'doc_count': s['count'],
-                                           'vector': terms_vector})
-    else:
-        for doc in docs:
-            doc_vec = unpack64(doc['vector'])
-            if subset_input in doc['source']:
-                if doc['source'][subset_input] in category_list:
-                    category = category_list[doc['source'][subset_input]]
-                    subset_details[category]['doc_count'] += 1
-                    subset_details[category]['vector'].append(doc_vec)
-                    subset_details[category]['doc_terms'].append(len(doc['terms']))
-                else:
-                    subset_details.append({'name': doc['source'][subset_input],
-                                           'doc_count': 1,
-                                           'vector': [doc_vec],
-                                           'doc_terms': [len(doc['terms'])]})
-        for s in subset_details:
-            s['doc_terms'] /= np.max(s['doc_terms'])
-            s['vector'] = np.mean(s['vector'], weights=doc['doc_terms'], axis=0)
-    return subset_details
+### OPTIMIZATION ###
+def get_subset_term_info(client, subset_input):
+    subset_term_info = {}
+    subset_stats = client.get('subsets/stats')
+    for s in subset_stats:
+        if s['subset'] != '__all__':
+            subset_name = s['subset'].split(':')[0].strip()
+            subset_value = s['subset'].split(':')[1].strip()
+            if subset_input == subset_name:
+                terms = client.get('terms', subset=s['subset'], limit=500)
+                subset_term_info[s['subset']] = {'terms': terms, 'count': s['count']}
+    return subset_term_info
 
+def create_subset_details_v3(client, shared_text, key_text, subset_term_info, 
+                             shared_cutoff, key_cutoff, shared_weight, key_weight):
+    subset_details = []
+    shared_text = [text for text in shared_text if shared_text[text] > shared_cutoff]
+    for subset in key_text:
+        key_text[subset] = [d for d in key_text[subset] if d['p-value'] < key_cutoff]
+    for subset_value in subset_term_info:
+        term_vecs = []
+        term_weights = []
+        for term in subset_term_info[subset_value]['terms']:
+            term_vecs.append(unpack64(term['vector']))
+            if term['text'] in shared_text:
+                term_weights.append(term['score'] * shared_weight)
+            elif term['text'] in key_text[subset_value]['text']:
+                term_weights.append(term['score'] * key_weight)
+            else:
+                term_weights.append(term['score'])
+        terms_vector = np.average(term_vecs, weights=term_weights, axis=0)
+        subset_details.append({'name': subset_value.split(':')[1].strip(),
+                               'doc_count': subset_term_info[subset_value]['count'],
+                               'vector': terms_vector})
+        return subset_details
+    
+def create_source_details_v3(client, shared_text, key_text, subset_input,
+                             shared_cutoff, key_cutoff, shared_weight, key_weight):
+    docs = get_all_docs(client)
+    source_details = []
+    shared_text = [text for text in shared_text if shared_text[text] > shared_cutoff]
+    for subset in key_text:
+        key_text[subset] = [d for d in key_text[subset] if d['p-value'] < key_cutoff]
+    category_list = {}
+    for doc in docs:
+        doc_vec = unpack64(doc['vector'])
+        if subset_input in doc['source']:
+            if doc['source'][subset_input] in category_list:
+                category = category_list[doc['source'][subset_input]]
+                source_details[category]['doc_count'] += 1
+                source_details[category]['vector'].append(doc_vec)
+                source_details[category]['doc_terms'].append(len(doc['terms']))
+            else:
+                category_list[doc['source'][subset_input]] = len(source_details)
+                source_details.append({'name': doc['source'][subset_input],
+                                       'doc_count': 1,
+                                       'vector': [doc_vec],
+                                       'doc_terms': [len(doc['terms'])]})
+    for s in source_details:
+        s['doc_terms'] /= np.max(s['doc_terms'])
+        s['vector'] = np.mean(s['vector'], weights=doc['doc_terms'], axis=0)
+    return source_details
+
+#def create_subset_details_v3(client, shared_text, key_text, field, subset_input):
+#    '''
+#    Creates a list of dictionaries holding each subset's name, doc count, and
+#    average vector based on the subset's top terms, with the terms shared
+#    between subsets down-weighted
+#    '''
+#    subset_details = []
+#    category_list = {}
+#    if field == 'subsets':
+#        subset_stats = client.get('subsets/stats')
+#        for s in subset_stats:
+#            if s['subset'] != '__all__':
+#                subset_name = s['subset'].split(':')[0].strip()
+#                subset_value = s['subset'].split(':')[1].strip()
+#                if subset_input == subset_name:
+#                    terms = client.get('terms', subset=s['subset'], limit=500)
+#                    term_vecs = []
+#                    term_weights = []
+#                    for term in terms:
+#                        term_vecs.append(unpack64(term['vector']))
+#                        if term['text'] in shared_text:
+#                            term_weights.append(term['score'] * .1)
+#                        elif term['text'] in key_text[s['subset']]:
+#                            term_weights.append(term['score'] * 2)
+#                        else:
+#                            term_weights.append(term['score'])
+#                    terms_vector = np.average(term_vecs, weights=term_weights, axis=0)
+#                    subset_details.append({'name': subset_value,
+#                                           'doc_count': s['count'],
+#                                           'vector': terms_vector})
+#    else:
+#        docs = get_all_docs(client)
+#        for doc in docs:
+#            doc_vec = unpack64(doc['vector'])
+#            if subset_input in doc['source']:
+#                if doc['source'][subset_input] in category_list:
+#                    category = category_list[doc['source'][subset_input]]
+#                    subset_details[category]['doc_count'] += 1
+#                    subset_details[category]['vector'].append(doc_vec)
+#                    subset_details[category]['doc_terms'].append(len(doc['terms']))
+#                else:
+#                    subset_details.append({'name': doc['source'][subset_input],
+#                                           'doc_count': 1,
+#                                           'vector': [doc_vec],
+#                                           'doc_terms': [len(doc['terms'])]})
+#        for s in subset_details:
+#            s['doc_terms'] /= np.max(s['doc_terms'])
+#            s['vector'] = np.mean(s['vector'], weights=doc['doc_terms'], axis=0)
+#    return subset_details
+
+###
 
 def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
     '''
@@ -126,7 +190,7 @@ def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
     entire project
     '''
     subset_counts = client.get()['counts']
-    pvalue_cutoff = .95
+    #pvalue_cutoff = .95
     results = []
     index = 0
     for subset in sorted(subset_counts):
@@ -158,17 +222,18 @@ def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
                 [docs_in_subset, docs_outside_subset]
             ])
             odds_ratio, pvalue = fisher_exact(table, alternative='greater')
-            if pvalue > pvalue_cutoff:
-                subset_scores.append((subset, term, odds_ratio, pvalue))
+            #if pvalue > pvalue_cutoff:
+            subset_scores.append((subset, term, odds_ratio, pvalue))
 
         if len(subset_scores) > 0:
             subset_scores.sort(key=lambda x: (x[0], -x[2]))
-        results.extend(subset_scores[:terms_per_subset])
+        #results.extend(subset_scores[:terms_per_subset])
+        results.extend(subset_scores)
 
-    shared_text = []
-    for _, term, _, _ in results:
+    shared_text = {}
+    for _, term, _, p_value in results:
         for text in term['all_texts']:
-            shared_text.append(text)
+            shared_text[text] = p_value
 
     return shared_text
 
@@ -178,7 +243,7 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
     inside a subset than outside of it.
     """
     subset_counts = client.get()['counts']
-    pvalue_cutoff = 1 / scan_terms / 20
+    #pvalue_cutoff = 1 / scan_terms / 20
     results = []
     index = 0
     for subset in sorted(subset_counts):
@@ -209,19 +274,21 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
                 [docs_in_subset, docs_outside_subset]
             ])
             odds_ratio, pvalue = fisher_exact(table, alternative='greater')
-            if pvalue < pvalue_cutoff:
-                subset_scores.append((subset, term, odds_ratio, pvalue))
+            #if pvalue < pvalue_cutoff:
+            subset_scores.append((subset, term, odds_ratio, pvalue))
 
         if len(subset_scores) > 0:
             subset_scores.sort(key=lambda x: (x[0], -x[2]))
-        results.extend(subset_scores[:terms_per_subset])
+        #results.extend(subset_scores[:terms_per_subset])
+        results.extend(subset_scores)
         
         
         key_text = {}
-        for subset, term, _, _ in results:
+        for subset, term, _, p_value in results:
             if subset not in key_text:
                 key_text[subset] = []
-            key_text[subset].append(term['text'])
+            key_text[subset].append({'text': term['all_texts'],
+                                     'p-value': p_value})
 
     return key_text
 
@@ -240,14 +307,16 @@ def vectorize_query(description, client, shared_text):
     term_vectors = []
     term_weights = []
     for word in description_words:
-        term = client.get('terms/search', terms=[word], limit=1)['search_results'][0][0]
-        if term['vector']:
-            texts.append(term['text'])
-            term_vectors.append(unpack64(term['vector']))
-            if word in shared_text:
-                term_weights.append(term['score'] * .1)
-            else:
-                term_weights.append(term['score'])
+        search_result = client.get('terms/search', terms=[word], limit=1)['search_results']
+        if len(search_result) > 0:
+            term = search_result[0][0]
+            if term['vector']:
+                texts.append(term['text'])
+                term_vectors.append(unpack64(term['vector']))
+                if word in shared_text:
+                    term_weights.append(term['score'] * .1)
+                else:
+                    term_weights.append(term['score'])
     question_vec = np.average(term_vectors, weights=term_weights, axis=0)
 
     if len(texts) > 1:
@@ -373,14 +442,14 @@ def score_test_queries(query_results):
     scored_queries = 0
     for query in query_results:
         if query['new_result'] == query['result']:
-            score += query['score']
+            score += int(query['score'])
             scored_queries += 1
     print('Total Queries: {}'.format(unique_queries))
     print('Scored Queries: {}'.format(scored_queries))
     print('Score: {}/{} = {}'.format(score,
                                      scored_queries*3,
-                                     score/scored_queries*3))
-    return score/scored_queries*3
+                                     score/(scored_queries*3)))
+    return score/(scored_queries*3)
 
 if __name__ == '__main__':
     client = LuminosoClient.connect('/projects/x86x624r/prj5n6zx')
