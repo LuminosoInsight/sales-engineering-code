@@ -350,7 +350,10 @@ def test_queries(client, queries_filename, details_filename, sst_filename, skt_f
     shared_text = pickle.load(open(sst_filename, 'rb'))
     key_text = pickle.load(open(skt_filename, 'rb'))
     for query in queries:
-        query_vector, _ = vectorize_query(query['query'], client, shared_text)
+        query_vector, _ = vectorize_query(query['query'],
+                                          client,
+                                          shared_text,
+                                          key_text)
         recommendations = recommend_subset(query_vector,
                                            subset_details,
                                            num_results=1)
@@ -359,6 +362,26 @@ def test_queries(client, queries_filename, details_filename, sst_filename, skt_f
                             fieldnames=queries[0].keys())
     writer.writeheader()
     writer.writerows(queries)
+    return queries
+
+
+def score_test_queries(query_results):
+    '''
+    Score the test queries output from the test_queries function.
+    '''
+    unique_queries = len(set([q['query'] for q in query_results]))
+    score = 0
+    scored_queries = 0
+    for query in query_results:
+        if query['new_result'] == query['result']:
+            score += query['score']
+            scored_queries += 1
+    print('Total Queries: {}'.format(unique_queries))
+    print('Scored Queries: {}'.format(scored_queries))
+    print('Score: {}/{} = {}'.format(score,
+                                     scored_queries*3,
+                                     score/scored_queries*3))
+    return score/scored_queries*3
 
 if __name__ == '__main__':
     client = LuminosoClient.connect('/projects/x86x624r/prj5n6zx')
