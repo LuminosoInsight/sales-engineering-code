@@ -95,7 +95,7 @@ def create_subset_details_v3(client, shared_text, key_text, subset_term_info,
             term_vecs.append(unpack64(term['vector']))
             if term['text'] in shared_text:
                 term_weights.append(term['score'] * shared_weight)
-            elif term['text'] in key_text[subset_value]['text']:
+            elif subset_value in key_text and term['text'] in key_text[subset_value]['text']:
                 term_weights.append(term['score'] * key_weight)
             else:
                 term_weights.append(term['score'])
