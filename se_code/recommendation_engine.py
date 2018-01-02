@@ -105,13 +105,10 @@ def create_subset_details_v3(client, shared_text, key_text, subset_term_info,
                                'vector': terms_vector})
         return subset_details
     
-def create_source_details_v3(client, shared_text, key_text, subset_input,
+def create_source_details_v3(client, subset_input,
                              shared_cutoff, key_cutoff, shared_weight, key_weight):
     docs = get_all_docs(client)
     source_details = []
-    shared_text = [text for text in shared_text if shared_text[text] > shared_cutoff]
-    for subset in key_text:
-        key_text[subset] = [d for d in key_text[subset] if d['p-value'] < key_cutoff]
     category_list = {}
     for doc in docs:
         doc_vec = unpack64(doc['vector'])
