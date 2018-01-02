@@ -218,10 +218,10 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
         
         
         key_text = {}
-        for subset, text, _, _ in results:
+        for subset, term, _, _ in results:
             if subset not in key_text:
                 key_text[subset] = []
-            key_text[subset].append(text)
+            key_text[subset].append(term['text'])
 
     return key_text
 
