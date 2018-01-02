@@ -352,8 +352,7 @@ def test_queries(client, queries_filename, details_filename, sst_filename, skt_f
     for query in queries:
         query_vector, _ = vectorize_query(query['query'],
                                           client,
-                                          shared_text,
-                                          key_text)
+                                          shared_text)
         recommendations = recommend_subset(query_vector,
                                            subset_details,
                                            num_results=1)
