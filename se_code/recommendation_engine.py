@@ -69,7 +69,7 @@ def create_subset_details_v1(client, shared_text, field, subset_input):
     return subset_details
 
 
-def create_subset_details_v3(client, shared_text, field, subset_input):
+def create_subset_details_v3(client, shared_text, key_text, field, subset_input):
     '''
     Creates a list of dictionaries holding each subset's name, doc count, and
     average vector based on the subset's top terms, with the terms shared
@@ -85,13 +85,15 @@ def create_subset_details_v3(client, shared_text, field, subset_input):
                 subset_name = s['subset'].split(':')[0].strip()
                 subset_value = s['subset'].split(':')[1].strip()
                 if subset_input == subset_name:
-                    terms = client.get('terms', subset=s['subset'], limit=250)
+                    terms = client.get('terms', subset=s['subset'], limit=500)
                     term_vecs = []
                     term_weights = []
                     for term in terms:
                         term_vecs.append(unpack64(term['vector']))
                         if term['text'] in shared_text:
-                            term_weights.append(term['score'] * .01)
+                            term_weights.append(term['score'] * .1)
+                        elif term['text'] in key_text[s['subset']]:
+                            term_weights.append(term['score'] * 2)
                         else:
                             term_weights.append(term['score'])
                     terms_vector = np.average(term_vecs, weights=term_weights, axis=0)
@@ -169,6 +171,59 @@ def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
             shared_text.append(text)
 
     return shared_text
+
+def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
+    """
+    Find 'key terms' for a subset, those that appear disproportionately more
+    inside a subset than outside of it.
+    """
+    subset_counts = client.get()['counts']
+    pvalue_cutoff = 1 / scan_terms / 20
+    results = []
+    index = 0
+    for subset in sorted(subset_counts):
+        index += 1
+        subset_terms = client.get('terms', subset=subset, limit=scan_terms)
+        length = 0
+        termlist = []
+        all_terms = []
+        for term in subset_terms:
+            if length + len(term['term']) > 1000:
+                all_terms.extend(client.get('terms', terms=termlist))
+                termlist = []
+                length = 0
+            termlist.append(term['term'])
+            length += len(term['term'])
+        if len(termlist) > 0:
+            all_terms.extend(client.get('terms', terms=termlist))
+        all_term_dict = {term['term']: term['distinct_doc_count'] for term in all_terms}
+
+        subset_scores = []
+        for term in subset_terms:
+            term_in_subset = term['distinct_doc_count']
+            term_outside_subset = all_term_dict[term['term']] - term_in_subset + 1
+            docs_in_subset = subset_counts[subset]
+            docs_outside_subset = subset_counts['__all__'] - subset_counts[subset] + 1
+            table = np.array([
+                [term_in_subset, term_outside_subset],
+                [docs_in_subset, docs_outside_subset]
+            ])
+            odds_ratio, pvalue = fisher_exact(table, alternative='greater')
+            if pvalue < pvalue_cutoff:
+                subset_scores.append((subset, term, odds_ratio, pvalue))
+
+        if len(subset_scores) > 0:
+            subset_scores.sort(key=lambda x: (x[0], -x[2]))
+        results.extend(subset_scores[:terms_per_subset])
+        
+        
+        key_text = {}
+        for subset, text, _, _ in results:
+            if subset not in key_text:
+                key_text[subset] = []
+            key_text[subset].append(text)
+
+    return key_text
 
 
 def vectorize_query(description, client, shared_text):
@@ -270,7 +325,7 @@ def find_example_docs(client, subset, query_vec, n_docs=1, source_field=None):
     return example_docs
 
 
-def test_queries(client, queries_filename, details_filename, sst_filename, results_filename):
+def test_queries(client, queries_filename, details_filename, sst_filename, skt_filename, results_filename):
     '''
     Reads a set of queries from a CSV file and outputs a CSV file with
     recommendation results.
@@ -293,6 +348,7 @@ def test_queries(client, queries_filename, details_filename, sst_filename, resul
         queries.append(row)
     subset_details = pickle.load(open(details_filename, 'rb'))
     shared_text = pickle.load(open(sst_filename, 'rb'))
+    key_text = pickle.load(open(skt_filename, 'rb'))
     for query in queries:
         query_vector, _ = vectorize_query(query['query'], client, shared_text)
         recommendations = recommend_subset(query_vector,
