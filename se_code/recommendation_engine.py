@@ -102,17 +102,17 @@ def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
                    if sst_list[text] > sst_cutoff]
     skt_text = {}
     for subset in skt_list:
-        skt_text[subset] = [d['text'] for d in skt_list[subset]
+        skt_text[subset] = [d['term'] for d in skt_list[subset]
                             if d['p-value'] < skt_cutoff]
     for subset_value in subset_term_info:
         term_vecs = []
         term_weights = []
         for term in subset_term_info[subset_value]['terms']:
             term_vecs.append(unpack64(term['vector']))
-            if term['text'] in shared_text:
+            if term['term'] in shared_text:
                 term_weights.append(term['score'] * sst_weight)
             elif (subset_value in skt_text and
-                  term['text'] in skt_text[subset_value]):
+                  term['term'] in skt_text[subset_value]):
                 term_weights.append(term['score'] * skt_weight)
             else:
                 term_weights.append(term['score'])
@@ -150,58 +150,6 @@ def create_source_details_v3(client, subset_input, shared_cutoff,
         s['vector'] = np.mean(s['vector'], weights=doc['doc_terms'], axis=0)
     return source_details
 
-
-# def create_subset_details_v3(client, shared_text, key_text, field, subset_input):
-#    '''
-#    Creates a list of dictionaries holding each subset's name, doc count, and
-#    average vector based on the subset's top terms, with the terms shared
-#    between subsets down-weighted
-#    '''
-#    subset_details = []
-#    category_list = {}
-#    if field == 'subsets':
-#        subset_stats = client.get('subsets/stats')
-#        for s in subset_stats:
-#            if s['subset'] != '__all__':
-#                subset_name = s['subset'].split(':')[0].strip()
-#                subset_value = s['subset'].split(':')[1].strip()
-#                if subset_input == subset_name:
-#                    terms = client.get('terms', subset=s['subset'], limit=500)
-#                    term_vecs = []
-#                    term_weights = []
-#                    for term in terms:
-#                        term_vecs.append(unpack64(term['vector']))
-#                        if term['text'] in shared_text:
-#                            term_weights.append(term['score'] * .1)
-#                        elif term['text'] in key_text[s['subset']]:
-#                            term_weights.append(term['score'] * 2)
-#                        else:
-#                            term_weights.append(term['score'])
-#                    terms_vector = np.average(term_vecs, weights=term_weights,axis=0)
-#                    subset_details.append({'name': subset_value,
-#                                           'doc_count': s['count'],
-#                                           'vector': terms_vector})
-#    else:
-#        docs = get_all_docs(client)
-#        for doc in docs:
-#            doc_vec = unpack64(doc['vector'])
-#            if subset_input in doc['source']:
-#                if doc['source'][subset_input] in category_list:
-#                    category = category_list[doc['source'][subset_input]]
-#                    subset_details[category]['doc_count'] += 1
-#                    subset_details[category]['vector'].append(doc_vec)
-#                    subset_details[category]['doc_terms'].append(len(doc['terms']))
-#                else:
-#                    subset_details.append({'name': doc['source'][subset_input],
-#                                           'doc_count': 1,
-#                                           'vector': [doc_vec],
-#                                           'doc_terms': [len(doc['terms'])]})
-#        for s in subset_details:
-#            s['doc_terms'] /= np.max(s['doc_terms'])
-#            s['vector'] = np.mean(s['vector'], weights=doc['doc_terms'], axis=0)
-#    return subset_details
-
-###
 
 def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
     '''
@@ -252,8 +200,7 @@ def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
 
     shared_text = {}
     for _, term, _, p_value in results:
-        for text in term['all_texts']:
-            shared_text[text] = p_value
+        shared_text[term['term']] = p_value
 
     return shared_text
 
@@ -310,7 +257,7 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
         for subset, term, _, p_value in results:
             if subset not in key_text:
                 key_text[subset] = []
-            key_text[subset].append({'text': term['all_texts'],
+            key_text[subset].append({'term': term['term'],
                                      'p-value': p_value})
 
     return key_text
@@ -420,7 +367,7 @@ def find_example_docs(client, subset, query_vec, n_docs=1, source_field=None):
     return example_docs
 
 
-def test_queries(client, queries_filename, subset_details, sst_list,
+def test_queries(client, queries, subset_details, sst_list,
                  results_filename=None, save_file=False):
     '''
     Reads a set of queries from a CSV file and outputs a CSV file with
@@ -438,13 +385,7 @@ def test_queries(client, queries_filename, subset_details, sst_list,
     2 - Reasonable result, but not ideal
     3 - Ideal result
     '''
-    queries = []
-    queries_reader = csv.DictReader(open(queries_filename, 'r'))
-    for row in queries_reader:
-        queries.append(row)
-    # subset_details = pickle.load(open(details_filename, 'rb'))
-    # shared_text = pickle.load(open(sst_filename, 'rb'))
-    # key_text = pickle.load(open(skt_filename, 'rb'))
+
     for query in queries:
         query_vector, _ = vectorize_query(query['query'],
                                           client,
@@ -504,11 +445,11 @@ def optimize_function(weights, data):
     print('Subset details: {:2}s'.format(end_time-start_time))
     start_time = time.time()
     query_results = test_queries(client,
-                                 data['queries_filename'],
+                                 data['queries'],
                                  subset_details,
                                  data['sst_list'],
                                  results_filename='intermediate_results.csv',
-                                 save_file=True)
+                                 save_file=False)
     end_time = time.time()
     print('Query results: {:2}s'.format(end_time-start_time))
     return score_test_queries(query_results)
@@ -530,18 +471,22 @@ def optimize_weights(weights, data):
 if __name__ == '__main__':
     client = LuminosoClient.connect('/projects/x86x624r/prj5n6zx')
 
-    #print('Loading data')
-    #data = pickle.load(open('optimization_dataV1.p', 'rb'))
+    print('Loading data')
+    data = pickle.load(open('optimization_dataV1.p', 'rb'))
 
-    print('Collecting data')
-    data = {}
-    data['queries_filename'] = 'V3_1_2_results_2.csv'
-    data['sst_list'] = subset_shared_terms(client)
-    data['skt_list'] = subset_key_terms(client)
-    data['subset_term_info'] = get_subset_term_info(client, 'Category', term_count=500)
+    #print('Collecting data')
+    #queries = []
+    #queries_reader = csv.DictReader(open('V3_1_2_results_2.csv', 'r'))
+    #for row in queries_reader:
+    #    queries.append(row)
+    #data = {}
+    #data['queries'] = queries
+    #data['sst_list'] = subset_shared_terms(client)
+    #data['skt_list'] = subset_key_terms(client)
+    #data['subset_term_info'] = get_subset_term_info(client, 'Category', term_count=500)
 
-    print('Data collected... pickling.')
-    pickle.dump(data, open('optimization_dataV1.p', 'wb'))
+    #print('Data collected... pickling.')
+    #pickle.dump(data, open('optimization_dataV1.p', 'wb'))
     optimize_weights(np.asarray([.95, 1/1000/20, .1, 2]), data)
     '''
     weight[0] = sst_cutoff
