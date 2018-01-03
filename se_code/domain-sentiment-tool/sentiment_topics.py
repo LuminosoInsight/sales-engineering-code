@@ -22,11 +22,12 @@ from tree_clustering import ClusterTree
 
 
 class SentimentTopics:
-    def __init__(self, account_id, project_id, language, n_terms):
+    def __init__(self, account_id, project_id, language, n_terms, n_results):
         self.client = self._connect(account_id, project_id)
         self.project_terms = self._get_project_terms(n_terms, language)
         self.axes = {}
         self.domain_sentiment_terms = {}
+        self.n_results = n_results
 
     @staticmethod
     def _connect(account_id, project_id):
@@ -79,19 +80,19 @@ class SentimentTopics:
         self.axes[sentiment] = axis
         return self.axes[sentiment]
 
-    def get_domain_sentiment_terms(self, sentiment, n_results):
+    def get_domain_sentiment_terms(self, sentiment):
         """
         Get the terms in the project that best match the sentiment axis. Each term's new
         sentiment score (as opposed to the original sentiment score, which is assigned by
         SentimentScorer) is the matching strength returned by the search terms endpoint.
         """
-        if (sentiment, n_results) in self.domain_sentiment_terms:
-            return self.domain_sentiment_terms[(sentiment, n_results)]
+        if sentiment in self.domain_sentiment_terms:
+            return self.domain_sentiment_terms[sentiment]
 
         axis = self._get_sent_axis(sentiment)
         terms = self.client.get(
             'terms/search', vector=pack64(axis),
-            limit=n_results if n_results > 100 else 100)['search_results']
+            limit=self.n_results if self.n_results > 200 else 200)['search_results']
 
         sentiment_terms = []
         for term, matching_strength in terms:
@@ -99,18 +100,18 @@ class SentimentTopics:
             term['vector'] = unpack64(term['vector'])
             sentiment_terms.append(term)
 
-        self.domain_sentiment_terms[(sentiment, n_results)] = sentiment_terms
-        return self.domain_sentiment_terms[(sentiment, n_results)]
+        self.domain_sentiment_terms[sentiment] = sentiment_terms
+        return self.domain_sentiment_terms[sentiment]
 
-    def sorted_sentiment_terms(self, sentiment, n_results):
+    def sorted_sentiment_terms(self, sentiment):
         """
         Get the project terms that best match the specified sentiment axis. Normalize their
         sentiment and relevance scores. Return the list of top n_results domain-specific terms,
         sorted by the harmonic mean of their sentiment and relevance scores.
         """
-        sentiment_terms = self.get_domain_sentiment_terms(sentiment, n_results)
+        sentiment_terms = self.get_domain_sentiment_terms(sentiment)
         self._normalize_scores(sentiment_terms)
-        return sorted(sentiment_terms, key=self._harmonic_mean, reverse=True)[:n_results]
+        return sorted(sentiment_terms, key=self._harmonic_mean, reverse=True)[:self.n_results]
 
     def _normalize_scores(self, terms):
         """
@@ -150,8 +151,8 @@ class SentimentTopics:
         """
         Get 200 positive terms and 200 negative terms, and cluster them.
         """
-        pos_terms = self.get_domain_sentiment_terms('pos', 200)
-        neg_terms = self.get_domain_sentiment_terms('neg', 200)
+        pos_terms = self.get_domain_sentiment_terms('pos')
+        neg_terms = self.get_domain_sentiment_terms('neg')
         sent_terms = pos_terms + neg_terms
         tree = ClusterTree.from_term_list(sent_terms)
         return tree
@@ -197,11 +198,10 @@ def print_sentiment_terms(terms, verbose=False):
 def main(account_id, project_id, sentiment, language, terms, clusters, n_terms, n_results,
          n_clusters, verbose):
 
-    sentiment_topics = SentimentTopics(account_id, project_id, language, n_terms)
+    sentiment_topics = SentimentTopics(account_id, project_id, language, n_terms, n_results)
 
     if terms:
-        print_sentiment_terms(sentiment_topics.sorted_sentiment_terms(sentiment, n_results),
-                              verbose=verbose)
+        print_sentiment_terms(sentiment_topics.sorted_sentiment_terms(sentiment), verbose=verbose)
 
     if clusters:
         print_clusters(sentiment_topics.cluster_sentiment_terms(), n_clusters)
