@@ -22,9 +22,9 @@ from tree_clustering import ClusterTree
 
 
 class SentimentTopics:
-    def __init__(self, account_id, project_id, language, n_terms, n_results):
+    def __init__(self, account_id, project_id, n_terms, n_results):
         self.client = self._connect(account_id, project_id)
-        self.project_terms = self._get_project_terms(n_terms, language)
+        self.project_terms = self._get_project_terms(n_terms)
         self.axes = {}
         self.domain_sentiment_terms = {}
         self.n_results = n_results
@@ -35,12 +35,13 @@ class SentimentTopics:
             'https://analytics.luminoso.com/api/v4/projects/{}/{}'.format(account_id, project_id))
         return client
 
-    def _get_project_terms(self, n_terms, language):
+    def _get_project_terms(self, n_terms):
         """
         Get the top n terms in the project. Assign a sentiment score (orig-sentiment-score) to each
         term according to the sentiment scorer. Unpack each term's vector and overwrite its
         'vector' field.
         """
+        language = self.client.get(fields=['language'])['language']
         sentiment_scorer = SentimentScorer(language)
         terms = self.client.get('terms', limit=n_terms)
         terms = [term for term in terms if term['vector']]
@@ -186,7 +187,6 @@ def print_sentiment_terms(terms, verbose=False):
 @click.argument('account_id')
 @click.argument('project_id')
 @click.option('--sentiment', default='pos', help='pos, neg')
-@click.option('--language', '-l', default='en')
 @click.option('--terms', is_flag=True, help='Use to get a list of sentiment terms')
 @click.option('--clusters', is_flag=True, help='Cluster only the sentiment terms')
 @click.option('--n-terms', default=500, help='Number of project terms among which to find terms '
@@ -195,10 +195,10 @@ def print_sentiment_terms(terms, verbose=False):
 @click.option('--n-results', default=30, help='Number of results to show')
 @click.option('--n-clusters', default=7, help='Show clusters')
 @click.option('--verbose', '-v', is_flag=True, help='Show details about the results')
-def main(account_id, project_id, sentiment, language, terms, clusters, n_terms, n_results,
-         n_clusters, verbose):
+def main(account_id, project_id, sentiment, terms, clusters, n_terms, n_results, n_clusters,
+         verbose):
 
-    sentiment_topics = SentimentTopics(account_id, project_id, language, n_terms, n_results)
+    sentiment_topics = SentimentTopics(account_id, project_id, n_terms, n_results)
 
     if terms:
         print_sentiment_terms(sentiment_topics.sorted_sentiment_terms(sentiment), verbose=verbose)
