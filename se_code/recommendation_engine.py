@@ -250,7 +250,7 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
         if len(subset_scores) > 0:
             subset_scores.sort(key=lambda x: (x[0], -x[2]))
         # results.extend(subset_scores[:terms_per_subset])
-        results.extend(subset_scores[:10])
+        results.extend(subset_scores)
 
         key_text = {}
         for subset, term, _, p_value in results:
