@@ -75,7 +75,7 @@ def create_subset_details_v1(client, shared_text, field, subset_input):
     return subset_details
 
 
-def get_subset_term_info(client, subset_input, term_count=1000):
+def get_subset_term_info(client, subset_input, term_count=500):
     subset_term_info = {}
     subset_stats = client.get('subsets/stats')
     for s in subset_stats:
@@ -100,8 +100,9 @@ def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
     subset_details = []
     shared_text = [text for text in sst_list
                    if sst_list[text] > sst_cutoff]
+    skt_text = {}
     for subset in skt_list:
-        skt_list[subset] = [d for d in skt_list[subset]
+        skt_text[subset] = [d['text'] for d in skt_list[subset]
                             if d['p-value'] < skt_cutoff]
     for subset_value in subset_term_info:
         term_vecs = []
@@ -110,8 +111,8 @@ def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
             term_vecs.append(unpack64(term['vector']))
             if term['text'] in shared_text:
                 term_weights.append(term['score'] * sst_weight)
-            elif (subset_value in skt_list and
-                  term['text'] in skt_list[subset_value][0]['text']):
+            elif (subset_value in skt_text and
+                  term['text'] in skt_text[subset_value]):
                 term_weights.append(term['score'] * skt_weight)
             else:
                 term_weights.append(term['score'])
@@ -245,7 +246,7 @@ def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
             subset_scores.append((subset, term, odds_ratio, pvalue))
 
         if len(subset_scores) > 0:
-            subset_scores.sort(key=lambda x: (x[0], -x[2]))
+            subset_scores.sort(key=lambda x: (x[0], x[2]))
         # results.extend(subset_scores[:terms_per_subset])
         results.extend(subset_scores)
 
@@ -303,7 +304,7 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
         if len(subset_scores) > 0:
             subset_scores.sort(key=lambda x: (x[0], -x[2]))
         # results.extend(subset_scores[:terms_per_subset])
-        results.extend(subset_scores)
+        results.extend(subset_scores[:10])
 
         key_text = {}
         for subset, term, _, p_value in results:
@@ -506,7 +507,8 @@ def optimize_function(weights, data):
                                  data['queries_filename'],
                                  subset_details,
                                  data['sst_list'],
-                                 data['skt_list'])
+                                 results_filename='intermediate_results.csv',
+                                 save_file=True)
     end_time = time.time()
     print('Query results: {:2}s'.format(end_time-start_time))
     return score_test_queries(query_results)
@@ -528,20 +530,19 @@ def optimize_weights(weights, data):
 if __name__ == '__main__':
     client = LuminosoClient.connect('/projects/x86x624r/prj5n6zx')
 
-    print('Loading data')
-    data = pickle.load(open('optimization_dataV1.p', 'rb'))
+    #print('Loading data')
+    #data = pickle.load(open('optimization_dataV1.p', 'rb'))
 
-    #print('Collecting data')
-    #print(data['skt_list'])
-    #data = {}
-    #data['queries_filename'] = 'test_queries_v1.csv'
-    #data['sst_list'] = subset_shared_terms(client)
-    #data['skt_list'] = subset_key_terms(client)
-    #data['subset_term_info'] = get_subset_term_info(client, 'Category', term_count=500)
+    print('Collecting data')
+    data = {}
+    data['queries_filename'] = 'V3_1_2_results_2.csv'
+    data['sst_list'] = subset_shared_terms(client)
+    data['skt_list'] = subset_key_terms(client)
+    data['subset_term_info'] = get_subset_term_info(client, 'Category', term_count=500)
 
-    #print('Data collected... pickling.')
-    #pickle.dump(data, open('optimization_dataV1.p', 'wb'))
-    optimize_weights(np.asarray([.9, .1, .01, 10]), data)
+    print('Data collected... pickling.')
+    pickle.dump(data, open('optimization_dataV1.p', 'wb'))
+    optimize_weights(np.asarray([.95, 1/1000/20, .1, 2]), data)
     '''
     weight[0] = sst_cutoff
     weight[1] = skt_cutoff
