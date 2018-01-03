@@ -105,17 +105,16 @@ def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
         skt_text[subset] = [d['term'] for d in skt_list[subset]
                             if d['p-value'] < skt_cutoff]
     for subset_value in subset_term_info:
-        term_vecs = []
-        term_weights = []
-        for term in subset_term_info[subset_value]['terms']:
-            term_vecs.append(unpack64(term['vector']))
-            if term['term'] in shared_text:
-                term_weights.append(term['score'] * sst_weight)
-            elif (subset_value in skt_text and
-                  term['term'] in skt_text[subset_value]):
-                term_weights.append(term['score'] * skt_weight)
-            else:
-                term_weights.append(term['score'])
+        term_vecs = [unpack64(term['vector'])
+                     for term in subset_term_info[subset_value]['terms']]
+        term_scores = [term['score']
+                       for term in subset_term_info[subset_value]['terms']]
+        term_weights = np.asarray([((term['term'] in shared_text) * sst_weight +
+                        (term['term'] in skt_text[subset_value]) * skt_weight)
+                        for term in subset_term_info[subset_value]['terms']])
+        term_weights[term_weights == 0.0] = 1
+        term_weights = term_weights * term_scores
+
         terms_vector = np.average(term_vecs, weights=term_weights, axis=0)
         subset_details.append({
                         'name': subset_value.split(':')[1].strip(),
@@ -263,32 +262,23 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
     return key_text
 
 
-def vectorize_query(description, client, shared_text):
+def vectorize_query(query_terms, client, shared_text):
     '''
     Create a search vector based on the search query input by the user and
     weighting of the resulting match score based on the search query's length
     '''
 
-    question_doc = client.post_data('docs/vectors',
-                                    json.dumps([{'text': description}]),
-                                    content_type='application/json')[0]
-    description_words = [t[0] for t in question_doc['terms']]
     texts = []
     term_vectors = []
     term_weights = []
-    for word in description_words:
-        search_result = client.get('terms/search',
-                                   terms=[word],
-                                   limit=1)['search_results']
-        if len(search_result) > 0:
-            term = search_result[0][0]
-            if term['vector']:
-                texts.append(term['text'])
-                term_vectors.append(unpack64(term['vector']))
-                if word in shared_text:
-                    term_weights.append(term['score'] * .1)
-                else:
-                    term_weights.append(term['score'])
+    for term in query_terms:
+        if term['vector']:
+            texts.append(term['text'])
+            term_vectors.append(unpack64(term['vector']))
+            if term['term'] in shared_text:
+                term_weights.append(term['score'] * .1)
+            else:
+                term_weights.append(term['score'])
     question_vec = np.average(term_vectors, weights=term_weights, axis=0)
 
     if len(texts) > 1:
@@ -385,15 +375,37 @@ def test_queries(client, queries, subset_details, sst_list,
     2 - Reasonable result, but not ideal
     3 - Ideal result
     '''
+    times = {}
+    times['vectorize_query'] = []
+    times['recommend_subset'] = []
 
-    for query in queries:
-        query_vector, _ = vectorize_query(query['query'],
-                                          client,
-                                          sst_list)
-        recommendations = recommend_subset(query_vector,
-                                           subset_details,
-                                           num_results=1)
-        query['new_result'] = recommendations[0]['name']
+    query_docs = client.post_data('docs/vectors',
+                                    json.dumps([{'text': q['query']}
+                                                for q in queries]),
+                                    content_type='application/json')
+    queries_docs = [[t for t, _, _ in d['terms']] for d in query_docs]
+    queries_terms = client.get('/terms', terms=list(set([t[0] for t in
+                                             [d for d in queries_docs]])))
+    for i, query in enumerate(queries):
+        start_time = time.time()
+        query_terms = [q for q in queries_terms
+                       if q['term'] in queries_docs[i] and
+                       q['vector'] is not None]
+        if query_terms:
+            query_vector, _ = vectorize_query(query_terms,
+                                              client,
+                                              sst_list)
+            end_time = time.time()
+            times['vectorize_query'].append(end_time-start_time)
+            start_time = time.time()
+            recommendations = recommend_subset(query_vector,
+                                               subset_details,
+                                               num_results=1)
+            end_time = time.time()
+            times['recommend_subset'].append(end_time-start_time)
+            query['new_result'] = recommendations[0]['name']
+    print('Vectorize Query: {}'.format(np.average(times['vectorize_query'])))
+    print('Recommend Subset: {}'.format(np.average(times['recommend_subset'])))
     if save_file:
         writer = csv.DictWriter(open(results_filename, 'w'),
                                 fieldnames=queries[0].keys())
@@ -462,10 +474,10 @@ def optimize_weights(weights, data):
     results = basinhopping(optimize_function,
                            weights,
                            minimizer_kwargs={'args': (data,),
-                                             'bounds': [(0.001, 1),
-                                                        (0.001, 1),
-                                                        (0.001, 1),
-                                                        (0.001, None)]})
+                                             'bounds': [(0.001, 1.0),
+                                                        (0, 1.0),
+                                                        (0.001, 1.0),
+                                                        (1.0, None)]})
     print(results)
 
 if __name__ == '__main__':
