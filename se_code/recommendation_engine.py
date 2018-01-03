@@ -1,12 +1,16 @@
 from __future__ import division
 from pack64 import unpack64
 from scipy.stats import fisher_exact
+from scipy.optimize import basinhopping
+
 from luminoso_api import LuminosoClient
 
 import numpy as np
 import json
 import csv
 import pickle
+import math
+import time
 
 
 def get_all_docs(client):
@@ -107,7 +111,7 @@ def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
             if term['text'] in shared_text:
                 term_weights.append(term['score'] * sst_weight)
             elif (subset_value in skt_list and
-                  term['text'] in skt_list[subset_value]['text']):
+                  term['text'] in skt_list[subset_value][0]['text']):
                 term_weights.append(term['score'] * skt_weight)
             else:
                 term_weights.append(term['score'])
@@ -117,7 +121,7 @@ def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
                         'doc_count': subset_term_info[subset_value]['count'],
                         'vector': terms_vector
                         })
-        return subset_details
+    return subset_details
 
 
 def create_source_details_v3(client, subset_input, shared_cutoff,
@@ -415,8 +419,8 @@ def find_example_docs(client, subset, query_vec, n_docs=1, source_field=None):
     return example_docs
 
 
-def test_queries(client, queries_filename, details_filename, sst_filename,
-                 skt_filename, results_filename):
+def test_queries(client, queries_filename, subset_details, sst_list,
+                 results_filename=None, save_file=False):
     '''
     Reads a set of queries from a CSV file and outputs a CSV file with
     recommendation results.
@@ -437,21 +441,22 @@ def test_queries(client, queries_filename, details_filename, sst_filename,
     queries_reader = csv.DictReader(open(queries_filename, 'r'))
     for row in queries_reader:
         queries.append(row)
-    subset_details = pickle.load(open(details_filename, 'rb'))
-    shared_text = pickle.load(open(sst_filename, 'rb'))
+    # subset_details = pickle.load(open(details_filename, 'rb'))
+    # shared_text = pickle.load(open(sst_filename, 'rb'))
     # key_text = pickle.load(open(skt_filename, 'rb'))
     for query in queries:
         query_vector, _ = vectorize_query(query['query'],
                                           client,
-                                          shared_text)
+                                          sst_list)
         recommendations = recommend_subset(query_vector,
                                            subset_details,
                                            num_results=1)
         query['new_result'] = recommendations[0]['name']
-    writer = csv.DictWriter(open(results_filename, 'w'),
-                            fieldnames=queries[0].keys())
-    writer.writeheader()
-    writer.writerows(queries)
+    if save_file:
+        writer = csv.DictWriter(open(results_filename, 'w'),
+                                fieldnames=queries[0].keys())
+        writer.writeheader()
+        writer.writerows(queries)
     return queries
 
 
@@ -460,8 +465,8 @@ def score_test_queries(query_results):
     Score the test queries output from the test_queries function.
     '''
     unique_queries = len(set([q['query'] for q in query_results]))
-    score = 0
-    scored_queries = 0
+    score = 1
+    scored_queries = 1
     for query in query_results:
         if query['new_result'] == query['result']:
             score += int(query['score'])
@@ -471,12 +476,65 @@ def score_test_queries(query_results):
     print('Score: {}/{} = {}'.format(score,
                                      scored_queries*3,
                                      score/(scored_queries*3)))
-    return (scored_queries/unique_queries, score/(scored_queries*3))
+    print('Optimization Score: {}'.format(
+            sigmoid(scored_queries/unique_queries) * score/(scored_queries*3)))
+    return -sigmoid(scored_queries/unique_queries) * score/(scored_queries*3)
+
+
+def sigmoid(x):
+    return 1 / (1 + math.exp(-x))
+
+
+def optimize_function(weights, data):
+    '''
+    Optimization function called by optimize_weights
+    '''
+    print(weights)
+    start_time = time.time()
+    subset_details = create_subset_details_v3(client,
+                                              data['sst_list'],
+                                              data['skt_list'],
+                                              data['subset_term_info'],
+                                              weights[0],
+                                              weights[1],
+                                              weights[2],
+                                              weights[3])
+    end_time = time.time()
+    print('Subset details: {:2}s'.format(end_time-start_time))
+    start_time = time.time()
+    query_results = test_queries(client,
+                                 data['queries_filename'],
+                                 subset_details,
+                                 data['sst_list'],
+                                 data['skt_list'])
+    end_time = time.time()
+    print('Query results: {:2}s'.format(end_time-start_time))
+    return score_test_queries(query_results)
+
+
+def optimize_weights(weights, data):
+    '''
+    Take a set of graded queries, output optimal weights & final score
+    '''
+    results = basinhopping(optimize_function,
+                           weights,
+                           minimizer_kwargs={'args': (data,),
+                                             'bounds': [(0.001,1),
+                                                        (0.001,1),
+                                                        (0.001,1),
+                                                        (0.001,None)]})
+    print(results)
 
 if __name__ == '__main__':
     client = LuminosoClient.connect('/projects/x86x624r/prj5n6zx')
-    test_queries(client,
-                 'testqueries.csv',
-                 'V1_1228.p',
-                 'V1_1228sst.p',
-                 'V1_1228_results.csv')
+    print('Collecting data')
+    data = pickle.load(open('optimization_dataV1.p', 'rb'))
+    #print(data['skt_list'])
+    #data = {}
+    data['queries_filename'] = 'test_queries_v1.csv'
+    #data['sst_list'] = subset_shared_terms(client)
+    #data['skt_list'] = subset_key_terms(client)
+    #data['subset_term_info'] = get_subset_term_info(client, 'Category')
+    print('Data collected... pickling.')
+    #pickle.dump(data, open('optimization_dataV1.p', 'wb'))
+    optimize_weights(np.asarray([.1, .9, .1, 2]), data)
