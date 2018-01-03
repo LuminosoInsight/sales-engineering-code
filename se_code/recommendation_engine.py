@@ -519,22 +519,32 @@ def optimize_weights(weights, data):
     results = basinhopping(optimize_function,
                            weights,
                            minimizer_kwargs={'args': (data,),
-                                             'bounds': [(0.001,1),
-                                                        (0.001,1),
-                                                        (0.001,1),
-                                                        (0.001,None)]})
+                                             'bounds': [(0.001, 1),
+                                                        (0.001, 1),
+                                                        (0.001, 1),
+                                                        (0.001, None)]})
     print(results)
 
 if __name__ == '__main__':
     client = LuminosoClient.connect('/projects/x86x624r/prj5n6zx')
-    print('Collecting data')
+
+    print('Loading data')
     data = pickle.load(open('optimization_dataV1.p', 'rb'))
+
+    #print('Collecting data')
     #print(data['skt_list'])
     #data = {}
-    data['queries_filename'] = 'test_queries_v1.csv'
+    #data['queries_filename'] = 'test_queries_v1.csv'
     #data['sst_list'] = subset_shared_terms(client)
     #data['skt_list'] = subset_key_terms(client)
-    #data['subset_term_info'] = get_subset_term_info(client, 'Category')
-    print('Data collected... pickling.')
+    #data['subset_term_info'] = get_subset_term_info(client, 'Category', term_count=500)
+
+    #print('Data collected... pickling.')
     #pickle.dump(data, open('optimization_dataV1.p', 'wb'))
-    optimize_weights(np.asarray([.1, .9, .1, 2]), data)
+    optimize_weights(np.asarray([.9, .1, .01, 10]), data)
+    '''
+    weight[0] = sst_cutoff
+    weight[1] = skt_cutoff
+    weight[2] = sst_weight
+    weight[3] = skt_weight
+    '''
