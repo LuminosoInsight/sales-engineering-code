@@ -166,6 +166,8 @@ def print_sentiment_terms(terms, verbose=False):
     Print the top sentiment terms. If verbose=True, also print the sentiment score and the
     relevance score.
     """
+    if verbose:
+        print('Term\tSentiment score\tRelevance score')
     for term in terms:
         output = '{}'.format(term['text'])
         if verbose:

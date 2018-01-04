@@ -3,6 +3,7 @@ Example uses:
 python sentiment_topics.py zoo rjcfz --sentiment pos --terms --verbose
 
 Output:
+Term	Sentiment score	Relevance score
 enjoyed	0.786	0.618
 entertaining	0.787	0.396
 novel	0.319	1.0
@@ -33,7 +34,6 @@ really enjoyed	0.135	0.207
 well written	0.666	0.091
 compelling	0.131	0.195
 romantic	0.139	0.167
-
 
 python sentiment_topics.py zoo rjcfz --clusters --n-terms=1000
 
