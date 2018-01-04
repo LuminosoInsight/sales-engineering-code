@@ -114,7 +114,12 @@ def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
                         for term in subset_term_info[subset_value]['terms']])
         term_weights[term_weights == 0.0] = 1
         term_weights = term_weights * term_scores
-
+        if subset_value == 'Category: Steakhouses':
+            terms = [{'term':t['term'], 'weight': w, 'relevance': t['score']}
+                     for t, w in zip(subset_term_info[subset_value]['terms'],term_weights)]
+            writer = csv.DictWriter(open('SteakhousesV2.csv', 'w'), fieldnames=terms[0].keys())
+            writer.writeheader()
+            writer.writerows(terms)
         terms_vector = np.average(term_vecs, weights=term_weights, axis=0)
         subset_details.append({
                         'name': subset_value.split(':')[1].strip(),
@@ -157,7 +162,7 @@ def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
     '''
     subset_counts = client.get()['counts']
     # pvalue_cutoff = .95
-    results = []
+    subset_scores = {}
     index = 0
     for subset in sorted(subset_counts):
         index += 1
@@ -177,7 +182,6 @@ def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
         all_term_dict = {term['term']: term['distinct_doc_count']
                          for term in all_terms}
 
-        subset_scores = []
         for term in subset_terms:
             term_in_subset = term['distinct_doc_count']
             term_outside_subset = all_term_dict[term['term']] - term_in_subset
@@ -188,20 +192,13 @@ def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
                 [term_in_subset, term_outside_subset],
                 [docs_in_subset, docs_outside_subset]
             ])
-            odds_ratio, pvalue = fisher_exact(table, alternative='greater')
-            # if pvalue > pvalue_cutoff:
-            subset_scores.append((subset, term, odds_ratio, pvalue))
+            _, pvalue = fisher_exact(table, alternative='greater')
+            if term['term'] in subset_scores:
+                subset_scores[term['term']] += pvalue
+            else:
+                subset_scores[term['term']] = pvalue
 
-        if len(subset_scores) > 0:
-            subset_scores.sort(key=lambda x: (x[0], x[2]))
-        # results.extend(subset_scores[:terms_per_subset])
-        results.extend(subset_scores)
-
-    shared_text = {}
-    for _, term, _, p_value in results:
-        shared_text[term['term']] = p_value
-
-    return shared_text
+    return {k:v/len(subset_counts) for k, v in subset_scores.items()}
 
 
 def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
@@ -211,7 +208,7 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
     """
     subset_counts = client.get()['counts']
     # pvalue_cutoff = 1 / scan_terms / 20
-    results = []
+    subset_scores = {}
     index = 0
     for subset in sorted(subset_counts):
         index += 1
@@ -231,7 +228,6 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
         all_term_dict = {term['term']: term['distinct_doc_count']
                          for term in all_terms}
 
-        subset_scores = []
         for term in subset_terms:
             term_in_subset = term['distinct_doc_count']
             term_outside_subset = (all_term_dict[term['term']] -
@@ -243,23 +239,15 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
                 [term_in_subset, term_outside_subset],
                 [docs_in_subset, docs_outside_subset]
             ])
-            odds_ratio, pvalue = fisher_exact(table, alternative='greater')
-            # if pvalue < pvalue_cutoff:
-            subset_scores.append((subset, term, odds_ratio, pvalue))
+            _, pvalue = fisher_exact(table, alternative='greater')
+            if subset in subset_scores:
+                subset_scores[subset].append({'term': term['term'],
+                                     'p-value': pvalue})
+            else:
+                subset_scores[subset] = [{'term': term['term'],
+                                     'p-value': pvalue}]
 
-        if len(subset_scores) > 0:
-            subset_scores.sort(key=lambda x: (x[0], -x[2]))
-        # results.extend(subset_scores[:terms_per_subset])
-        results.extend(subset_scores)
-
-        key_text = {}
-        for subset, term, _, p_value in results:
-            if subset not in key_text:
-                key_text[subset] = []
-            key_text[subset].append({'term': term['term'],
-                                     'p-value': p_value})
-
-    return key_text
+    return subset_scores
 
 
 def vectorize_query(query_terms, client, shared_text):
@@ -481,25 +469,42 @@ def optimize_weights(weights, data):
     print(results)
 
 if __name__ == '__main__':
-    client = LuminosoClient.connect('/projects/x86x624r/prj5n6zx')
+    client = LuminosoClient.connect('/projects/a53y655v/prtcgdw7')
 
     print('Loading data')
     data = pickle.load(open('optimization_dataV1.p', 'rb'))
 
-    #print('Collecting data')
-    #queries = []
-    #queries_reader = csv.DictReader(open('V3_1_2_results_2.csv', 'r'))
-    #for row in queries_reader:
-    #    queries.append(row)
-    #data = {}
-    #data['queries'] = queries
-    #data['sst_list'] = subset_shared_terms(client)
-    #data['skt_list'] = subset_key_terms(client)
-    #data['subset_term_info'] = get_subset_term_info(client, 'Category', term_count=500)
+    print('Collecting data')
+    queries = []
+    queries_reader = csv.DictReader(open('intermediate_result_scores.csv', 'r'))
+    for row in queries_reader:
+        queries.append(row)
+    data = {}
+    data['queries'] = queries
+    data['sst_list'] = subset_shared_terms(client)
+    data['skt_list'] = subset_key_terms(client)
+    data['subset_term_info'] = get_subset_term_info(client, 'Category', term_count=500)
 
-    #print('Data collected... pickling.')
-    #pickle.dump(data, open('optimization_dataV1.p', 'wb'))
-    optimize_weights(np.asarray([.95, 1/1000/20, .1, 2]), data)
+    print('Data collected... pickling.')
+    pickle.dump(data, open('optimization_dataV1.p', 'wb'))
+    #results = optimize_weights(np.asarray([.95, 1/1000/20, .1, 2]), data)
+
+    # Save optimal results
+    results = {'x':[.95, 1/1000/20, .1, 2]}
+    subset_details = create_subset_details_v3(client,
+                                              data['sst_list'],
+                                              data['skt_list'],
+                                              data['subset_term_info'],
+                                              results['x'][0],
+                                              results['x'][1],
+                                              results['x'][2],
+                                              results['x'][3])
+    test_queries(client,
+                 data['queries'],
+                 subset_details,
+                 data['sst_list'],
+                 results_filename='intermediate_results.csv',
+                 save_file=True)
     '''
     weight[0] = sst_cutoff
     weight[1] = skt_cutoff
