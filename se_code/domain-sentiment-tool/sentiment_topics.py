@@ -59,7 +59,7 @@ class SentimentTopics:
     def _get_sent_axis(self, sentiment):
         """
         Return the sentiment axis for a specified sentiment. The sentiment axis is computed using
-        the terms in the project that have a sentiment scored assigned to them by SentimentScorer
+        the terms in the project that have a sentiment score assigned to them by SentimentScorer
         (orig-sentiment-score). Their vectors are averaged, weighted by the orig-sentiment-score
         as well as the relevance to the project (score).
         """
