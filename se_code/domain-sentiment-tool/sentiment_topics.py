@@ -22,18 +22,12 @@ from tree_clustering import ClusterTree
 
 
 class SentimentTopics:
-    def __init__(self, account_id, project_id, n_terms, n_results):
-        self.client = self._connect(account_id, project_id)
+    def __init__(self, client, n_terms, n_results):
+        self.client = client
         self.project_terms = self._get_project_terms(n_terms)
         self.axes = {}
         self.domain_sentiment_terms = {}
         self.n_results = n_results
-
-    @staticmethod
-    def _connect(account_id, project_id):
-        client = LuminosoClient.connect(
-            'https://analytics.luminoso.com/api/v4/projects/{}/{}'.format(account_id, project_id))
-        return client
 
     def _get_project_terms(self, n_terms):
         """
@@ -186,6 +180,7 @@ def print_sentiment_terms(terms, verbose=False):
 @click.command()
 @click.argument('account_id')
 @click.argument('project_id')
+@click.option('--api', default='https://analytics.luminoso.com/api/v4/projects')
 @click.option('--sentiment', default='pos', help='pos, neg')
 @click.option('--terms', is_flag=True, help='Use to get a list of sentiment terms')
 @click.option('--clusters', is_flag=True, help='Cluster only the sentiment terms')
@@ -195,10 +190,10 @@ def print_sentiment_terms(terms, verbose=False):
 @click.option('--n-results', default=30, help='Number of results to show')
 @click.option('--n-clusters', default=7, help='Show clusters')
 @click.option('--verbose', '-v', is_flag=True, help='Show details about the results')
-def main(account_id, project_id, sentiment, terms, clusters, n_terms, n_results, n_clusters,
+def main(account_id, project_id, api, sentiment, terms, clusters, n_terms, n_results, n_clusters,
          verbose):
-
-    sentiment_topics = SentimentTopics(account_id, project_id, n_terms, n_results)
+    client = LuminosoClient.connect('{}/{}/{}'.format(api, account_id, project_id))
+    sentiment_topics = SentimentTopics(client, n_terms, n_results)
 
     if terms:
         print_sentiment_terms(sentiment_topics.sorted_sentiment_terms(sentiment), verbose=verbose)
