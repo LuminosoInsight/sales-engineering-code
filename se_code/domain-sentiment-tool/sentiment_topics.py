@@ -145,8 +145,7 @@ class SentimentTopics:
         """
         pos_terms = self.get_domain_sentiment_terms('pos')
         neg_terms = self.get_domain_sentiment_terms('neg')
-        sent_terms = pos_terms + neg_terms
-        tree = ClusterTree.from_term_list(sent_terms)
+        tree = ClusterTree.from_term_list(pos_terms + neg_terms)
         return tree
 
 
