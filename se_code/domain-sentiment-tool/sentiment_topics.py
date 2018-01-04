@@ -143,8 +143,8 @@ class SentimentTopics:
         """
         Get 200 positive terms and 200 negative terms, and cluster them.
         """
-        pos_terms = self.get_domain_sentiment_terms('pos')
-        neg_terms = self.get_domain_sentiment_terms('neg')
+        pos_terms = self.get_domain_sentiment_terms('pos')[:200]
+        neg_terms = self.get_domain_sentiment_terms('neg')[:200]
         tree = ClusterTree.from_term_list(pos_terms + neg_terms)
         return tree
 
