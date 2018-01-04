@@ -113,11 +113,8 @@ class SentimentTopics:
         Normalize sentiment score (new-sentiment-score) and relevance score (score) of each term
         to a value between 0 and 1.
         """
-        all_sentiment_scores = []
-        all_relevance_scores = []
-        for term in terms:
-            all_sentiment_scores.append(term['new-sentiment-score'])
-            all_relevance_scores.append(term['score'])
+        all_sentiment_scores = [term['new-sentiment-score'] for term in terms]
+        all_relevance_scores = [term['score'] for term in terms]
         for term in terms:
             term['norm-new-sent-score'] = self._normalize_score(term['new-sentiment-score'],
                                                                 all_sentiment_scores)
