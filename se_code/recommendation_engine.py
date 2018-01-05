@@ -155,7 +155,7 @@ def create_source_details_v3(client, subset_input, shared_cutoff,
     return source_details
 
 
-def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
+def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000, min_score=30):
     '''
     Returns terms that are well represented across multiple subsets in the
     entire project
@@ -193,15 +193,16 @@ def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000):
                 [docs_in_subset, docs_outside_subset]
             ])
             _, pvalue = fisher_exact(table, alternative='greater')
-            if term['term'] in subset_scores:
-                subset_scores[term['term']] += pvalue
-            else:
-                subset_scores[term['term']] = pvalue
+            if term['score'] > min_score:
+                if term['term'] in subset_scores:
+                    subset_scores[term['term']] += pvalue
+                else:
+                    subset_scores[term['term']] = pvalue
 
     return {k:v/len(subset_counts) for k, v in subset_scores.items()}
 
 
-def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
+def subset_key_terms(client, terms_per_subset=10, scan_terms=1000, min_score=30):
     """
     Find 'key terms' for a subset, those that appear disproportionately more
     inside a subset than outside of it.
@@ -240,12 +241,13 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
                 [docs_in_subset, docs_outside_subset]
             ])
             _, pvalue = fisher_exact(table, alternative='greater')
-            if subset in subset_scores:
-                subset_scores[subset].append({'term': term['term'],
-                                     'p-value': pvalue})
-            else:
-                subset_scores[subset] = [{'term': term['term'],
-                                     'p-value': pvalue}]
+            if term['score'] > min_score:
+                if subset in subset_scores:
+                    subset_scores[subset].append({'term': term['term'],
+                                         'p-value': pvalue})
+                else:
+                    subset_scores[subset] = [{'term': term['term'],
+                                         'p-value': pvalue}]
 
     return subset_scores
 
