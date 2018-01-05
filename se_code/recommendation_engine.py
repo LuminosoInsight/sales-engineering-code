@@ -209,7 +209,7 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000, min_score=30)
     """
     subset_counts = client.get()['counts']
     # pvalue_cutoff = 1 / scan_terms / 20
-    subset_scores = {}
+    subset_scores = {subset:[] for subset in subset_counts}
     index = 0
     for subset in sorted(subset_counts):
         index += 1
@@ -422,7 +422,7 @@ def score_test_queries(query_results):
                                      score/(scored_queries*3)))
     print('Optimization Score: {}'.format(
             sigmoid(scored_queries/unique_queries) * score/(scored_queries*3)))
-    return -sigmoid(scored_queries/unique_queries) * score/(scored_queries*3)
+    return -(scored_queries/unique_queries) * score/(scored_queries*3)
 
 
 def sigmoid(x):
@@ -474,7 +474,7 @@ if __name__ == '__main__':
     client = LuminosoClient.connect('/projects/a53y655v/prtcgdw7')
 
     print('Loading data')
-    data = pickle.load(open('optimization_dataV1.p', 'rb'))
+    #data = pickle.load(open('optimization_dataV1.p', 'rb'))
 
     print('Collecting data')
     queries = []
@@ -490,17 +490,18 @@ if __name__ == '__main__':
     print('Data collected... pickling.')
     pickle.dump(data, open('optimization_dataV1.p', 'wb'))
     #results = optimize_weights(np.asarray([.95, 1/1000/20, .1, 2]), data)
+    #optimal_weights = results.x
 
     # Save optimal results
-    results = {'x':[.95, 1/1000/20, .1, 2]}
+    optimal_weights = [.95, 1/1000/20, .1, 2]
     subset_details = create_subset_details_v3(client,
                                               data['sst_list'],
                                               data['skt_list'],
                                               data['subset_term_info'],
-                                              results['x'][0],
-                                              results['x'][1],
-                                              results['x'][2],
-                                              results['x'][3])
+                                              optimal_weights[0],
+                                              optimal_weights[1],
+                                              optimal_weights[2],
+                                              optimal_weights[3])
     test_queries(client,
                  data['queries'],
                  subset_details,
