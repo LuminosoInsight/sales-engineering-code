@@ -102,18 +102,21 @@ def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
                    if sst_list[text] > sst_cutoff]
     skt_text = {}
     for subset in skt_list:
-        skt_text[subset] = [d['term'] for d in skt_list[subset]
-                            if d['p-value'] < skt_cutoff]
+        skt_text[subset] = {d['term']: d['oddsratio'] for d in skt_list[subset]
+                            if d['p-value'] < skt_cutoff}
     for subset_value in subset_term_info:
         term_vecs = [unpack64(term['vector'])
                      for term in subset_term_info[subset_value]['terms']]
-        term_scores = [term['score']
-                       for term in subset_term_info[subset_value]['terms']]
-        term_weights = np.asarray([((term['term'] in shared_text) * sst_weight +
-                        (term['term'] in skt_text[subset_value]) * skt_weight)
-                        for term in subset_term_info[subset_value]['terms']])
-        term_weights[term_weights == 0.0] = 1
-        term_weights = term_weights * term_scores
+        term_weights = []
+        for term in subset_term_info[subset_value]['terms']:
+            if term['term'] in shared_text:
+                term_weights.append(term['score'] * sst_weight)
+            elif (subset_value in skt_text and
+                  term['term'] in skt_text[subset_value]):
+                term_weights.append(term['score'] *
+                                    skt_text[subset_value][term['term']] * skt_weight)
+            else:
+                term_weights.append(term['score'])
         if subset_value == 'Category: Steakhouses':
             terms = [{'term':t['term'], 'weight': w, 'relevance': t['score']}
                      for t, w in zip(subset_term_info[subset_value]['terms'],term_weights)]
@@ -240,14 +243,16 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000, min_score=30)
                 [term_in_subset, term_outside_subset],
                 [docs_in_subset, docs_outside_subset]
             ])
-            _, pvalue = fisher_exact(table, alternative='greater')
+            oddsratio, pvalue = fisher_exact(table, alternative='greater')
             if term['score'] > min_score:
                 if subset in subset_scores:
                     subset_scores[subset].append({'term': term['term'],
-                                         'p-value': pvalue})
+                                                  'p-value': pvalue,
+                                                  'oddsratio': oddsratio})
                 else:
                     subset_scores[subset] = [{'term': term['term'],
-                                         'p-value': pvalue}]
+                                              'p-value': pvalue,
+                                              'oddsratio': oddsratio}]
 
     return subset_scores
 
@@ -474,26 +479,26 @@ if __name__ == '__main__':
     client = LuminosoClient.connect('/projects/a53y655v/prtcgdw7')
 
     print('Loading data')
-    #data = pickle.load(open('optimization_dataV1.p', 'rb'))
+    data = pickle.load(open('optimization_dataV1.p', 'rb'))
 
     print('Collecting data')
     queries = []
     queries_reader = csv.DictReader(open('intermediate_result_scores.csv', 'r'))
     for row in queries_reader:
         queries.append(row)
-    data = {}
+#     data = {}
     data['queries'] = queries
-    data['sst_list'] = subset_shared_terms(client)
-    data['skt_list'] = subset_key_terms(client)
-    data['subset_term_info'] = get_subset_term_info(client, 'Category', term_count=500)
-
-    print('Data collected... pickling.')
-    pickle.dump(data, open('optimization_dataV1.p', 'wb'))
-    #results = optimize_weights(np.asarray([.95, 1/1000/20, .1, 2]), data)
-    #optimal_weights = results.x
+#     data['sst_list'] = subset_shared_terms(client)
+#     data['skt_list'] = subset_key_terms(client)
+#     data['subset_term_info'] = get_subset_term_info(client, 'Category', term_count=500)
+#
+#     print('Data collected... pickling.')
+#     pickle.dump(data, open('optimization_dataV1.p', 'wb'))
+    results = optimize_weights(np.asarray([.95, 1/1000/20, .1, 2]), data)
+    optimal_weights = results.x
 
     # Save optimal results
-    optimal_weights = [.95, 1/1000/20, .1, 2]
+    #optimal_weights = [.03, .0005, .1, 1]
     subset_details = create_subset_details_v3(client,
                                               data['sst_list'],
                                               data['skt_list'],
@@ -502,12 +507,13 @@ if __name__ == '__main__':
                                               optimal_weights[1],
                                               optimal_weights[2],
                                               optimal_weights[3])
-    test_queries(client,
-                 data['queries'],
-                 subset_details,
-                 data['sst_list'],
-                 results_filename='intermediate_results.csv',
-                 save_file=True)
+    query_results = test_queries(client,
+                     data['queries'],
+                     subset_details,
+                     data['sst_list'],
+                     results_filename='intermediate_results.csv',
+                     save_file=True)
+    score_test_queries(query_results)
     '''
     weight[0] = sst_cutoff
     weight[1] = skt_cutoff
