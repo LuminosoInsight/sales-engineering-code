@@ -186,12 +186,12 @@ def setup_classifier():
         train_client = client.change_path('/projects/{}/{}'.format(train_acct,training_project_id))
         
         if training_project_id == testing_project_id:
-            docs, labels = get_all_docs(train_client, subset_field)
+            docs, labels = compass_utilities.get_all_docs(train_client, subset_field)
             train_docs, test_docs, train_labels, test_labels = split_train_test(docs, labels)
         else:
             test_client = client.change_path('/projects/{}/{}'.format(test_acct, testing_project_id))
-            train_docs, train_labels = get_all_docs(train_client, subset_field)
-            test_docs, test_labels = get_all_docs(test_client, subset_field)
+            train_docs, train_labels = compass_utilities.get_all_docs(train_client, subset_field)
+            test_docs, test_labels = compass_utilities.get_all_docs(test_client, subset_field)
         
         classifiers, vectorizers = train_classifier(
             train_docs, train_labels
