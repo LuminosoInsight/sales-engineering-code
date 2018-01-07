@@ -77,9 +77,9 @@ def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
                 term_weights.append(term['score'] * 0)
             elif (subset_value in skt_text and
                   term['term'] in skt_text[subset_value]):
-                term_weights.append(term['score'] *
+                term_weights.append(np.log(term['score'] *
                                     skt_text[subset_value][term['term']] *
-                                    skt_weight)
+                                    skt_weight + 1))
             else:
                 term_weights.append(term['score'])
         if debug:
@@ -358,8 +358,8 @@ def score_test_queries(query_results):
     Score the test queries output from the test_queries function.
     '''
     unique_queries = len(set([q['query'] for q in query_results]))
-    score = 1
-    scored_queries = 1
+    score = 0
+    scored_queries = 0
     for query in query_results:
         if query['new_result'] == query['result']:
             score += int(query['score'])
@@ -414,7 +414,7 @@ def optimize_weights(weights, data):
                                      bounds=[(0.00001, 1.0),
                                              (0, 1.0),
                                              (0.00001, 1.0),
-                                             (1.0, 5.0)],
+                                             (1.0, 10.0)],
                                      args=(data,),
                                      maxiter=100)
     print(results)
@@ -423,8 +423,8 @@ def optimize_weights(weights, data):
 if __name__ == '__main__':
     client = LuminosoClient.connect('/projects/a53y655v/prtcgdw7')
 
-    rebuild = True
-    optimize = True
+    rebuild = False
+    optimize = False
 
     if rebuild:
         print('Rebuilding data')
@@ -452,7 +452,8 @@ if __name__ == '__main__':
                                    data)
         optimal_weights = results.x
     else:
-        optimal_weights = [ 0.41941848,  0.516695  ,  0.66902551,  1.08288416]
+        optimal_weights = [ 0.02463569,  0.6435483 ,  0.71295812,  8.03028856]
+        #[ 0.69229096,  0.06517147,  0.52024399,  1.17443286]
 
     subset_details = create_subset_details_v3(client,
                                               data['sst_list'],
