@@ -1,462 +1,1 @@
-query,result,score,new_result
-Somalian,African,3,African
-Somalian,Halal,2,African
-burger and fries,American (Traditional),3,Burgers
-burger and fries,Burgers,3,Burgers
-unique sushi,Asian Fusion,3,Tapas Bars
-unique sushi,Japanese,3,Tapas Bars
-cookies,Bakeries,3,Canadian (New)
-cookies,Desserts,3,Canadian (New)
-pulled pork,Mexican,2,Barbeque
-pulled pork,Barbeque,3,Barbeque
-pulled pork,Food Trucks,2,Barbeque
-pulled pork,Burgers,2,Barbeque
-cocktails,Bars,3,Tapas Bars
-cocktails,Tapas/Small Plates,1,Tapas Bars
-cocktails,Tapas Bars,1,Tapas Bars
-cocktails,Spanish,1,Tapas Bars
-hash browns,Breakfast & Brunch,3,Diners
-brews,Breweries,3,Gastropubs
-brews,Pubs,3,Gastropubs
-brews,Irish,3,Gastropubs
-smoked fish,British,2,Seafood
-smoked fish,Japanese,1,Seafood
-smoked fish,Barbeque,2,Seafood
-unlimited shrimp,Buffets,3,Buffets
-unlimited shrimp,Chinese,1,Buffets
-unlimited shrimp,Japanese,2,Buffets
-sweet potato fries,Burgers,3,Cajun/Creole
-coffee and a sandwich,Bakeries,1,Sandwiches
-coffee and a sandwich,Cafes,3,Sandwiches
-coffee and a sandwich,Vegan,1,Sandwiches
-coffee and a sandwich,Burgers,2,Sandwiches
-gumbo,Cajun/Creole,3,Cajun/Creole
-gumbo,Chinese,1,Cajun/Creole
-gumbo,Southern,3,Cajun/Creole
-plantains,Food Trucks,1,Latin American
-plantains,Mexican,2,Latin American
-plantains,Caribbean,3,Latin American
-dry rubbed wings,Chicken Wings,3,Barbeque
-dry rubbed wings,Caribbean,1,Barbeque
-dumplings,Vietnamese,2,Chinese
-dumplings,Chinese,3,Chinese
-chai latte,Coffee & Tea,3,Indian
-chai latte,Desserts,2,Indian
-comfort food,Comfort Food,3,Korean
-comfort food,Pakistani,2,Korean
-comfort food,Halal,2,Korean
-reuben,Delis,3,Delis
-reuben,Food Stands,2,Delis
-reuben,Burgers,1,Delis
-sweets,Desserts,3,Canadian (New)
-pork buns,Dim Sum,3,Chinese
-pork buns,Korean,2,Chinese
-pork buns,Vietnamese,2,Chinese
-cheap beer,Dive Bars,3,Mexican
-cheap beer,Irish,2,Mexican
-corndogs,Food Stands,3,Mediterranean
-corndogs,Food Trucks,3,Mediterranean
-corndogs,Mexican,1,Mediterranean
-sashimi,Japanese,3,Japanese
-kimchi,Korean,3,Korean
-kimchi,Vietnamese,1,Korean
-buttery bread,Vegan,1,Canadian (New)
-buttery bread,French,3,Canadian (New)
-buttery bread,Bakeries,3,Canadian (New)
-mac and cheese,Gastropubs,3,Cajun/Creole
-mac and cheese,Food Trucks,2,Cajun/Creole
-mac and cheese,Burgers,1,Cajun/Creole
-gyro,Greek,3,Mediterranean
-gyro,Mediterranean,3,Mediterranean
-naan,Halal,3,Indian
-naan,Indian,3,Indian
-fresh seafood,Soup,2,Mediterranean
-fresh seafood,Meat Shops,2,Mediterranean
-fresh seafood,Mediterranean,2,Mediterranean
-filet mignon,Barbeque,1,Steakhouses
-filet mignon,Steakhouses,3,Steakhouses
-filet mignon,Southern,1,Steakhouses
-california roll,Sushi Bars,3,Sushi Bars
-california roll,Japanese,3,Sushi Bars
-small plates and wine,Tapas/Small Plates,3,Tapas Bars
-small plates and wine,Seafood,1,Tapas Bars
-small plates and wine,Barbeque,1,Tapas Bars
-noodle bowl,Chinese,2,Chinese
-noodle bowl,Vietnamese,3,Chinese
-vegan cookies,Coffee & Tea,1,Vegan
-vegan cookies,Vegan,3,Vegan
-vegan cookies,Desserts,3,Vegan
-carne asada,Tex-Mex,3,Mexican
-carne asada,Mexican,3,Mexican
-intimate setting with wine pairings,Tapas Bars,2,Tapas Bars
-intimate setting with wine pairings,Tapas/Small Plates,2,Tapas Bars
-intimate setting with wine pairings,Spanish,3,Tapas Bars
-clam chowder,Soup,3,Seafood
-clam chowder,Seafood,3,Seafood
-half sandwich and soup,Sandwiches,3,Sandwiches
-half sandwich and soup,Soup,3,Sandwiches
-half sandwich and soup,Mediterranean,1,Sandwiches
-half sandwich and soup,Caribbean,1,Sandwiches
-salad bar,Salad,3,Mediterranean
-salad bar,Soup,2,Mediterranean
-salad bar,Mediterranean,2,Mediterranean
-tavern with a friendly bartender,Pubs,3,Gastropubs
-tavern with a friendly bartender,Irish,2,Gastropubs
-tavern with a friendly bartender,Chicken Wings,2,Gastropubs
-thin crust,Pizza,3,Pizza
-samosas,Pakistani,3,Indian
-samosas,Indian,3,Indian
-brisket,Barbeque,3,Barbeque
-authentic Polish,Ethnic Food,3,Latin American
-authentic Polish,Noodles,1,Latin American
-authentic Polish,Halal,1,Latin American
-authentic Polish,Vietnamese,1,Latin American
-Fish and Chips,Fish & Chips,3,Seafood
-Fish and Chips,Food Trucks,2,Seafood
-Fish and Chips,Mexican,1,Seafood
-Fish and Chips,Burgers,1,Seafood
-lemonade,Food Stands,3,American (New)
-lemonade,Desserts,2,American (New)
-chili dog,Hot Dogs,3,Latin American
-chili dog,Food Trucks,3,Latin American
-chili dog,Mexican,1,Latin American
-chili dog,Caribbean,1,Latin American
-lamb curry,Caribbean,1,Indian
-lamb curry,Indian,3,Indian
-Guinness,Desserts,2,Irish
-Guinness,Irish,3,Irish
-arepa rice,Latin American,3,Latin American
-arepa rice,Indian,1,Latin American
-arepa rice,Vietnamese,1,Latin American
-garlic hummus,Indian,1,Indian
-garlic hummus,Caribbean,1,Indian
-garlic hummus,Mediterranean,3,Indian
-chips and salsa,Mexican,3,Mexican
-falafel,Middle Eastern,3,Mediterranean
-falafel,Mediterranean,2,Mediterranean
-drunken noodles,Noodles,3,Chinese
-drunken noodles,Chinese,2,Chinese
-drunken noodles,Vietnamese,2,Chinese
-catfish,Japanese,1,Cajun/Creole
-catfish,Southern,3,Cajun/Creole
-watch the game,Sports Bars,3,American (Traditional)
-watch the game,Chicken Wings,2,American (Traditional)
-sweet basil,Thai,3,Canadian (New)
-sweet basil,Caribbean,1,Canadian (New)
-sweet basil,Desserts,1,Canadian (New)
-chocolate truffles,Spanish,2,Canadian (New)
-chocolate truffles,Desserts,3,Canadian (New)
-"warm food, large portions",Soul Food,3,Tapas Bars
-"warm food, large portions",Mediterranean,2,Tapas Bars
-crab legs,Seafood,3,Buffets
-crab legs,Japanese,2,Buffets
-bulgogi,Korean,3,Korean
-bulgogi,Vietnamese,1,Korean
-yellowtail sashimi,Japanese,3,Japanese
-frozen yogurt smoothie,Desserts,3,Vegan
-frozen yogurt smoothie,Juice Bars & Smoothies,3,Vegan
-spicy meatballs,Italian,3,Asian Fusion
-spicy meatballs,Noodles,2,Asian Fusion
-spicy meatballs,Indian,1,Asian Fusion
-spicy meatballs,Caribbean,1,Asian Fusion
-ahi tuna,Hawaiian,3,Hawaiian
-ahi tuna,Japanese,3,Hawaiian
-har gow,Dim Sum,3,Chinese
-har gow,Chinese,3,Chinese
-waffles and chocolate,Desserts,3,Canadian (New)
-rice and beans,Caribbean,3,Mexican
-rice and beans,Latin American,3,Mexican
-rice and beans,Mexican,3,Mexican
-bagel sandwiches,Delis,3,Delis
-bagel sandwiches,Food Stands,2,Delis
-bagel sandwiches,Mediterranean,1,Delis
-bagel sandwiches,Burgers,1,Delis
-homemade poutine,Diners,3,Sandwiches
-homemade poutine,Food Stands,2,Sandwiches
-homemade poutine,Mediterranean,1,Sandwiches
-homemade poutine,Burgers,1,Sandwiches
-hush puppies,Southern,3,Cajun/Creole
-spicy tomato-based sauce,Spanish,3,Asian Fusion
-spicy tomato-based sauce,Caribbean,2,Asian Fusion
-spicy grean beans,Sushi Bars,3,Asian Fusion
-spicy grean beans,Indian,1,Asian Fusion
-spicy grean beans,Caribbean,1,Asian Fusion
-spicy black beans,Indian,1,Asian Fusion
-spicy black beans,Tex-Mex,3,Asian Fusion
-spicy black beans,Noodles,1,Asian Fusion
-spicy black beans,Caribbean,2,Asian Fusion
-spicy stir-fry,Indian,1,Asian Fusion
-spicy stir-fry,Thai,3,Asian Fusion
-spicy stir-fry,Noodles,2,Asian Fusion
-spicy stir-fry,Caribbean,1,Asian Fusion
-spicy chillies,Indian,1,Asian Fusion
-spicy chillies,Vietnamese,2,Asian Fusion
-spicy chillies,Noodles,1,Asian Fusion
-spicy chillies,Caribbean,2,Asian Fusion
-lentils and lamb,Middle Eastern,3,Indian
-lentils and lamb,Caribbean,1,Indian
-lentils and lamb,Indian,2,Indian
-bbq duck,Korean,3,Chinese
-bbq duck,Barbeque,3,Chinese
-smoked salmon,French,2,Tapas Bars
-smoked salmon,Barbeque,2,Tapas Bars
-smoked salmon,Japanese,1,Tapas Bars
-ravioli,Italian,3,Italian
-ravioli,Soup,1,Italian
-ravioli,Mediterranean,2,Italian
-paneer saag,Pakistani,3,Indian
-paneer saag,Indian,3,Indian
-greasy spoon big portions,Greek,1,Barbeque
-greasy spoon big portions,Diners,3,Barbeque
-greasy spoon big portions,Korean,1,Barbeque
-greasy spoon big portions,Barbeque,2,Barbeque
-mongolian,Chinese,3,Chinese
-mongolian,Vietnamese,1,Chinese
-crab cakes,Cajun/Creole,2,Cajun/Creole
-crab cakes,Barbeque,1,Cajun/Creole
-crab cakes,Seafood,3,Cajun/Creole
-haggis,British,3,Fish & Chips
-haggis,Barbeque,2,Fish & Chips
-kalua,Asian Fusion,3,Hawaiian
-kalua,Korean,2,Hawaiian
-kalua,Barbeque,1,Hawaiian
-homemade pasta,Bakeries,3,Italian
-homemade pasta,Soup,1,Italian
-homemade pasta,Mediterranean,2,Italian
-horchata,Bars,3,Mexican
-horchata,Mexican,3,Mexican
-creme brulee,Brasseries,3,Canadian (New)
-creme brulee,Desserts,3,Canadian (New)
-eggs,Food Trucks,1,Diners
-eggs,Breakfast & Brunch,3,Diners
-espresso drinks,Cafes,3,Cafes
-espresso drinks,Tapas Bars,1,Cafes
-espresso drinks,Desserts,2,Cafes
-espresso drinks,Ice Cream & Frozen Yogurt,2,Cafes
-pastry with goat filling,Caribbean,3,Canadian (New)
-pastry with goat filling,Desserts,2,Canadian (New)
-poutine with gravy and bacon,Food Trucks,2,Burgers
-poutine with gravy and bacon,Diners,3,Burgers
-poutine with gravy and bacon,Burgers,1,Burgers
-corned beef hash,Diners,3,Latin American
-corned beef hash,Korean,1,Latin American
-corned beef hash,Caribbean,1,Latin American
-truffles,French,3,Tapas Bars
-truffles,Desserts,1,Tapas Bars
-sauerkraut,German,3,Delis
-sauerkraut,Barbeque,1,Delis
-gyros,Greek,3,Mediterranean
-gyros,Mediterranean,3,Mediterranean
-cold dessert,Ice Cream & Frozen Yogurt,3,Korean
-cold dessert,Desserts,3,Korean
-curry,Noodles,1,Indian
-curry,Indian,3,Indian
-spaghetti and meatballs,Soup,1,Italian
-spaghetti and meatballs,Italian,3,Italian
-spaghetti and meatballs,Mediterranean,2,Italian
-tacos,Mexican,3,Mexican
-pasta,Soup,1,Italian
-pasta,Noodles,3,Italian
-pasta,Mediterranean,2,Italian
-pepperoni,Pizza,3,Pizza
-draft beers,Pubs,3,Gastropubs
-draft beers,Irish,3,Gastropubs
-healthy,Vegan,3,Mediterranean
-healthy,Salad,3,Mediterranean
-healthy,Mediterranean,2,Mediterranean
-grilled cheese,Food Trucks,3,Barbeque
-grilled cheese,Sandwiches,3,Barbeque
-grilled cheese,Burgers,2,Barbeque
-lobster,Seafood,3,Seafood
-lobster,Japanese,1,Seafood
-chicken noodle,Soup,3,Chinese
-chicken noodle,Indian,1,Chinese
-chicken noodle,Caribbean,1,Chinese
-fired chicken,Indian,1,Chinese
-fired chicken,Southern,3,Chinese
-fired chicken,Caribbean,2,Chinese
-pad thai,Indian,1,Chinese
-pad thai,Noodles,3,Chinese
-pad thai,Thai,3,Chinese
-pad thai,Vietnamese,1,Chinese
-leafy greens,Mexican,1,Mediterranean
-leafy greens,Latin American,1,Mediterranean
-leafy greens,Vegan,3,Mediterranean
-leafy greens,Caribbean,1,Mediterranean
-pho,Vietnamese,3,Vietnamese
-wine tastings,Tapas/Small Plates,2,Tapas Bars
-wine tastings,Wine Bars,3,Tapas Bars
-wine tastings,Spanish,2,Tapas Bars
-baguette,Vegan,1,Delis
-baguette,French,3,Delis
-baguette,Bakeries,3,Delis
-Somalian,Thai,1,African
-burger and fries,Hot Dogs,2,Burgers
-cookies,Diners,1,Canadian (New)
-pulled pork,Latin American,2,Barbeque
-cocktails,Irish,1,Tapas Bars
-hash browns,Latin American,1,Diners
-smoked fish,Cajun/Creole,2,Seafood
-sweet potato fries,Latin American,1,Cajun/Creole
-coffee and a sandwich,Mediterranean,2,Sandwiches
-plantains,Latin American,2,Latin American
-dry rubbed wings,Barbeque,3,Barbeque
-dumplings,Korean,2,Chinese
-chai latte,Vietnamese,1,Indian
-comfort food,Irish,2,Korean
-reuben,Barbeque,1,Delis
-sweets,Barbeque,1,Canadian (New)
-pork buns,Barbeque,1,Chinese
-cheap beer,Buffets,1,Mexican
-corndogs,Latin American,1,Mediterranean
-sashimi,Sushi Bars,3,Japanese
-buttery bread,Fish & Chips,2,Canadian (New)
-mac and cheese,Latin American,1,Cajun/Creole
-naan,Mediterranean,3,Indian
-california roll,Mexican,1,Sushi Bars
-small plates and wine,Irish,1,Tapas Bars
-noodle bowl,Korean,2,Chinese
-vegan cookies,Diners,1,Vegan
-carne asada,Latin American,2,Mexican
-intimate setting with wine pairings,Irish,1,Tapas Bars
-clam chowder,Latin American,1,Seafood
-thin crust,Mediterranean,1,Pizza
-authentic Polish,Thai,1,Latin American
-Fish and Chips,Cajun/Creole,1,Seafood
-lemonade,Cafes,2,American (New)
-chili dog,Latin American,1,Latin American
-chips and salsa,Latin American,2,Mexican
-drunken noodles,Korean,2,Chinese
-catfish,Cajun/Creole,3,Cajun/Creole
-watch the game,Canadian (New),2,American (Traditional)
-sweet basil,Barbeque,1,Canadian (New)
-chocolate truffles,Diners,1,Canadian (New)
-"warm food, large portions",Fish & Chips,2,Tapas Bars
-yellowtail sashimi,Sushi Bars,3,Japanese
-frozen yogurt smoothie,Fish & Chips,1,Vegan
-spicy meatballs,Latin American,1,Asian Fusion
-har gow,Delis,1,Chinese
-waffles and chocolate,Diners,2,Canadian (New)
-hush puppies,Cajun/Creole,2,Cajun/Creole
-spicy tomato-based sauce,Latin American,2,Asian Fusion
-spicy grean beans,Latin American,1,Asian Fusion
-spicy black beans,Latin American,3,Asian Fusion
-spicy stir-fry,Latin American,3,Asian Fusion
-spicy chillies,Latin American,3,Asian Fusion
-lentils and lamb,Barbeque,1,Indian
-smoked salmon,Latin American,1,Tapas Bars
-greasy spoon big portions,Fish & Chips,2,Barbeque
-kalua,Filipino,1,Hawaiian
-horchata,Latin American,1,Mexican
-creme brulee,Diners,1,Canadian (New)
-eggs,Latin American,1,Diners
-pastry with goat filling,Diners,1,Canadian (New)
-poutine with gravy and bacon,Latin American,1,Burgers
-corned beef hash,Latin American,1,Latin American
-truffles,Italian,1,Tapas Bars
-cold dessert,Fish & Chips,1,Korean
-tacos,Latin American,2,Mexican
-pepperoni,Mediterranean,1,Pizza
-grilled cheese,Barbeque,1,Barbeque
-chicken noodle,Latin American,1,Chinese
-fired chicken,Latin American,2,Chinese
-pad thai,Filipino,1,Chinese
-wine tastings,Irish,1,Tapas Bars
-baguette,Mediterranean,2,Delis
-cookies,Vegan,1,Canadian (New)
-comfort food,Vegan,1,Korean
-reuben,Mediterranean,1,Delis
-chocolate truffles,Vegan,1,Canadian (New)
-ahi tuna,Sushi Bars,3,Hawaiian
-waffles and chocolate,Vegan,1,Canadian (New)
-homemade poutine,Latin American,1,Sandwiches
-creme brulee,Vegan,1,Canadian (New)
-pastry with goat filling,Mediterranean,2,Canadian (New)
-pasta,Italian,3,Italian
-leafy greens,Breakfast & Brunch,1,Mediterranean
-Somalian,Portuguese,1,African
-unique sushi,Irish,1,Tapas Bars
-cookies,Buffets,2,Canadian (New)
-sweet potato fries,Cajun/Creole,2,Cajun/Creole
-chai latte,Indian,1,Indian
-comfort food,Thai,1,Korean
-sweets,Noodles,1,Canadian (New)
-corndogs,Mediterranean,1,Mediterranean
-mac and cheese,Seafood,1,Cajun/Creole
-fresh seafood,Salad,1,Mediterranean
-noodle bowl,Noodles,3,Chinese
-half sandwich and soup,Cheesesteaks,3,Sandwiches
-authentic Polish,Mexican,1,Latin American
-lemonade,Hot Dogs,2,American (New)
-watch the game,Portuguese,1,American (Traditional)
-sweet basil,Noodles,2,Canadian (New)
-chocolate truffles,Italian,1,Canadian (New)
-crab legs,Buffets,3,Buffets
-frozen yogurt smoothie,Hot Dogs,2,Vegan
-spicy meatballs,Thai,1,Asian Fusion
-har gow,Buffets,1,Chinese
-bagel sandwiches,Cheesesteaks,2,Delis
-homemade poutine,Hot Dogs,2,Sandwiches
-spicy tomato-based sauce,Thai,1,Asian Fusion
-spicy grean beans,Thai,2,Asian Fusion
-spicy black beans,Thai,1,Asian Fusion
-spicy chillies,Thai,2,Asian Fusion
-smoked salmon,Sushi Bars,2,Tapas Bars
-greasy spoon big portions,Pizza,2,Barbeque
-mongolian,Portuguese,1,Chinese
-haggis,Vegan,1,Fish & Chips
-homemade pasta,Italian,3,Italian
-creme brulee,Buffets,1,Canadian (New)
-pastry with goat filling,Vegan,1,Canadian (New)
-sauerkraut,Korean,1,Delis
-cold dessert,Noodles,1,Korean
-curry,Thai,2,Indian
-chicken noodle,Chinese,2,Chinese
-fired chicken,Chicken Wings,3,Chinese
-leafy greens,Salad,3,Mediterranean
-wine tastings,Tapas Bars,3,Tapas Bars
-unique sushi,Tapas Bars,2,
-cookies,Canadian (New),1,
-hash browns,Diners,3,
-brews,Gastropubs,3,
-smoked fish,Seafood,3,
-coffee and a sandwich,Sandwiches,3,
-comfort food,Korean,1,
-sweets,Canadian (New),1,
-pork buns,Chinese,3,
-cheap beer,Mexican,3,
-buttery bread,Canadian (New),2,
-mac and cheese,Cajun/Creole,2,
-small plates and wine,Tapas Bars,3,
-tavern with a friendly bartender,Gastropubs,3,
-authentic Polish,Latin American,1,
-Fish and Chips,Seafood,3,
-lemonade,American (New),2,
-watch the game,American (Traditional),3,
-sweet basil,Canadian (New),1,
-chocolate truffles,Canadian (New),2,
-"warm food, large portions",Tapas Bars,1,
-frozen yogurt smoothie,Vegan,2,
-spicy meatballs,Asian Fusion,2,
-waffles and chocolate,Canadian (New),2,
-homemade poutine,Sandwiches,2,
-spicy tomato-based sauce,Asian Fusion,1,
-spicy grean beans,Asian Fusion,1,
-spicy black beans,Asian Fusion,2,
-spicy stir-fry,Asian Fusion,3,
-spicy chillies,Asian Fusion,2,
-bbq duck,Chinese,2,
-smoked salmon,Tapas Bars,2,
-haggis,Fish & Chips,2,
-kalua,Hawaiian,3,
-creme brulee,Canadian (New),2,
-eggs,Diners,3,
-pastry with goat filling,Canadian (New),1,
-truffles,Tapas Bars,3,
-sauerkraut,Delis,3,
-cold dessert,Korean,2,
-draft beers,Gastropubs,3,
-fired chicken,Chinese,2,
-pad thai,Chinese,1,
-leafy greens,Mediterranean,2,
-baguette,Delis,3,
+query,result,new_result,scoreahi tuna,Hawaiian,Japanese,3ahi tuna,Japanese,Japanese,3ahi tuna,Sushi Bars,Japanese,3arepa rice,Latin American,Latin American,3arepa rice,Indian,Latin American,1arepa rice,Vietnamese,Latin American,1authentic Polish,Ethnic Food,Mexican,3authentic Polish,Noodles,Mexican,1authentic Polish,Halal,Mexican,1authentic Polish,Vietnamese,Mexican,1authentic Polish,Thai,Mexican,1authentic Polish,Mexican,Mexican,1authentic Polish,Latin American,Mexican,1bagel sandwiches,Delis,Sandwiches,3bagel sandwiches,Food Stands,Sandwiches,2bagel sandwiches,Mediterranean,Sandwiches,1bagel sandwiches,Burgers,Sandwiches,1bagel sandwiches,Cheesesteaks,Sandwiches,2bagel sandwiches,Sandwiches,Sandwiches,3baguette,Vegan,Delis,1baguette,French,Delis,3baguette,Bakeries,Delis,3baguette,Mediterranean,Delis,2baguette,Delis,Delis,3bbq duck,Korean,Barbeque,3bbq duck,Barbeque,Barbeque,3bbq duck,Chinese,Barbeque,2brews,Breweries,Gastropubs,3brews,Pubs,Gastropubs,3brews,Irish,Gastropubs,3brews,Gastropubs,Gastropubs,3brisket,Barbeque,Barbeque,3bulgogi,Korean,Korean,3bulgogi,Vietnamese,Korean,1burger and fries,American (Traditional),Burgers,3burger and fries,Burgers,Burgers,3burger and fries,Hot Dogs,Burgers,2buttery bread,Vegan,Canadian (New),1buttery bread,French,Canadian (New),3buttery bread,Bakeries,Canadian (New),3buttery bread,Fish & Chips,Canadian (New),2buttery bread,Canadian (New),Canadian (New),2california roll,Sushi Bars,Japanese,3california roll,Japanese,Japanese,3california roll,Mexican,Japanese,1carne asada,Tex-Mex,Mexican,3carne asada,Mexican,Mexican,3carne asada,Latin American,Mexican,2catfish,Japanese,Cajun/Creole,1catfish,Southern,Cajun/Creole,3catfish,Cajun/Creole,Cajun/Creole,3chai latte,Coffee & Tea,Indian,3chai latte,Desserts,Indian,2chai latte,Vietnamese,Indian,1chai latte,Indian,Indian,1cheap beer,Dive Bars,Mexican,3cheap beer,Irish,Mexican,2cheap beer,Buffets,Mexican,1cheap beer,Mexican,Mexican,3chicken noodle,Soup,Chinese,3chicken noodle,Indian,Chinese,1chicken noodle,Caribbean,Chinese,1chicken noodle,Latin American,Chinese,1chicken noodle,Chinese,Chinese,2chili dog,Hot Dogs,Mexican,3chili dog,Food Trucks,Mexican,3chili dog,Mexican,Mexican,1chili dog,Caribbean,Mexican,1chili dog,Latin American,Mexican,1chips and salsa,Mexican,Mexican,3chips and salsa,Latin American,Mexican,2chocolate truffles,Spanish,Canadian (New),2chocolate truffles,Desserts,Canadian (New),3chocolate truffles,Diners,Canadian (New),1chocolate truffles,Vegan,Canadian (New),1chocolate truffles,Italian,Canadian (New),1chocolate truffles,Canadian (New),Canadian (New),2clam chowder,Soup,Seafood,3clam chowder,Seafood,Seafood,3clam chowder,Latin American,Seafood,1cocktails,Bars,Tapas Bars,3cocktails,Tapas/Small Plates,Tapas Bars,3cocktails,Tapas Bars,Tapas Bars,3cocktails,Spanish,Tapas Bars,1cocktails,Irish,Tapas Bars,1coffee and a sandwich,Bakeries,Sandwiches,1coffee and a sandwich,Cafes,Sandwiches,3coffee and a sandwich,Vegan,Sandwiches,1coffee and a sandwich,Burgers,Sandwiches,2coffee and a sandwich,Mediterranean,Sandwiches,2coffee and a sandwich,Sandwiches,Sandwiches,3cold dessert,Ice Cream & Frozen Yogurt,Korean,3cold dessert,Desserts,Korean,3cold dessert,Fish & Chips,Korean,1cold dessert,Noodles,Korean,1cold dessert,Korean,Korean,2comfort food,Comfort Food,Mexican,3comfort food,Pakistani,Mexican,2comfort food,Halal,Mexican,2comfort food,Irish,Mexican,2comfort food,Vegan,Mexican,1comfort food,Thai,Mexican,1comfort food,Korean,Mexican,1comfort food,Mexican,Mexican,2cookies,Bakeries,Buffets,3cookies,Desserts,Buffets,3cookies,Diners,Buffets,1cookies,Vegan,Buffets,1cookies,Buffets,Buffets,2cookies,Canadian (New),Buffets,1corndogs,Food Stands,Mediterranean,3corndogs,Food Trucks,Mediterranean,3corndogs,Mexican,Mediterranean,1corndogs,Latin American,Mediterranean,1corndogs,Mediterranean,Mediterranean,1corned beef hash,Diners,Latin American,3corned beef hash,Korean,Latin American,1corned beef hash,Caribbean,Latin American,1corned beef hash,Latin American,Latin American,1crab cakes,Cajun/Creole,Cajun/Creole,2crab cakes,Barbeque,Cajun/Creole,1crab cakes,Seafood,Cajun/Creole,3crab legs,Seafood,Buffets,3crab legs,Japanese,Buffets,2crab legs,Buffets,Buffets,3creme brulee,Brasseries,Buffets,3creme brulee,Desserts,Buffets,3creme brulee,Diners,Buffets,1creme brulee,Vegan,Buffets,1creme brulee,Buffets,Buffets,1creme brulee,Canadian (New),Buffets,2curry,Noodles,Indian,1curry,Indian,Indian,3curry,Thai,Indian,2draft beers,Pubs,Gastropubs,3draft beers,Irish,Gastropubs,3draft beers,Gastropubs,Gastropubs,3drunken noodles,Noodles,Chinese,3drunken noodles,Chinese,Chinese,2drunken noodles,Vietnamese,Chinese,2drunken noodles,Korean,Chinese,2dry rubbed wings,Chicken Wings,Barbeque,3dry rubbed wings,Caribbean,Barbeque,1dry rubbed wings,Barbeque,Barbeque,3dumplings,Vietnamese,Chinese,2dumplings,Chinese,Chinese,3dumplings,Korean,Chinese,2eggs,Food Trucks,Breakfast & Brunch,1eggs,Breakfast & Brunch,Breakfast & Brunch,3eggs,Latin American,Breakfast & Brunch,1eggs,Diners,Breakfast & Brunch,3espresso drinks,Cafes,Cafes,3espresso drinks,Tapas Bars,Cafes,1espresso drinks,Desserts,Cafes,2espresso drinks,Ice Cream & Frozen Yogurt,Cafes,2falafel,Middle Eastern,Mediterranean,3falafel,Mediterranean,Mediterranean,2filet mignon,Barbeque,Steakhouses,1filet mignon,Steakhouses,Steakhouses,3filet mignon,Southern,Steakhouses,1fried chicken,Indian,Indian,1fried chicken,Southern,Indian,3fried chicken,Caribbean,Indian,2fried chicken,Latin American,Indian,2fried chicken,Chicken Wings,Indian,3fried chicken,Chinese,Indian,2Fish and Chips,Fish & Chips,Seafood,3Fish and Chips,Food Trucks,Seafood,2Fish and Chips,Mexican,Seafood,1Fish and Chips,Burgers,Seafood,1Fish and Chips,Cajun/Creole,Seafood,1Fish and Chips,Seafood,Seafood,3fresh seafood,Soup,Mediterranean,2fresh seafood,Meat Shops,Mediterranean,2fresh seafood,Mediterranean,Mediterranean,2fresh seafood,Salad,Mediterranean,1fresh seafood,Seafood,Mediterranean,3frozen yogurt smoothie,Desserts,Vegan,3frozen yogurt smoothie,Juice Bars & Smoothies,Vegan,3frozen yogurt smoothie,Fish & Chips,Vegan,1frozen yogurt smoothie,Hot Dogs,Vegan,2frozen yogurt smoothie,Vegan,Vegan,2garlic hummus,Indian,Indian,1garlic hummus,Caribbean,Indian,1garlic hummus,Mediterranean,Indian,3greasy spoon big portions,Greek,Burgers,1greasy spoon big portions,Diners,Burgers,3greasy spoon big portions,Korean,Burgers,1greasy spoon big portions,Barbeque,Burgers,2greasy spoon big portions,Fish & Chips,Burgers,2greasy spoon big portions,Pizza,Burgers,2greasy spoon big portions,Burgers,Burgers,3grilled cheese,Food Trucks,Mediterranean,3grilled cheese,Sandwiches,Mediterranean,3grilled cheese,Burgers,Mediterranean,2grilled cheese,Barbeque,Mediterranean,1grilled cheese,Mediterranean,Mediterranean,1Guinness,Desserts,Irish,2Guinness,Irish,Irish,3gumbo,Cajun/Creole,Cajun/Creole,3gumbo,Chinese,Cajun/Creole,1gumbo,Southern,Cajun/Creole,3gyro,Greek,Mediterranean,3gyro,Mediterranean,Mediterranean,3gyros,Greek,Mediterranean,3gyros,Mediterranean,Mediterranean,3haggis,British,Fish & Chips,3haggis,Barbeque,Fish & Chips,2haggis,Vegan,Fish & Chips,1haggis,Fish & Chips,Fish & Chips,2half sandwich and soup,Sandwiches,Sandwiches,3half sandwich and soup,Soup,Sandwiches,3half sandwich and soup,Mediterranean,Sandwiches,1half sandwich and soup,Caribbean,Sandwiches,1half sandwich and soup,Cheesesteaks,Sandwiches,3har gow,Dim Sum,Chinese,3har gow,Chinese,Chinese,3har gow,Delis,Chinese,1har gow,Buffets,Chinese,1hash browns,Breakfast & Brunch,Breakfast & Brunch,3hash browns,Latin American,Breakfast & Brunch,1hash browns,Diners,Breakfast & Brunch,3healthy,Vegan,Buffets,3healthy,Salad,Buffets,3healthy,Mediterranean,Buffets,3healthy,Buffets,Buffets,1homemade pasta,Bakeries,Italian,3homemade pasta,Soup,Italian,1homemade pasta,Mediterranean,Italian,2homemade pasta,Italian,Italian,3homemade poutine,Diners,Burgers,3homemade poutine,Food Stands,Burgers,2homemade poutine,Mediterranean,Burgers,1homemade poutine,Burgers,Burgers,1homemade poutine,Latin American,Burgers,1homemade poutine,Hot Dogs,Burgers,2homemade poutine,Sandwiches,Burgers,2horchata,Bars,Mexican,3horchata,Mexican,Mexican,3horchata,Latin American,Mexican,3hush puppies,Southern,Cajun/Creole,3hush puppies,Cajun/Creole,Cajun/Creole,2intimate setting with wine pairings,Tapas Bars,Tapas Bars,2intimate setting with wine pairings,Tapas/Small Plates,Tapas Bars,2intimate setting with wine pairings,Spanish,Tapas Bars,3intimate setting with wine pairings,Irish,Tapas Bars,1kalua,Asian Fusion,Hawaiian,1kalua,Korean,Hawaiian,2kalua,Barbeque,Hawaiian,1kalua,Filipino,Hawaiian,1kalua,Hawaiian,Hawaiian,3kimchi,Korean,Korean,3kimchi,Vietnamese,Korean,1lamb curry,Caribbean,Indian,1lamb curry,Indian,Indian,3leafy greens,Mexican,Mediterranean,1leafy greens,Latin American,Mediterranean,1leafy greens,Vegan,Mediterranean,3leafy greens,Caribbean,Mediterranean,1leafy greens,Breakfast & Brunch,Mediterranean,1leafy greens,Salad,Mediterranean,3leafy greens,Mediterranean,Mediterranean,2lemonade,Food Stands,American (New),3lemonade,Desserts,American (New),2lemonade,Cafes,American (New),2lemonade,Hot Dogs,American (New),2lemonade,American (New),American (New),2lentils and lamb,Middle Eastern,Indian,3lentils and lamb,Caribbean,Indian,1lentils and lamb,Indian,Indian,2lentils and lamb,Barbeque,Indian,1lobster,Seafood,Seafood,3lobster,Japanese,Seafood,1mac and cheese,Gastropubs,Cajun/Creole,3mac and cheese,Food Trucks,Cajun/Creole,2mac and cheese,Burgers,Cajun/Creole,1mac and cheese,Latin American,Cajun/Creole,1mac and cheese,Seafood,Cajun/Creole,1mac and cheese,Cajun/Creole,Cajun/Creole,1mongolian,Chinese,Chinese,3mongolian,Vietnamese,Chinese,1mongolian,Portuguese,Chinese,1naan,Halal,Indian,3naan,Indian,Indian,3naan,Mediterranean,Indian,2noodle bowl,Chinese,Chinese,2noodle bowl,Vietnamese,Chinese,3noodle bowl,Korean,Chinese,2noodle bowl,Noodles,Chinese,3pad thai,Indian,Thai,1pad thai,Noodles,Thai,3pad thai,Thai,Thai,3pad thai,Vietnamese,Thai,1pad thai,Filipino,Thai,1pad thai,Chinese,Thai,1paneer saag,Pakistani,Indian,3paneer saag,Indian,Indian,3pasta,Soup,Italian,1pasta,Noodles,Italian,3pasta,Mediterranean,Italian,2pasta,Italian,Italian,3pastry with goat filling,Caribbean,American (New),3pastry with goat filling,Desserts,American (New),2pastry with goat filling,Diners,American (New),1pastry with goat filling,Mediterranean,American (New),2pastry with goat filling,Vegan,American (New),1pastry with goat filling,Canadian (New),American (New),1pastry with goat filling,American (New),American (New),1pepperoni,Pizza,Pizza,3pepperoni,Mediterranean,Pizza,1pho,Vietnamese,Vietnamese,3plantains,Food Trucks,Latin American,1plantains,Mexican,Latin American,2plantains,Caribbean,Latin American,3plantains,Latin American,Latin American,3pork buns,Dim Sum,Chinese,3pork buns,Korean,Chinese,2pork buns,Vietnamese,Chinese,2pork buns,Barbeque,Chinese,1pork buns,Chinese,Chinese,3poutine with gravy and bacon,Food Trucks,Burgers,2poutine with gravy and bacon,Diners,Burgers,3poutine with gravy and bacon,Burgers,Burgers,3poutine with gravy and bacon,Latin American,Burgers,1pulled pork,Mexican,Barbeque,2pulled pork,Barbeque,Barbeque,3pulled pork,Food Trucks,Barbeque,2pulled pork,Burgers,Barbeque,2pulled pork,Latin American,Barbeque,2ravioli,Italian,Italian,3ravioli,Soup,Italian,1ravioli,Mediterranean,Italian,2reuben,Delis,Delis,3reuben,Food Stands,Delis,2reuben,Burgers,Delis,1reuben,Barbeque,Delis,1reuben,Mediterranean,Delis,1rice and beans,Caribbean,Mexican,3rice and beans,Latin American,Mexican,3rice and beans,Mexican,Mexican,3salad bar,Salad,Mediterranean,3salad bar,Soup,Mediterranean,2salad bar,Mediterranean,Mediterranean,2samosas,Pakistani,Indian,3samosas,Indian,Indian,3sashimi,Japanese,Japanese,3sashimi,Sushi Bars,Japanese,3sauerkraut,German,Delis,3sauerkraut,Barbeque,Delis,1sauerkraut,Korean,Delis,1sauerkraut,Delis,Delis,3small plates and wine,Tapas/Small Plates,Tapas Bars,3small plates and wine,Seafood,Tapas Bars,1small plates and wine,Barbeque,Tapas Bars,1small plates and wine,Irish,Tapas Bars,1small plates and wine,Tapas Bars,Tapas Bars,3smoked fish,British,Seafood,2smoked fish,Japanese,Seafood,1smoked fish,Barbeque,Seafood,2smoked fish,Cajun/Creole,Seafood,2smoked fish,Seafood,Seafood,3smoked salmon,French,Seafood,2smoked salmon,Barbeque,Seafood,2smoked salmon,Japanese,Seafood,1smoked salmon,Latin American,Seafood,1smoked salmon,Sushi Bars,Seafood,2smoked salmon,Tapas Bars,Seafood,2smoked salmon,Seafood,Seafood,3Somalian,African,Middle Eastern,3Somalian,Halal,Middle Eastern,2Somalian,Thai,Middle Eastern,1Somalian,Portuguese,Middle Eastern,1Somalian,Middle Eastern,Middle Eastern,1spaghetti and meatballs,Soup,Italian,1spaghetti and meatballs,Italian,Italian,3spaghetti and meatballs,Mediterranean,Italian,2spicy black beans,Indian,Korean,1spicy black beans,Tex-Mex,Korean,3spicy black beans,Noodles,Korean,1spicy black beans,Caribbean,Korean,2spicy black beans,Latin American,Korean,3spicy black beans,Thai,Korean,1spicy black beans,Asian Fusion,Korean,2spicy black beans,Korean,Korean,1spicy chillies,Indian,Korean,1spicy chillies,Vietnamese,Korean,2spicy chillies,Noodles,Korean,1spicy chillies,Caribbean,Korean,2spicy chillies,Latin American,Korean,3spicy chillies,Thai,Korean,2spicy chillies,Asian Fusion,Korean,2spicy chillies,Korean,Korean,2spicy grean beans,Sushi Bars,Korean,3spicy grean beans,Indian,Korean,1spicy grean beans,Caribbean,Korean,1spicy grean beans,Latin American,Korean,1spicy grean beans,Thai,Korean,2spicy grean beans,Asian Fusion,Korean,1spicy grean beans,Korean,Korean,2spicy meatballs,Italian,Korean,3spicy meatballs,Noodles,Korean,2spicy meatballs,Indian,Korean,1spicy meatballs,Caribbean,Korean,1spicy meatballs,Latin American,Korean,1spicy meatballs,Thai,Korean,1spicy meatballs,Asian Fusion,Korean,2spicy meatballs,Korean,Korean,2spicy stir-fry,Indian,Korean,1spicy stir-fry,Thai,Korean,3spicy stir-fry,Noodles,Korean,2spicy stir-fry,Caribbean,Korean,1spicy stir-fry,Latin American,Korean,3spicy stir-fry,Asian Fusion,Korean,3spicy stir-fry,Korean,Korean,3spicy tomato-based sauce,Spanish,Korean,3spicy tomato-based sauce,Caribbean,Korean,2spicy tomato-based sauce,Latin American,Korean,2spicy tomato-based sauce,Thai,Korean,1spicy tomato-based sauce,Asian Fusion,Korean,1spicy tomato-based sauce,Korean,Korean,1sweet basil,Thai,American (New),3sweet basil,Caribbean,American (New),1sweet basil,Desserts,American (New),1sweet basil,Barbeque,American (New),1sweet basil,Noodles,American (New),2sweet basil,Canadian (New),American (New),1sweet basil,American (New),American (New),1sweet potato fries,Burgers,Cajun/Creole,3sweet potato fries,Latin American,Cajun/Creole,1sweet potato fries,Cajun/Creole,Cajun/Creole,2sweets,Desserts,American (New),3sweets,Barbeque,American (New),1sweets,Noodles,American (New),1sweets,Canadian (New),American (New),1sweets,American (New),American (New),2tacos,Mexican,Mexican,3tacos,Latin American,Mexican,2tavern with a friendly bartender,Pubs,Gastropubs,3tavern with a friendly bartender,Irish,Gastropubs,2tavern with a friendly bartender,Chicken Wings,Gastropubs,2tavern with a friendly bartender,Gastropubs,Gastropubs,3thin crust,Pizza,Pizza,3thin crust,Mediterranean,Pizza,1truffles,French,Tapas Bars,3truffles,Desserts,Tapas Bars,1truffles,Italian,Tapas Bars,1truffles,Tapas Bars,Tapas Bars,3unique sushi,Asian Fusion,Canadian (New),3unique sushi,Japanese,Canadian (New),3unique sushi,Irish,Canadian (New),1unique sushi,Tapas Bars,Canadian (New),2unique sushi,Canadian (New),Canadian (New),1unlimited shrimp,Buffets,Buffets,3unlimited shrimp,Chinese,Buffets,1unlimited shrimp,Japanese,Buffets,2vegan cookies,Coffee & Tea,Vegan,1vegan cookies,Vegan,Vegan,3vegan cookies,Desserts,Vegan,3vegan cookies,Diners,Vegan,1waffles and chocolate,Desserts,Breakfast & Brunch,3waffles and chocolate,Diners,Breakfast & Brunch,2waffles and chocolate,Vegan,Breakfast & Brunch,1waffles and chocolate,Canadian (New),Breakfast & Brunch,2waffles and chocolate,Breakfast & Brunch,Breakfast & Brunch,3"warm food, large portions",Soul Food,American (New),3"warm food, large portions",Mediterranean,American (New),2"warm food, large portions",Fish & Chips,American (New),2"warm food, large portions",Tapas Bars,American (New),1"warm food, large portions",American (New),American (New),3watch the game,Sports Bars,American (Traditional),3watch the game,Chicken Wings,American (Traditional),2watch the game,Canadian (New),American (Traditional),2watch the game,Portuguese,American (Traditional),1watch the game,American (Traditional),American (Traditional),3wine tastings,Tapas/Small Plates,Tapas Bars,2wine tastings,Wine Bars,Tapas Bars,3wine tastings,Spanish,Tapas Bars,2wine tastings,Irish,Tapas Bars,1wine tastings,Tapas Bars,Tapas Bars,3yellowtail sashimi,Japanese,Japanese,3yellowtail sashimi,Sushi Bars,Japanese,3

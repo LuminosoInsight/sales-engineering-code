@@ -414,7 +414,7 @@ def optimize_weights(weights, data):
                                      bounds=[(0.00001, 1.0),
                                              (0, 1.0),
                                              (0.00001, 1.0),
-                                             (1.0, 10.0)],
+                                             (1.0, 20.0)],
                                      args=(data,),
                                      maxiter=100)
     print(results)
@@ -452,7 +452,8 @@ if __name__ == '__main__':
                                    data)
         optimal_weights = results.x
     else:
-        optimal_weights = [ 0.02463569,  0.6435483 ,  0.71295812,  8.03028856]
+        optimal_weights = [ 0.01113418,  0.36183964,  0.37692194,  9.99969457]
+        #[ 0.02463569,  0.6435483 ,  0.71295812,  8.03028856]
         #[ 0.69229096,  0.06517147,  0.52024399,  1.17443286]
 
     subset_details = create_subset_details_v3(client,
