@@ -80,9 +80,9 @@ def tableau_export():
     doc_term = (request.form.get('doc_term') == 'on')
     doc_topic = (request.form.get('doc_topic') == 'on')
     doc_subset = (request.form.get('doc_subset') == 'on')
-    themes = (request.form.get('themes') == 'on')
-    skt = (request.form.get('skt') == 'on')
-    drivers = (request.form.get('drivers') == 'on')
+    themes_on = (request.form.get('themes') == 'on')
+    skt_on = (request.form.get('skt') == 'on')
+    drivers_on = (request.form.get('drivers') == 'on')
     trends = (request.form.get('trends') == 'on')
     topic_drive = (request.form.get('topic_drive') == 'on')
     average_score = (request.form.get('average_score') == 'on')
@@ -109,15 +109,15 @@ def tableau_export():
         doc_subset_table = create_doc_subset_table(client, docs, subsets)
         write_table_to_csv(doc_subset_table, foldername, 'doc_subset_table.csv')
     
-    if themes:
+    if themes_on:
         themes_table = create_themes_table(client, themes)
         write_table_to_csv(themes_table, foldername, 'themes_table.csv')
 
-    if skt:
+    if skt_on:
         skt_table = create_skt_table(client, skt)
         write_table_to_csv(skt_table, foldername, 'skt_table.csv')
     
-    if drivers:
+    if drivers_on:
         driver_table = create_drivers_table(client, drivers, topic_drive, average_score)
         write_table_to_csv(driver_table, foldername, 'drivers_table.csv')
     
