@@ -201,7 +201,7 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000,
     return subset_scores
 
 
-def vectorize_query(query_terms, client, shared_text):
+def vectorize_query(query_terms, client, sst_list, sst_weight):
     '''
     Create a search vector based on the search query input by the user and
     weighting of the resulting match score based on the search query's length
@@ -214,11 +214,11 @@ def vectorize_query(query_terms, client, shared_text):
         if term['vector']:
             texts.append(term['text'])
             term_vectors.append(unpack64(term['vector']))
-            if term['term'] in shared_text:
-                term_weights.append(term['score'])
+            if term['term'] in sst_list:#and sst_list[term['term']] > sst_weight:
+                term_weights.append((1 - sst_list[term['term']]) * sst_weight)
             else:
-                term_weights.append(term['score'])
-    question_vec = np.average(term_vectors, axis=0)
+                term_weights.append(1)
+    question_vec = np.average(term_vectors, weights=term_weights, axis=0)
 
     if len(texts) > 1:
         match_score_weight = np.mean(np.dot(term_vectors,
@@ -296,7 +296,7 @@ def find_example_docs(client, subset, query_vec, n_docs=1, source_field=None):
     return example_docs
 
 
-def test_queries(client, queries, subset_details, sst_list,
+def test_queries(client, queries, subset_details, sst_list, sst_weight,
                  results_filename=None, save_file=False):
     '''
     Reads a set of queries from a CSV file and outputs a CSV file with
@@ -323,8 +323,7 @@ def test_queries(client, queries, subset_details, sst_list,
                                               for q in queries]),
                                   content_type='application/json')
     queries_docs = [[t for t, _, _ in d['terms']] for d in query_docs]
-    queries_terms = client.get('/terms', terms=list(set([t[0] for t in
-                                             [d for d in queries_docs]])))
+    queries_terms = client.get('/terms', terms=list(set([item for sublist in queries_docs for item in sublist])))
     for i, query in enumerate(queries):
         start_time = time.time()
         query_terms = [q for q in queries_terms
@@ -333,7 +332,8 @@ def test_queries(client, queries, subset_details, sst_list,
         if query_terms:
             query_vector, _ = vectorize_query(query_terms,
                                               client,
-                                              sst_list)
+                                              sst_list,
+                                              sst_weight)
             end_time = time.time()
             times['vectorize_query'].append(end_time-start_time)
             start_time = time.time()
@@ -399,6 +399,7 @@ def optimize_function(weights, data):
                                  data['queries'],
                                  subset_details,
                                  data['sst_list'],
+                                 weights[2],
                                  results_filename='intermediate_results.csv',
                                  save_file=False)
     end_time = time.time()
@@ -424,7 +425,7 @@ if __name__ == '__main__':
     client = LuminosoClient.connect('/projects/a53y655v/prtcgdw7')
 
     rebuild = False
-    optimize = False
+    optimize = True
 
     if rebuild:
         print('Rebuilding data')
@@ -433,10 +434,10 @@ if __name__ == '__main__':
         data['skt_list'] = subset_key_terms(client)
         data['subset_term_info'] = get_subset_term_info(client, 'Category',
                                                         term_count=1000)
-        pickle.dump(data, open('optimization_dataV1.p', 'wb'))
+        pickle.dump(data, open('optimization_dataV2.p', 'wb'))
     else:
         print('Loading data from file')
-        data = pickle.load(open('optimization_dataV1.p', 'rb'))
+        data = pickle.load(open('optimization_dataV2.p', 'rb'))
 
     queries = []
     queries_reader = csv.DictReader(open('intermediate_result_scores.csv', 'r'))
@@ -452,7 +453,11 @@ if __name__ == '__main__':
                                    data)
         optimal_weights = results.x
     else:
-        optimal_weights = [ 0.01113418,  0.36183964,  0.37692194,  9.99969457]
+        optimal_weights = [  9.25061528e-03,   2.96993695e-01,   1.80252751e-01,
+         1.39775613e+01]
+        #[  9.25061528e-03,   2.96993695e-01,   5.80252751e-01, 1.39775613e+01]
+        #[  4.19304125e-03, 1.22478451e-01, 4.59817417e-01, 6.20227358e+00]
+        #[ 0.01113418,  0.36183964,  0.37692194,  9.99969457]
         #[ 0.02463569,  0.6435483 ,  0.71295812,  8.03028856]
         #[ 0.69229096,  0.06517147,  0.52024399,  1.17443286]
 
@@ -472,6 +477,7 @@ if __name__ == '__main__':
                                  data['queries'],
                                  subset_details,
                                  data['sst_list'],
+                                 optimal_weights[2],
                                  results_filename='intermediate_results.csv',
                                  save_file=True)
     score_test_queries(query_results)
