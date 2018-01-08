@@ -65,8 +65,8 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
             if all([is_number(v) for v in subset_values]):
                 drivers.append(subset)
     
-    if drivers:
-        add_score_drivers_to_project(client, docs, drivers)
+        if drivers:
+            add_score_drivers_to_project(client, docs, drivers)
     return client, docs, topics, terms, subsets, drivers, skt, themes
 
 
@@ -282,6 +282,14 @@ def add_score_drivers_to_project(client, docs, drivers):
         time_waiting += 30
     print('Done recalculating. Training...')
     client.post('prediction/train')
+    time_waiting = 0
+    while True:
+        if time_waiting%30 == 0:
+            if len(client.get()['running_jobs']) == 0:
+                break
+        sys.stderr.write('\r\tWaiting for driver training ({}sec)'.format(time_waiting))
+        time.sleep(30)
+        time_waiting += 30
     print('Done training.')
 
 def create_terms_table(client, terms):

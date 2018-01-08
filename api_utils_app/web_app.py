@@ -10,7 +10,7 @@ from qualtrics_utilities import *
 import redis
 from conjunction_disjunction import get_new_results, get_current_results
 from auto_plutchik import get_all_topics, delete_all_topics, add_plutchik, copy_project
-from tableau_export_web import reorder_subsets, pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, create_trends_table, write_table_to_csv
+from tableau_export_web import reorder_subsets, pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, create_trends_table, write_table_to_csv, create_terms_table
 
 #Storage for live classifier demo
 classifiers = None

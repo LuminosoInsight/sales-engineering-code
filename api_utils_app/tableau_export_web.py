@@ -66,8 +66,8 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
             if all([is_number(v) for v in subset_values]):
                 drivers.append(subset)
         
-    if drivers:
-        add_score_drivers_to_project(client, docs, drivers)
+        if drivers:
+            add_score_drivers_to_project(client, docs, drivers)
     return client, docs, topics, terms, subsets, drivers, skt, themes
 
 
@@ -252,6 +252,14 @@ def add_score_drivers_to_project(client, docs, drivers):
         time_waiting += 30
     print('Done recalculating. Training...')
     client.post('prediction/train')
+    time_waiting = 0
+    while True:
+        if time_waiting%30 == 0:
+            if len(client.get()['running_jobs']) == 0:
+                break
+        sys.stderr.write('\r\tWaiting for driver training ({}sec)'.format(time_waiting))
+        time.sleep(30)
+        time_waiting += 30
     print('Done training.')
 
 def create_terms_table(client, terms):
@@ -277,7 +285,18 @@ def create_themes_table(client, themes):
         del theme['terms']
     return themes
                     
-
+def create_terms_table(client, terms):
+    print('Creating terms table...')
+    table = []
+    for t in terms:
+        row = {}
+        row['Term'] = t['text']
+        search_result = client.get('docs/search', terms=[t['term']])
+        row['Exact Matches'] = search_result['num_exact_matches']
+        row['Related Matches'] = search_result['num_related_matches']
+        table.append(row)
+    return table
+    
 def create_drivers_table(client, drivers, topic_drive, average_score):
     driver_table = []
     for subset in drivers:
