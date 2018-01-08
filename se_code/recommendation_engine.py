@@ -179,10 +179,10 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000,
         for term in subset_terms:
             term_in_subset = term['distinct_doc_count']
             term_outside_subset = (all_term_dict[term['term']] -
-                                   term_in_subset)
+                                   term_in_subset + 1)
             docs_in_subset = subset_counts[subset]
             docs_outside_subset = (subset_counts['__all__'] -
-                                   subset_counts[subset])
+                                   subset_counts[subset] + 1)
             table = np.array([
                 [term_in_subset, term_outside_subset],
                 [docs_in_subset, docs_outside_subset]
@@ -200,6 +200,63 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000,
 
     return subset_scores
 
+def subset_terms(client, scan_terms=1000, min_score=30):
+    '''
+    Find the most relevant terms per subset and return their p-value
+    and odds ratios
+    '''
+    subset_counts = client.get()['counts']
+    subset_key_scores = {subset: [] for subset in subset_counts}
+    subset_shared_scores = {}#subset: [] for subset in subset_counts}
+    index = 0
+    for subset in sorted(subset_counts):
+        index += 1
+        subset_terms = client.get('terms', subset=subset, limit=scan_terms)
+        length = 0
+        termlist = []
+        all_terms = []
+        for term in subset_terms:
+            if length + len(term['term']) > 1000:
+                all_terms.extend(client.get('terms', terms=termlist))
+                termlist = []
+                length = 0
+            termlist.append(term['term'])
+            length += len(term['term'])
+        if len(termlist) > 0:
+            all_terms.extend(client.get('terms', terms=termlist))
+        all_term_dict = {term['term']: term['distinct_doc_count']
+                         for term in all_terms}
+
+        for term in subset_terms:
+            term_in_subset = term['distinct_doc_count']
+            term_outside_subset = (all_term_dict[term['term']] -
+                                   term_in_subset)
+            docs_in_subset = subset_counts[subset]
+            docs_outside_subset = (subset_counts['__all__'] -
+                                   subset_counts[subset])
+            table = np.array([
+                [term_in_subset, term_outside_subset],
+                [docs_in_subset, docs_outside_subset]
+            ])
+            oddsratio, pvalue = fisher_exact(table, alternative='greater')
+
+            if term['score'] > min_score:
+                if term['term'] in subset_shared_scores:
+                    subset_shared_scores[term['term']] += pvalue
+                else:
+                    subset_shared_scores[term['term']] = pvalue
+                if subset in subset_key_scores:
+                    subset_key_scores[subset].append({'term': term['term'],
+                                                  'p-value': pvalue,
+                                                  'oddsratio': oddsratio})
+                else:
+                    subset_key_scores[subset] = [{'term': term['term'],
+                                              'p-value': pvalue,
+                                              'oddsratio': oddsratio}]
+    subset_shared_scores = {k: v/len(subset_counts) 
+                            for k, v in subset_shared_scores.items()}
+
+    return subset_shared_scores, subset_key_scores
 
 def vectorize_query(query_terms, client, shared_text):
     '''
@@ -424,13 +481,14 @@ if __name__ == '__main__':
     client = LuminosoClient.connect('/projects/a53y655v/prtcgdw7')
 
     rebuild = False
-    optimize = False
+    optimize = True
 
     if rebuild:
         print('Rebuilding data')
         data = {}
         data['sst_list'] = subset_shared_terms(client)
         data['skt_list'] = subset_key_terms(client)
+        #data['sst_list'], data['skt_list'] = subset_terms(client)
         data['subset_term_info'] = get_subset_term_info(client, 'Category',
                                                         term_count=1000)
         pickle.dump(data, open('optimization_dataV1.p', 'wb'))
