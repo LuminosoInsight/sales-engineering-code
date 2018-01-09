@@ -48,7 +48,7 @@ def get_subset_term_info(client, subset_input, term_count=500):
 
 def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
                              sst_cutoff, skt_cutoff, sst_weight, skt_weight,
-                             debug=False):
+                             debug=True):
     '''
     Creates a set of subset vectors
     skt = Subset key terms
@@ -74,7 +74,7 @@ def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
         term_weights = []
         for term in subset_terms:
             if term['term'] in shared_text:
-                term_weights.append(term['score'] * 0)
+                term_weights.append(term['score'] * .1)
             elif (subset_value in skt_text and
                   term['term'] in skt_text[subset_value]):
                 term_weights.append(np.log(term['score'] *
@@ -271,8 +271,8 @@ def vectorize_query(query_terms, client, sst_list, sst_weight):
         if term['vector']:
             texts.append(term['text'])
             term_vectors.append(unpack64(term['vector']))
-            if term['term'] in sst_list:#and sst_list[term['term']] > sst_weight:
-                term_weights.append((1 - sst_list[term['term']]) * sst_weight)
+            if term['term'] in sst_list and sst_list[term['term']] > sst_weight:
+                term_weights.append(.1)#(1 - sst_list[term['term']]) * sst_weight)
             else:
                 term_weights.append(1)
     question_vec = np.average(term_vectors, weights=term_weights, axis=0)
@@ -482,7 +482,7 @@ if __name__ == '__main__':
     client = LuminosoClient.connect('/projects/a53y655v/prtcgdw7')
 
     rebuild = False
-    optimize = True
+    optimize = False
 
     if rebuild:
         print('Rebuilding data')
@@ -511,8 +511,8 @@ if __name__ == '__main__':
                                    data)
         optimal_weights = results.x
     else:
-        optimal_weights = [  9.25061528e-03,   2.96993695e-01,   1.80252751e-01,
-         1.39775613e+01]
+        optimal_weights = [2.92725989e-03,   8.94950051e-02,   2.71150000e-02,
+         1.41931234e+01]
         #[  9.25061528e-03,   2.96993695e-01,   5.80252751e-01, 1.39775613e+01]
         #[  4.19304125e-03, 1.22478451e-01, 4.59817417e-01, 6.20227358e+00]
         #[ 0.01113418,  0.36183964,  0.37692194,  9.99969457]
