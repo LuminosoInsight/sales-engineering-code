@@ -292,7 +292,7 @@ def subset_search():
                                                  question,
                                                  subset_vecs,
                                                  subset_list,
-                                                 top_reviews=1,
+                                                 top_reviews=2,
                                                  field=field)
             return render_template('subset_search.html',
                                    urls=session['apps_to_show'],

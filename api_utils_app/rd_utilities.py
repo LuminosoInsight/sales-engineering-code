@@ -5,7 +5,7 @@ from luminoso_api import LuminosoClient
 from pack64 import unpack64
 
 
-def search_subsets(client, question, subset_vecs, subset_list, min_docs=20, top_subsets=20, top_reviews=1, field=None):
+def search_subsets(client, question, subset_vecs, subset_list, min_docs=20, top_subsets=5, top_reviews=2, field=None):
     
     # Get question vector
     q_doc = client.post_data('docs/vectors',json.dumps([{'text':question}]),content_type='application/json')[0]
@@ -27,7 +27,7 @@ def search_subsets(client, question, subset_vecs, subset_list, min_docs=20, top_
         if subset_list[idx]['count'] >= min_docs:
             matching_subset = subset_list[idx]['subset']
             if field:
-                example_docs = client.get('docs/search', vector=q_vec, limit=20000)['search_results']
+                example_docs = client.get('docs/search', vector=q_vec, limit=2000)['search_results']
                 example_docs = [e for e in example_docs if e[0]['document']['source'][field] == matching_subset]
             else:
                 example_docs = client.get('docs/search', vector=q_vec, subset=matching_subset)['search_results']
