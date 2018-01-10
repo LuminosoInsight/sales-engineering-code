@@ -230,8 +230,14 @@ def create_skt_table(client, skt):
     return skt_table
 
 
+def wait_for_jobs(client, text):
+    time_waiting = 0
+    while len(client.get()['running_jobs']) != 0:
+        sys.stderr.write('\r\tWaiting for {} ({}sec)'.format(text, time_waiting))
+        time.sleep(30)
+        time_waiting += 30
+
 def add_score_drivers_to_project(client, docs, drivers):
-   
     mod_docs = []
     for doc in docs:
         predict = {}
@@ -244,24 +250,10 @@ def add_score_drivers_to_project(client, docs, drivers):
     client.put_data('docs', json.dumps(mod_docs), content_type='application/json')
     client.post('docs/recalculate')
 
-    time_waiting = 0
-    while True:
-        if time_waiting%30 == 0:
-            if len(client.get()['running_jobs']) == 0:
-                break
-        sys.stderr.write('\r\tWaiting for recalculation ({}sec)'.format(time_waiting))
-        time.sleep(30)
-        time_waiting += 30
+    wait_for_jobs(client, 'recalculation')
     print('Done recalculating. Training...')
     client.post('prediction/train')
-    time_waiting = 0
-    while True:
-        if time_waiting%30 == 0:
-            if len(client.get()['running_jobs']) == 0:
-                break
-        sys.stderr.write('\r\tWaiting for driver training ({}sec)'.format(time_waiting))
-        time.sleep(30)
-        time_waiting += 30
+    wait_for_jobs(client, 'driver training')
     print('Done training.')
 
 def create_terms_table(client, terms):
