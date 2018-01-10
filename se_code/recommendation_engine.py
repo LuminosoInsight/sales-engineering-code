@@ -47,8 +47,8 @@ def get_subset_term_info(client, subset_input, term_count=500):
 
 
 def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
-                             sst_cutoff, skt_cutoff, sst_weight, skt_weight,
-                             debug=True):
+                             skt_cutoff, skt_weight, sst_cutoff, sst_weight,
+                             debug=False):
     '''
     Creates a set of subset vectors
     skt = Subset key terms
@@ -73,13 +73,13 @@ def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
                      for term in subset_terms]
         term_weights = []
         for term in subset_terms:
-            if term['term'] in shared_text:
-                term_weights.append(term['score'] * .1)
-            elif (subset_value in skt_text and
+            if (subset_value in skt_text and
                   term['term'] in skt_text[subset_value]):
                 term_weights.append(np.log(term['score'] *
                                     skt_text[subset_value][term['term']] *
                                     skt_weight + 1))
+            elif term['term'] in shared_text:
+                term_weights.append(term['score'] * sst_weight)
             else:
                 term_weights.append(term['score'])
         if debug:
@@ -200,6 +200,7 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000,
 
     return subset_scores
 
+
 def subset_terms(client, scan_terms=1000, min_score=30):
     '''
     Find the most relevant terms per subset and return their p-value
@@ -207,7 +208,7 @@ def subset_terms(client, scan_terms=1000, min_score=30):
     '''
     subset_counts = client.get()['counts']
     subset_key_scores = {subset: [] for subset in subset_counts}
-    subset_shared_scores = {}#subset: [] for subset in subset_counts}
+    subset_shared_scores = {}
     index = 0
     for subset in sorted(subset_counts):
         index += 1
@@ -247,18 +248,20 @@ def subset_terms(client, scan_terms=1000, min_score=30):
                     subset_shared_scores[term['term']] = pvalue
                 if subset in subset_key_scores:
                     subset_key_scores[subset].append({'term': term['term'],
-                                                  'p-value': pvalue,
-                                                  'oddsratio': oddsratio})
+                                                      'p-value': pvalue,
+                                                      'oddsratio': oddsratio})
                 else:
                     subset_key_scores[subset] = [{'term': term['term'],
-                                              'p-value': pvalue,
-                                              'oddsratio': oddsratio}]
-    subset_shared_scores = {k: v/len(subset_counts) 
+                                                  'p-value': pvalue,
+                                                  'oddsratio': oddsratio}]
+    subset_shared_scores = {k: v/len(subset_counts)
                             for k, v in subset_shared_scores.items()}
 
     return subset_shared_scores, subset_key_scores
 
-def vectorize_query(query_terms, client, sst_list, sst_weight):
+
+def vectorize_query(query_terms, client, sst_list, sst_cutoff,
+                    sst_weight):
     '''
     Create a search vector based on the search query input by the user and
     weighting of the resulting match score based on the search query's length
@@ -271,8 +274,8 @@ def vectorize_query(query_terms, client, sst_list, sst_weight):
         if term['vector']:
             texts.append(term['text'])
             term_vectors.append(unpack64(term['vector']))
-            if term['term'] in sst_list and sst_list[term['term']] > sst_weight:
-                term_weights.append(.1)#(1 - sst_list[term['term']]) * sst_weight)
+            if term['term'] in sst_list and sst_list[term['term']] > sst_cutoff:
+                term_weights.append(sst_weight)
             else:
                 term_weights.append(1)
     question_vec = np.average(term_vectors, weights=term_weights, axis=0)
@@ -353,8 +356,8 @@ def find_example_docs(client, subset, query_vec, n_docs=1, source_field=None):
     return example_docs
 
 
-def test_queries(client, queries, subset_details, sst_list, sst_weight,
-                 results_filename=None, save_file=False):
+def test_queries(client, queries, subset_details, sst_list, sst_cutoff,
+                 sst_weight, results_filename=None, save_file=False):
     '''
     Reads a set of queries from a CSV file and outputs a CSV file with
     recommendation results.
@@ -390,6 +393,7 @@ def test_queries(client, queries, subset_details, sst_list, sst_weight,
             query_vector, _ = vectorize_query(query_terms,
                                               client,
                                               sst_list,
+                                              sst_cutoff,
                                               sst_weight)
             end_time = time.time()
             times['vectorize_query'].append(end_time-start_time)
@@ -456,7 +460,8 @@ def optimize_function(weights, data):
                                  data['queries'],
                                  subset_details,
                                  data['sst_list'],
-                                 weights[2],
+                                 weights[4],
+                                 weights[5],
                                  results_filename='intermediate_results.csv',
                                  save_file=False)
     end_time = time.time()
@@ -469,10 +474,12 @@ def optimize_weights(weights, data):
     Take a set of graded queries, output optimal weights & final score
     '''
     results = differential_evolution(optimize_function,
-                                     bounds=[(0.00001, 1.0),
+                                     bounds=[(0, 0.5),
+                                             (1, 20.0),
+                                             (0, 0.5),
                                              (0, 1.0),
-                                             (0.00001, 1.0),
-                                             (1.0, 20.0)],
+                                             (0, 0.5),
+                                             (0, 1.0),],
                                      args=(data,),
                                      maxiter=100)
     print(results)
@@ -511,8 +518,10 @@ if __name__ == '__main__':
                                    data)
         optimal_weights = results.x
     else:
-        optimal_weights = [2.92725989e-03,   8.94950051e-02,   2.71150000e-02,
-         1.41931234e+01]
+        optimal_weights = [  2.02412519e-01,   3.36485478e+00,   3.24752969e-03,
+         1.94472692e-02,   5.15786456e-03,   2.92425875e-02]
+        #[ 0.50638655,  8.04703426,  0.02479144,  0.62509743,  0.01024333, 0.14478892]
+        #[2.92725989e-03,   8.94950051e-02,   2.71150000e-02,1.41931234e+01]
         #[  9.25061528e-03,   2.96993695e-01,   5.80252751e-01, 1.39775613e+01]
         #[  4.19304125e-03, 1.22478451e-01, 4.59817417e-01, 6.20227358e+00]
         #[ 0.01113418,  0.36183964,  0.37692194,  9.99969457]
@@ -526,7 +535,7 @@ if __name__ == '__main__':
                                               optimal_weights[0],
                                               optimal_weights[1],
                                               optimal_weights[2],
-                                              optimal_weights[3])
+                                              optimal_weights[3],)
     writer = csv.DictWriter(open('subset_best_terms.csv', 'w'),
                             fieldnames=subset_details[0].keys())
     writer.writeheader()
@@ -535,13 +544,16 @@ if __name__ == '__main__':
                                  data['queries'],
                                  subset_details,
                                  data['sst_list'],
-                                 optimal_weights[2],
+                                 optimal_weights[4],
+                                 optimal_weights[5],
                                  results_filename='intermediate_results.csv',
                                  save_file=True)
     score_test_queries(query_results)
     '''
-    weight[0] = sst_cutoff
-    weight[1] = skt_cutoff
-    weight[2] = sst_weight
-    weight[3] = skt_weight
+    weight[0] = skt_cutoff-subset_details
+    weight[1] = skt_weight-subset_details
+    weight[2] = sst_cutoff-subset_details
+    weight[3] = sst_weight-subset_details
+    weight[4] = sst_cutoff2-vectorize_query
+    weight[5] = sst_weight2-vectorize_query
     '''
