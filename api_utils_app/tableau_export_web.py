@@ -66,8 +66,8 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
             if all([is_number(v) for v in subset_values]):
                 drivers.append(subset)
         
-    if drivers:
-        add_score_drivers_to_project(client, docs, drivers)
+        if drivers:
+            add_score_drivers_to_project(client, docs, drivers)
     return client, docs, topics, terms, subsets, drivers, skt, themes
 
 
@@ -230,31 +230,44 @@ def create_skt_table(client, skt):
     return skt_table
 
 
+def wait_for_jobs(client, text):
+    time_waiting = 0
+    while len(client.get()['running_jobs']) != 0:
+        sys.stderr.write('\r\tWaiting for {} ({}sec)'.format(text, time_waiting))
+        time.sleep(30)
+        time_waiting += 30
+
 def add_score_drivers_to_project(client, docs, drivers):
-   
     mod_docs = []
     for doc in docs:
+        predict = {}
         for subset_to_score in drivers:
             if subset_to_score in [a.split(':')[0] for a in doc['subsets']]:
-                mod_docs.append({'_id': doc['_id'],
-                                 'predict': {subset_to_score: float([a for a in doc['subsets'] 
-                                    if subset_to_score in a][0].split(':')[1])}})
+                predict.update({subset_to_score: float([a for a in doc['subsets'] 
+                         if subset_to_score in a][0].split(':')[1])})
+        mod_docs.append({'_id': doc['_id'],
+                         'predict': predict})
     client.put_data('docs', json.dumps(mod_docs), content_type='application/json')
     client.post('docs/recalculate')
 
-    time_waiting = 0
-    while True:
-        if time_waiting%30 == 0:
-            if len(client.get()['running_jobs']) == 0:
-                break
-        sys.stderr.write('\r\tWaiting for recalculation ({}sec)'.format(time_waiting))
-        time.sleep(30)
-        time_waiting += 30
+    wait_for_jobs(client, 'recalculation')
     print('Done recalculating. Training...')
     client.post('prediction/train')
+    wait_for_jobs(client, 'driver training')
     print('Done training.')
 
-
+def create_terms_table(client, terms):
+    print('Creating terms table...')
+    table = []
+    for t in terms:
+        row = {}
+        row['Term'] = t['text']
+        search_result = client.get('docs/search', terms=[t['term']])
+        row['Exact Matches'] = search_result['num_exact_matches']
+        row['Related Matches'] = search_result['num_related_matches']
+        table.append(row)
+    return table
+    
 def create_themes_table(client, themes):
     print('Creating themes table...')
     for i, theme in enumerate(themes):
@@ -266,7 +279,18 @@ def create_themes_table(client, themes):
         del theme['terms']
     return themes
                     
-
+def create_terms_table(client, terms):
+    print('Creating terms table...')
+    table = []
+    for t in terms:
+        row = {}
+        row['Term'] = t['text']
+        search_result = client.get('docs/search', terms=[t['term']])
+        row['Exact Matches'] = search_result['num_exact_matches']
+        row['Related Matches'] = search_result['num_related_matches']
+        table.append(row)
+    return table
+    
 def create_drivers_table(client, drivers, topic_drive, average_score):
     driver_table = []
     for subset in drivers:

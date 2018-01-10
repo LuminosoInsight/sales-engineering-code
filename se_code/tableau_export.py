@@ -65,8 +65,8 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
             if all([is_number(v) for v in subset_values]):
                 drivers.append(subset)
     
-    if drivers:
-        add_score_drivers_to_project(client, docs, drivers)
+        if drivers:
+            add_score_drivers_to_project(client, docs, drivers)
     return client, docs, topics, terms, subsets, drivers, skt, themes
 
 
@@ -75,13 +75,20 @@ def create_doc_term_table(client, docs, terms, threshold):
     for doc in docs:
         if doc['vector']:
             doc_vector = unpack64(doc['vector'])
+            terms_in_docs = []
+            for t in doc['terms']:
+                terms_in_docs.append(t[0])
             for term in terms:
+                term_in_doc = 0
+                if term['term'] in terms_in_docs:
+                    term_in_doc = 1
                 if term['vector']:
                     term_vector = unpack64(term['vector'])
                     if np.dot(doc_vector, term_vector) >= threshold:
                         doc_term_table.append({'doc_id': doc['_id'], 
                                                'term': term['text'],
-                                               'association': np.dot(doc_vector, term_vector)})
+                                               'association': np.dot(doc_vector, term_vector),
+                                               'exact_match': term_in_doc})
     return doc_term_table
     
 def create_doc_topic_table(client, docs, topics):
@@ -98,11 +105,35 @@ def create_doc_topic_table(client, docs, topics):
                     score = np.dot(doc_vector, topic_vector)
                     if score > max_score:
                         max_score = score
-                        max_topic = topic['text']
+                        max_topic = topic['name']
             doc_topic_table.append({'doc_id': doc['_id'], 
                                     'topic': max_topic,
                                     'association': max_score})
     return doc_topic_table
+
+def create_topic_topic_table(client, topics):
+    topic_topic_table = []
+    for topic in topics:
+        for t in topics:
+            if topic['vector'] and t['vector'] and topic['name'] != t['name']:
+                topic_vector = unpack64(topic['vector'])
+                t_vector = unpack64(t['vector'])
+                topic_topic_table.append({'topic': topic['name'],
+                                          'second topic': t['name'],
+                                          'association': np.dot(topic_vector, t_vector)})
+    return topic_topic_table
+
+def create_term_topic_table(client, terms, topics):
+    term_topic_table = []
+    for term in terms:
+        for t in topics:
+            if term['vector'] and t['vector']:
+                term_vector = unpack64(term['vector'])
+                topic_vector = unpack64(t['vector'])
+                term_topic_table.append({'term': term['text'],
+                                         'topic': t['name'],
+                                         'association': np.dot(term_vector, topic_vector)})
+    return term_topic_table
 
 def create_doc_subset_table(client, docs, subsets):
     doc_subset_table = []
@@ -229,30 +260,44 @@ def create_skt_table(client, skt):
     return skt_table
 
 
+def wait_for_jobs(client, text):
+    time_waiting = 0
+    while len(client.get()['running_jobs']) != 0:
+        sys.stderr.write('\r\tWaiting for {} ({}sec)'.format(text, time_waiting))
+        time.sleep(30)
+        time_waiting += 30
+
 def add_score_drivers_to_project(client, docs, drivers):
    
     mod_docs = []
     for doc in docs:
+        predict = {}
         for subset_to_score in drivers:
             if subset_to_score in [a.split(':')[0] for a in doc['subsets']]:
-                mod_docs.append({'_id': doc['_id'],
-                                 'predict': {subset_to_score: float([a for a in doc['subsets'] 
-                                    if subset_to_score in a][0].split(':')[1])}})
+                predict.update({subset_to_score: float([a for a in doc['subsets'] 
+                         if subset_to_score in a][0].split(':')[1])})
+        mod_docs.append({'_id': doc['_id'],
+                         'predict': predict})
     client.put_data('docs', json.dumps(mod_docs), content_type='application/json')
     client.post('docs/recalculate')
 
-    time_waiting = 0
-    while True:
-        if time_waiting%30 == 0:
-            if len(client.get()['running_jobs']) == 0:
-                break
-        sys.stderr.write('\r\tWaiting for recalculation ({}sec)'.format(time_waiting))
-        time.sleep(30)
-        time_waiting += 30
+    wait_for_jobs(client, 'recalculation')
     print('Done recalculating. Training...')
     client.post('prediction/train')
+    wait_for_jobs(client, 'driver training')
     print('Done training.')
 
+def create_terms_table(client, terms):
+    print('Creating terms table...')
+    table = []
+    for t in terms:
+        row = {}
+        row['Term'] = t['text']
+        search_result = client.get('docs/search', terms=[t['term']])
+        row['Exact Matches'] = search_result['num_exact_matches']
+        row['Related Matches'] = search_result['num_related_matches']
+        table.append(row)
+    return table
 
 def create_themes_table(client, themes):
     print('Creating themes table...')
@@ -545,11 +590,14 @@ def main():
     parser.add_argument('account_id', help="The ID of the account that owns the project, such as 'demo'")
     parser.add_argument('project_id', help="The ID of the project to analyze, such as '2jsnm'")
     parser.add_argument('-t', '--term_count', default=100, help="The number of top terms to pull from the project")
-    parser.add_argument('-a', '--assoc_threshold', default=.3, help="The minimum association threshold to display")
+    parser.add_argument('-a', '--assoc_threshold', default=.5, help="The minimum association threshold to display")
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
     parser.add_argument('-d', '--doc', default=False, action='store_true', help="If you really do not want doc_table")
+    parser.add_argument('-terms', '--terms', default=False, action='store_true', help="Do not generate terms_table")
     parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Generate doc_term_table")
+    parser.add_argument('-tterm', '--term_topic', default=False, action='store_true', help="Generate term_topic_table")
     parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Generate doc_topic_table")
+    parser.add_argument('-ttopic', '--topic_topic', default=False, action='store_true', help="Generate topic_topic_table")
     parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Do not generate doc_subset_table")
     parser.add_argument('-themes', '--themes', default=False, action='store_true', help="Do not generate themes")
     parser.add_argument('-trends', '--trend_tables', default=False, action='store_true', help="Generate trends_table and trendingterms_table")
@@ -567,6 +615,10 @@ def main():
         write_table_to_csv(doc_table, 'doc_table.csv')
         write_table_to_csv(xref_table, 'xref_table.csv')
     
+    if not args.terms:
+        terms_table = create_terms_table(client, terms)
+        write_table_to_csv(terms_table, 'terms_table.csv')
+        
     if args.doc_term:
         doc_term_table = create_doc_term_table(client, docs, terms, float(args.assoc_threshold))
         write_table_to_csv(doc_term_table, 'doc_term_table.csv')
@@ -574,6 +626,14 @@ def main():
     if args.doc_topic:
         doc_topic_table = create_doc_topic_table(client, docs, topics)
         write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
+        
+    if args.topic_topic:
+        topic_topic_table = create_topic_topic_table(client, topics)
+        write_table_to_csv(topic_topic_table, 'topic_topic_table.csv')
+        
+    if args.term_topic:
+        term_topic_table = create_term_topic_table(client, terms, topics)
+        write_table_to_csv(term_topic_table, 'term_topic_table.csv')
         
     if not args.doc_subset:
         doc_subset_table = create_doc_subset_table(client, docs, subsets)

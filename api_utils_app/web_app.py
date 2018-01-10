@@ -16,7 +16,7 @@ from subset_filter import filter_subsets
 from auto_plutchik import get_all_topics, delete_all_topics, add_plutchik, copy_project
 from compass_utilities import get_all_docs, post_messages, format_messages
 from random import randint
-from tableau_export_web import reorder_subsets, pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, create_trends_table, write_table_to_csv
+from tableau_export_web import reorder_subsets, pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, create_trends_table, write_table_to_csv, create_terms_table
 
 #Storage for live classifier demo
 classifiers = None
@@ -113,13 +113,14 @@ def tableau_export():
         skt_limit = 20
     else:
         skt_limit = int(skt_limit)
-    
+        
+    term_table = (request.form.get('terms') == 'on')
     doc_term = (request.form.get('doc_term') == 'on')
     doc_topic = (request.form.get('doc_topic') == 'on')
     doc_subset = (request.form.get('doc_subset') == 'on')
-    themes = (request.form.get('themes') == 'on')
-    skt = (request.form.get('skt') == 'on')
-    drivers = (request.form.get('drivers') == 'on')
+    themes_on = (request.form.get('themes') == 'on')
+    skt_on = (request.form.get('skt') == 'on')
+    drivers_on = (request.form.get('drivers') == 'on')
     trends = (request.form.get('trends') == 'on')
     topic_drive = (request.form.get('topic_drive') == 'on')
     average_score = (request.form.get('average_score') == 'on')
@@ -131,6 +132,9 @@ def tableau_export():
     write_table_to_csv(doc_table, foldername, 'doc_table.csv')
     write_table_to_csv(xref_table, foldername, 'xref_table.csv')
     
+    if term_table:
+        terms_table = create_terms_table(client, terms)
+        write_table_to_csv(terms_table, foldername, 'terms_table.csv')
     if doc_term:
         doc_term_table = create_doc_term_table(client, docs, terms, .3)
         write_table_to_csv(doc_term_table, foldername, 'doc_term_table.csv')
@@ -143,15 +147,15 @@ def tableau_export():
         doc_subset_table = create_doc_subset_table(client, docs, subsets)
         write_table_to_csv(doc_subset_table, foldername, 'doc_subset_table.csv')
     
-    if themes:
+    if themes_on:
         themes_table = create_themes_table(client, themes)
         write_table_to_csv(themes_table, foldername, 'themes_table.csv')
 
-    if skt:
+    if skt_on:
         skt_table = create_skt_table(client, skt)
         write_table_to_csv(skt_table, foldername, 'skt_table.csv')
     
-    if drivers:
+    if drivers_on:
         driver_table = create_drivers_table(client, drivers, topic_drive, average_score)
         write_table_to_csv(driver_table, foldername, 'drivers_table.csv')
     
