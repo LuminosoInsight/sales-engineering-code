@@ -1,0 +1,71 @@
+
+{% extends "index.html" %}
+
+{% block content %}
+
+<script type="text/javascript">
+ $(function() {
+    $('input[name=stream]').bind('click', function() {
+        $("#loading").show();
+        $("#message").html("Streaming to <a target=_blank href=http://compass.luminoso.com>Compass</a>...");       
+      }); 
+    $('input[name=streaming_music]').bind('click', function() {
+        $("input[name=url]").val("https://analytics.luminoso.com/app/#/projects/demo/prr5mhwv");
+        $("input[name=api_url]").val("https://compass.luminoso.com/api/projects/2v2h9c2r/p/");       
+      });
+    $('input[name=churn]').bind('click', function() {
+        $("input[name=url]").val("https://analytics.luminoso.com/app/#/projects/demo/prr2wgft");
+        $("input[name=api_url]").val("https://compass.luminoso.com/api/projects/d28bkxkc/p/");       
+      });
+  });  
+
+</script>
+
+	<div class="page-header"><p>
+       <h1>Upload data set to be classified by Compass project</h1>
+    </div>
+      
+
+      <div id="content">
+      <h3>Upload data set to be classified by Compass project</h3>
+      <h3>Upload documents from an Analytics project into a created Compass project. 
+              You may then go into the Compass UI to see the results in real time.</h3>
+      <h4>
+      <li><b>Streaming Music Demo <input name="streaming_music" class="btn btn-sm btn-primary" value="Load"/></b>
+      	<ul>
+      	<li>Analytics project: https://analytics.luminoso.com/app/#/projects/demo/prr5mhwv</li>
+      	<li>Compass project: https://compass.luminoso.com/api/projects/2v2h9c2r/p/</li>
+      	</ul>
+      </li>
+      <li><b>Churn Demo <input name="churn" class="btn btn-sm btn-primary" value="Load"/></b>
+      	<ul>
+      	<li>Analytics project: https://analytics.luminoso.com/app/#/projects/demo/prr2wgft</li>
+      	<li>Compass project: https://compass.luminoso.com/api/projects/d28bkxkc/p/</li>
+      	</ul>
+      </li>
+      </h4>
+      <form action="{{ url_for('compass_stream') }}" method='post' >
+        
+        <input type="email" name="comp_name" class="form-control" placeholder="Compass Username" required>
+        <input type="password" name="comp_pass" class="form-control" placeholder="Compass Password" required>
+        <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
+        <input type="text" name="api_url" class="form-control" placeholder="Compass API URL" required autofocus>
+        <input type="number" name="stream_time" class="form-control" placeholder="Stream for how many minutes?" required>
+        <input name="stream" class="btn btn-lg btn-primary btn-block" type="submit" value="Stream"/>
+        <br>
+        <div id="loading" style="display:none">
+        	<img id="loading" height="25px" alt="" src={{ url_for('static', filename = 'images/ajaxSpinner.gif') }}>
+        	<div id="message"></div>
+        </div>
+        <br>
+        <span id="errorLogin">
+           {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+        </span>
+      </form>
+
+
+      
+      
+      </div>
+
+{% endblock %}

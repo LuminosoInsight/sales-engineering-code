@@ -12,10 +12,11 @@ setup(
                    "will be given to customers"),
     packages=find_packages(),
     install_requires=[
-        'luminoso_api'
+        'luminoso_api', 'click', 'scipy'
         ],
     entry_points={
         'console_scripts': [
+            'lumi-doc-analyzer = se_code.doc_analyzer:main',
             'lumi-doc-download = se_code.doc_downloader:main',
             'lumi-topic-copier = se_code.topic_copier:main',
             'lumi-topic-generator = se_code.topic_generator:main',

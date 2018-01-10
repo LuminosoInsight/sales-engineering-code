@@ -1,15 +1,21 @@
 from flask import Flask, jsonify, render_template, request, session, url_for, Response
 from luminoso_api import LuminosoClient
+from pack64 import unpack64
 from topic_utilities import copy_topics, del_topics, parse_url
 from se_code.run_voting_classifier import return_label, train_classifier, get_all_docs, split_train_test
 from term_utilities import get_terms, ignore_terms, merge_terms
+from rd_utilities import search_subsets
 from deduper_utilities import dedupe
 import numpy as np
 from boilerplate_utilities import BPDetector, boilerplate_create_proj
 from qualtrics_utilities import *
 import redis
 from conjunction_disjunction import get_new_results, get_current_results
+from text_filter import filter_project
+from subset_filter import filter_subsets
 from auto_plutchik import get_all_topics, delete_all_topics, add_plutchik, copy_project
+from compass_utilities import get_all_docs, post_messages, format_messages
+from random import randint
 from tableau_export_web import reorder_subsets, pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, create_trends_table, write_table_to_csv, create_terms_table
 
 #Storage for live classifier demo
@@ -38,9 +44,9 @@ def login():
         ('Cleaning',('Deduper',url_for('deduper_page')), ('Boilerplate Cleaner',url_for('boilerplate_page'))),
         ('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('compass_export_page'))),
         ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
-        ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj'))),
-        ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo'))),
-        ('Modify', ('Auto Emotions', url_for('plutchik_page'))),
+        ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj')),('Conceptual Subset Search',url_for('subset_search'))),
+        ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo')), ('Compass Demo',url_for('compass_demo'))),
+        ('Modify', ('Text Filter', url_for('text_filter_page')), ('Auto Emotions', url_for('plutchik_page')), ('Subset Filter', url_for('subset_filter_page'))),
         ('Dashboards', ('Tableau Export',url_for('tableau_export_page')))]
     print(session['apps_to_show'])
     try:
@@ -56,6 +62,38 @@ def login():
 def index():
     return render_template('index.html', urls=session['apps_to_show'])
 
+@app.route('/compass_demo', methods=['GET'])
+def compass_demo():
+    return render_template('compass_demo.html', urls=session['apps_to_show'])
+
+@app.route('/compass_stream', methods=['POST'])
+def compass_stream():
+    url = request.form['url'].strip()
+    from_acct, from_proj = parse_url(url)
+    client = LuminosoClient.connect('/projects/', username=session['username'],
+                                               password=session['password'])
+    api_url = request.form['api_url']
+    client = LuminosoClient.connect('/projects/{}/{}'.format(from_acct, from_proj))
+    docs = get_all_docs(client)
+    
+    compass_username = request.form['comp_name']
+    compass_password = request.form['comp_pass']
+    stream_time = request.form['stream_time']
+    total_time = 0
+    while total_time < int(float(stream_time) * 60):
+        batch_size = randint(1, int(len(docs) / 10))
+        interval = randint(int(batch_size / 10), int(batch_size / 5))
+        
+        curr_docs = []
+        for i in range(batch_size):
+            curr_docs.append(docs[randint(0, len(docs) - 1)])
+        messages = format_messages(curr_docs)
+        post_messages(api_url, messages, interval, compass_username, compass_password)
+        print('POSTed {}, sleeping for {}'.format(batch_size, interval))
+        total_time += max(interval, 1)
+    print('Done posting')
+    return render_template('compass_demo.html', urls=session['apps_to_show'])
+    
 @app.route('/tableau_export_page', methods=['GET'])
 def tableau_export_page():
     return render_template('tableau_export.html', urls=session['apps_to_show'])
@@ -152,12 +190,12 @@ def setup_classifier():
         train_client = client.change_path('/projects/{}/{}'.format(train_acct,training_project_id))
         
         if training_project_id == testing_project_id:
-            docs, labels = get_all_docs(train_client, subset_field)
+            docs, labels = compass_utilities.get_all_docs(train_client, subset_field)
             train_docs, test_docs, train_labels, test_labels = split_train_test(docs, labels)
         else:
             test_client = client.change_path('/projects/{}/{}'.format(test_acct, testing_project_id))
-            train_docs, train_labels = get_all_docs(train_client, subset_field)
-            test_docs, test_labels = get_all_docs(test_client, subset_field)
+            train_docs, train_labels = compass_utilities.get_all_docs(train_client, subset_field)
+            test_docs, test_labels = compass_utilities.get_all_docs(test_client, subset_field)
         
         classifiers, vectorizers = train_classifier(
             train_docs, train_labels
@@ -214,6 +252,39 @@ def plutchik():
 @app.route('/plutchik_page')
 def plutchik_page():
     return render_template('auto_plutchik.html', urls=session['apps_to_show'])
+
+@app.route('/subset_search', methods=['GET','POST'])
+def subset_search():
+    
+    global client, subset_stats, subset_vecs
+    
+    if request.method == 'POST':
+        if 'url' in request.form:
+            url = request.form['url'].strip()
+            from_acct, from_proj = parse_url(url)
+            client = LuminosoClient.connect('/projects/{}/{}'.format(from_acct,from_proj),
+                                            username=session['username'],
+                                            password=session['password'])
+            project = client.get()['name']
+            subset_stats = client.get('/subsets/stats')
+            subset_vecs = [unpack64(s['mean']) for s in subset_stats]
+        else:
+            project = client.get()['name']
+            question = request.form['text']
+            query_info, results = search_subsets(client,
+                                                 question,
+                                                 subset_vecs,
+                                                 subset_stats,
+                                                 top_reviews=1)
+            return render_template('subset_search.html',
+                                   urls=session['apps_to_show'],
+                                   query_info=query_info,
+                                   results=results,
+                                   project=project)
+    else:
+        project = ''
+        
+    return render_template('subset_search.html', urls=session['apps_to_show'], project=project)
 
 @app.route('/conj_disj', methods=['POST','GET'])
 def conj_disj():
@@ -291,6 +362,48 @@ def topic_utils_delete():
     #NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
     return render_template('delete_topics.html', urls=session['apps_to_show'])
 
+@app.route('/text_filter', methods=['POST'])
+def text_filter():
+    url = request.form['url'].strip()
+    from_acct, from_proj = parse_url(url)
+    client = LuminosoClient.connect('/projects/', username=session['username'],
+                                               password=session['password'])
+    text = request.form['remove'].strip()
+    #exact = (request.form['exact'] == 'on')
+    exact = (request.form.get('exact') == 'on')
+    reconcile = (request.form.get('reconcile') == 'unrelated')
+    name = request.form['dest_name'].strip()
+    #branch = (request.form['branch'] == 'on')
+    branch = (request.form.get('branch') == 'on')
+    filter_project(client=client, acc_id=from_acct, proj_id=from_proj, branch_name=name, 
+                   text=text, not_related=reconcile, branch=branch, exact=exact)
+    return render_template('text_filter.html', urls=session['apps_to_show'])
+    #return jsonify(filter_project(from_acct, from_proj, name, text, reconcile, branch, exact))
+    
+
+@app.route('/subset_filter', methods=['POST'])
+def subset_filter():
+    url = request.form['url'].strip()
+    from_acct, from_proj = parse_url(url)
+    client = LuminosoClient.connect('/projects/', username=session['username'],
+                                               password=session['password'])
+    count = int(request.form['min_count'].strip())
+    name = request.form['dest_name'].strip()
+    more = (request.form.get('more') == 'on')
+    subset_name = request.form['subset_name'].strip()
+    only = (request.form.get('only') == 'on')
+    filter_subsets(client=client, account_id=from_acct, project_id=from_proj, 
+                   proj_name=name, subset_name=subset_name, count=count, only=only, more=more)
+    return render_template('subset_filter.html', urls=session['apps_to_show'])
+
+@app.route('/subset_filter_page')
+def subset_filter_page():
+    return render_template('subset_filter.html', urls=session['apps_to_show'])
+    
+@app.route('/text_filter_page')
+def text_filter_page():
+    return render_template('text_filter.html', urls=session['apps_to_show'])
+
 @app.route('/term_utils')
 def term_utils():
     return render_template('term_utils.html', urls=session['apps_to_show'])
@@ -349,6 +462,7 @@ def dedupe_util():
     url = request.args.get('url', 0, type=str)
     acct, proj = parse_url(url)
     copy = (request.args.get('copy') == 'true')
+    print(copy)
     recalc = (request.args.get('recalc') == 'true')
     reconcile = request.args.get('reconcile')
     cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,

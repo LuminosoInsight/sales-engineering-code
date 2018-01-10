@@ -185,15 +185,15 @@ def create_skt_table(client, skt):
     length = 0
     terms = []
     for s, t, o, p in skt:
-        if length > 15000 - len(t['term']):
-            terms.extend(client.get('terms/doc_counts', terms=terms_to_get, format='json'))
-            
-            terms_to_get = []
-            length = 0
-        terms_to_get.append(t['term'])
-        length += len(t['term'])
-    if length > 0:
-        terms.extend(client.get('terms/doc_counts', terms=terms_to_get, format='json'))
+        terms.extend(client.get('terms/doc_counts', terms=[t['term']], subsets=[s], format='json'))
+        #if length > 10000 - len(t['term']):
+            #terms.extend(client.get('terms/doc_counts', terms=terms_to_get, subsets=[s], format='json'))
+            #terms_to_get = []
+            #length = 0
+        #terms_to_get.append(t['term'])
+        #length += len(t['term'])
+    #if length > 0:
+        #terms.extend(client.get('terms/doc_counts', terms=terms_to_get, subsets=[s], format='json'))
         
     
     terms = {t['text']: t for t in terms}
@@ -334,7 +334,10 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
                             if subset in category:
                                 avg_score += int(category.split(':')[1])
                                 break
-                    avg_score = float(avg_score/len(docs))
+                    try:
+                        avg_score = float(avg_score/len(docs))
+                    except ZeroDivisionError as e:
+                        avg_score = 0
                     row['average_score'] = avg_score
                     #
                 row['example_doc'] = ''
@@ -387,7 +390,10 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
                         if subset in category:
                             avg_score += int(category.split(':')[1])
                             break
-                avg_score = float(avg_score/len(docs))
+                try:
+                    avg_score = float(avg_score/len(docs))
+                except ZeroDivisionError as e:
+                    avg_score = 0
                 row['average_score'] = avg_score
             #
             row['example_doc'] = ''
@@ -437,7 +443,10 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
                         if subset in category:
                             avg_score += int(category.split(':')[1])
                             break
-                avg_score = float(avg_score/len(docs))
+                try:
+                    avg_score = float(avg_score/len(docs))
+                except ZeroDivisionError as e:
+                    avg_score = 0
                 row['average_score'] = avg_score
             #
             row['example_doc'] = ''
@@ -529,69 +538,18 @@ def create_trends_table(terms, topics, docs):
         trendingterms_table = []
     return trends_table, trendingterms_table
     
-    
 def write_table_to_csv(table, foldername, filename):
 
     print('Writing to file {}.'.format(filename))
     if len(table) == 0:
         print('Warning: No data to write to {}.'.format(filename))
         return
-    filename = '../../' + foldername + '/' + filename
-    if not os.path.exists(os.path.dirname(filename)):
-        os.makedirs(os.path.dirname(filename))
-    with open(filename, 'w') as file:
+    if foldername[-1] != '/':
+        foldername += '/'
+    #filename = '../../' + foldername + '/' + filename
+    if not os.path.exists(os.path.expanduser(foldername)):
+        os.makedirs(os.path.expanduser(foldername))
+    with open(os.path.expanduser(foldername) + filename, 'w') as file:
         writer = csv.DictWriter(file, fieldnames=table[0].keys())
         writer.writeheader()
         writer.writerows(table)
-
-#def main():
-#    parser = argparse.ArgumentParser(
-#        description='Export data to Tableau compatible CSV files.'
-#    )
-#    parser.add_argument('account_id', help="The ID of the account that owns the project, such as 'demo'")
-#    parser.add_argument('project_id', help="The ID of the project to analyze, such as '2jsnm'")
-#    parser.add_argument('-t', '--term_count', default=100, help="The number of top terms to pull from the project")
-#    parser.add_argument('-a', '--assoc_threshold', default=.3, help="The minimum association threshold to display")
-#    parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
-#    parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Generate doc_term_table")
-#    parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Generate doc_topic_table")
-    #parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Generate doc_subset_table")
-#    parser.add_argument('-trends', '--trend_tables', default=False, action='store_true', help="Generate trends_table and trendingterms_table")
-#    parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="Generate drivers_table with topics instead of drivers")
-#    args = parser.parse_args()
-#
-#    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, skt_limit=args.skt_limit, term_count=args.term_count)
-#    subsets = reorder_subsets(subsets)
-
-#    doc_table, xref_table = create_doc_table(client, docs, subsets, themes, drivers)
-#    write_table_to_csv(doc_table, 'doc_table.csv')
-#    write_table_to_csv(xref_table, 'xref_table.csv')
-    
-#    if args.doc_term:
-#        doc_term_table = create_doc_term_table(client, docs, terms, args.assoc_threshold)
-#        write_table_to_csv(doc_term_table, 'doc_term_table.csv')
-    
-#    if args.doc_topic:
-#        doc_topic_table = create_doc_topic_table(client, docs, topics)
-#        write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
-        
-    #if args.doc_subset:
-#    doc_subset_table = create_doc_subset_table(client, docs, subsets)
-#    write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
-
-#    themes_table = create_themes_table(client, themes)
-#    write_table_to_csv(themes_table, 'themes_table.csv')
-
-#    skt_table = create_skt_table(client, skt)
-#    write_table_to_csv(skt_table, 'skt_table.csv')
-    
-#    driver_table = create_drivers_table(client, drivers, args.topic_drive)
-#    write_table_to_csv(driver_table, 'drivers_table.csv')
-    
-#    if args.trend_tables:
-#        trends_table, trendingterms_table = create_trends_table(terms, topics, docs)
-#        write_table_to_csv(trends_table, 'trends_table.csv')
-#        write_table_to_csv(trendingterms_table, 'trendingterms_table.csv')
-
-#if __name__ == '__main__':
-#    main()
