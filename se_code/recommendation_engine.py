@@ -240,12 +240,13 @@ def subset_terms(client, scan_terms=1000, min_score=30):
                 [docs_in_subset, docs_outside_subset]
             ])
             oddsratio, pvalue = fisher_exact(table, alternative='greater')
+            _, shared_pvalue = fisher_exact(table, alternative='two-sided')
 
             if term['score'] > min_score:
                 if term['term'] in subset_shared_scores:
-                    subset_shared_scores[term['term']] += pvalue
+                    subset_shared_scores[term['term']] += shared_pvalue
                 else:
-                    subset_shared_scores[term['term']] = pvalue
+                    subset_shared_scores[term['term']] = shared_pvalue
                 if subset in subset_key_scores:
                     subset_key_scores[subset].append({'term': term['term'],
                                                       'p-value': pvalue,
@@ -260,8 +261,53 @@ def subset_terms(client, scan_terms=1000, min_score=30):
     return subset_shared_scores, subset_key_scores
 
 
-def vectorize_query(query_terms, client, sst_list, sst_cutoff,
-                    sst_weight):
+def get_query_terms(query, client):
+    query_doc = client.post_data('docs/vectors',
+                                  json.dumps([{'text': query}]),
+                                  content_type='application/json')
+    query_doc_terms = [t for t, _, _ in query_doc['terms']]
+    query_terms = client.get('/terms', terms=list(set([term for term in query_doc_terms])))
+    start_time = time.time()
+    query_terms = [q for q in query_terms
+                   if q['term'] in query_doc_terms and
+                   q['vector'] is not None]
+    return query_terms
+
+def vectorize_preferences(preference_file, subsets_info, client, #user,
+                          sst_list, sst_cutoff):
+    preference_vectors = []
+    preference_weights = []
+    with open(preference_file) as f:
+        reader = csv.DictReader(preference_file)
+        for row in reader:
+            score = row['Score']
+            #score = row[user]
+            preference = row['Preference']
+            if row['Type'] == 'Category':
+                if score >= 0:
+                    preference_vectors.append(subsets_info[preference]['vector'])
+                    preference_weights.append(score)
+                else:
+                    preference_vectors.append(-1 * subsets_info[preference]['vector'])
+                    preference_weights.append(-1 * score)
+            else:
+                query_terms = get_query_terms(preference, client)
+                pref_vec = vectorize_query(query_terms, 
+                                              client, 
+                                              sst_list, 
+                                              sst_cutoff,
+                                              [])
+                if score >= 0:
+                    preference_vectors.append(pref_vec)
+                    preference_weights.append(score)
+                else:
+                    preference_vectors.append(-1 * pref_vec)
+                    preference_weights.append(-1 * score)
+    preference_vec = np.average(preference_vectors, weights=preference_weights, axis=0)
+    return preference_vec
+
+def vectorize_query(query_terms, client, sst_list, sst_cutoff, 
+                    sst_weight, preference_vec, personalize=False):
     '''
     Create a search vector based on the search query input by the user and
     weighting of the resulting match score based on the search query's length
@@ -270,7 +316,6 @@ def vectorize_query(query_terms, client, sst_list, sst_cutoff,
     texts = []
     term_vectors = []
     term_weights = []
-    for term in query_terms:
         if term['vector']:
             texts.append(term['text'])
             term_vectors.append(unpack64(term['vector']))
@@ -280,12 +325,10 @@ def vectorize_query(query_terms, client, sst_list, sst_cutoff,
                 term_weights.append(1)
     question_vec = np.average(term_vectors, weights=term_weights, axis=0)
 
-    if len(texts) > 1:
-        match_score_weight = np.mean(np.dot(term_vectors,
-                                            np.transpose(term_vectors)))
-    else:
-        match_score_weight = 1
-    return question_vec, match_score_weight
+    if personalize:
+        personal_vecs = [question_vec, preference_vec]
+        question_vec = np.average(personal_vecs, weights=[1, .25], axis=0)
+    return question_vec
 
 
 def recommend_subset(question_vec, subset_details,
@@ -390,11 +433,23 @@ def test_queries(client, queries, subset_details, sst_list, sst_cutoff,
                        if q['term'] in queries_docs[i] and
                        q['vector'] is not None]
         if query_terms:
-            query_vector, _ = vectorize_query(query_terms,
+            query_vector = vectorize_query(query_terms,
                                               client,
                                               sst_list,
                                               sst_cutoff,
-                                              sst_weight)
+                                              sst_weight,
+                                              [])
+            #preference_vec = vectorize_preferences('user_preferences.csv', subsets_info, client, 
+                                                       #sst_list, sst_cutoff)
+            #preference_vec = vectorize_preferences('user_preferences.csv', subsets_info,
+                                                       #client, user, sst_list, sst_cutoff)
+            #query_vector = vectorize_query(query_terms,
+            #                                   client,
+            #                                   sst_list,
+            #                                   sst_cutoff,
+            #                                   sst_weight,
+            #                                   preference_vec,
+            #                                   personalize=True)
             end_time = time.time()
             times['vectorize_query'].append(end_time-start_time)
             start_time = time.time()
