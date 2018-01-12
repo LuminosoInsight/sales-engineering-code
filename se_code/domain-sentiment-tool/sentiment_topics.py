@@ -93,6 +93,7 @@ class SentimentTopics:
         for term, matching_strength in terms:
             term['new-sentiment-score'] = matching_strength
             term['vector'] = unpack64(term['vector'])
+            term['sentiment-label'] = sentiment
             sentiment_terms.append(term)
 
         self.domain_sentiment_terms[sentiment] = sentiment_terms
