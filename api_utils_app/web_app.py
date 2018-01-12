@@ -14,7 +14,7 @@ from conjunction_disjunction import get_new_results, get_current_results
 from text_filter import filter_project
 from subset_filter import filter_subsets
 from auto_plutchik import get_all_topics, delete_all_topics, add_plutchik, copy_project
-from compass_utilities import get_all_docs, post_messages, format_messages
+from compass_utilities import post_messages, format_messages
 from random import randint
 from tableau_export_web import reorder_subsets, pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, create_trends_table, write_table_to_csv, create_terms_table
 
@@ -190,12 +190,12 @@ def setup_classifier():
         train_client = client.change_path('/projects/{}/{}'.format(train_acct,training_project_id))
         
         if training_project_id == testing_project_id:
-            docs, labels = compass_utilities.get_all_docs(train_client, subset_field)
+            docs, labels = get_all_docs(train_client, subset_field)
             train_docs, test_docs, train_labels, test_labels = split_train_test(docs, labels)
         else:
             test_client = client.change_path('/projects/{}/{}'.format(test_acct, testing_project_id))
-            train_docs, train_labels = compass_utilities.get_all_docs(train_client, subset_field)
-            test_docs, test_labels = compass_utilities.get_all_docs(test_client, subset_field)
+            train_docs, train_labels = get_all_docs(train_client, subset_field)
+            test_docs, test_labels = get_all_docs(test_client, subset_field)
         
         classifiers, vectorizers = train_classifier(
             train_docs, train_labels
