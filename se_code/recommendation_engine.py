@@ -1,17 +1,18 @@
 from __future__ import division
-from pack64 import unpack64
-from scipy.stats import fisher_exact
-from scipy.optimize import basinhopping
 
+from pack64 import unpack64
 from luminoso_api import LuminosoClient
 
+import argparse
+from argparse import RawTextHelpFormatter
 import numpy as np
 import json
 import csv
 import pickle
 import math
-import time
+
 from scipy.optimize._differentialevolution import differential_evolution
+from scipy.stats import fisher_exact
 
 
 def get_all_docs(client):
@@ -74,7 +75,7 @@ def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
         term_weights = []
         for term in subset_terms:
             if (subset_value in skt_text and
-                  term['term'] in skt_text[subset_value]):
+                term['term'] in skt_text[subset_value]):
                 term_weights.append(np.log(term['score'] *
                                     skt_text[subset_value][term['term']] *
                                     skt_weight + 1))
@@ -263,25 +264,27 @@ def subset_terms(client, scan_terms=1000, min_score=30):
 
 def get_query_terms(query, client):
     query_doc = client.post_data('docs/vectors',
-                                  json.dumps([{'text': query}]),
-                                  content_type='application/json')
+                                 json.dumps([{'text': query}]),
+                                 content_type='application/json')
     query_doc_terms = [t for t, _, _ in query_doc['terms']]
-    query_terms = client.get('/terms', terms=list(set([term for term in query_doc_terms])))
-    start_time = time.time()
+    query_terms = client.get('/terms',
+                             terms=list(set([term for term in query_doc_terms])))
     query_terms = [q for q in query_terms
                    if q['term'] in query_doc_terms and
                    q['vector'] is not None]
     return query_terms
+
 
 def vectorize_preferences(preference_file, subsets_info, client, #user,
                           sst_list, sst_cutoff):
     preference_vectors = []
     preference_weights = []
     with open(preference_file) as f:
-        reader = csv.DictReader(preference_file)
+        reader = csv.DictReader(f)
         for row in reader:
             score = row['Score']
-            #score = row[user]
+#             PLACEHOLDER FOR PERSONALIZATION
+#             score = row[user]
             preference = row['Preference']
             if row['Type'] == 'Category':
                 if score >= 0:
@@ -292,22 +295,24 @@ def vectorize_preferences(preference_file, subsets_info, client, #user,
                     preference_weights.append(-1 * score)
             else:
                 query_terms = get_query_terms(preference, client)
-                pref_vec = vectorize_query(query_terms, 
-                                              client, 
-                                              sst_list, 
-                                              sst_cutoff,
-                                              [])
+                pref_vec = vectorize_query(query_terms,
+                                           client,
+                                           sst_list,
+                                           sst_cutoff)
                 if score >= 0:
                     preference_vectors.append(pref_vec)
                     preference_weights.append(score)
                 else:
                     preference_vectors.append(-1 * pref_vec)
                     preference_weights.append(-1 * score)
-    preference_vec = np.average(preference_vectors, weights=preference_weights, axis=0)
+    preference_vec = np.average(preference_vectors,
+                                weights=preference_weights,
+                                axis=0)
     return preference_vec
 
-def vectorize_query(query_terms, client, sst_list, sst_cutoff, 
-                    sst_weight, preference_vec, personalize=False):
+
+def vectorize_query(query_terms, client, sst_list, sst_cutoff,
+                    sst_weight, preference_vec=None, personalize=False):
     '''
     Create a search vector based on the search query input by the user and
     weighting of the resulting match score based on the search query's length
@@ -316,6 +321,7 @@ def vectorize_query(query_terms, client, sst_list, sst_cutoff,
     texts = []
     term_vectors = []
     term_weights = []
+    for term in query_terms:
         if term['vector']:
             texts.append(term['text'])
             term_vectors.append(unpack64(term['vector']))
@@ -417,50 +423,51 @@ def test_queries(client, queries, subset_details, sst_list, sst_cutoff,
     2 - Reasonable result, but not ideal
     3 - Ideal result
     '''
-    times = {}
-    times['vectorize_query'] = []
-    times['recommend_subset'] = []
 
     query_docs = client.post_data('docs/vectors',
                                   json.dumps([{'text': q['query']}
                                               for q in queries]),
                                   content_type='application/json')
     queries_docs = [[t for t, _, _ in d['terms']] for d in query_docs]
-    queries_terms = client.get('/terms', terms=list(set([item for sublist in queries_docs for item in sublist])))
+    queries_terms = client.get('/terms',
+                               terms=list(set([item
+                                               for sublist in queries_docs
+                                               for item in sublist])))
     for i, query in enumerate(queries):
-        start_time = time.time()
         query_terms = [q for q in queries_terms
                        if q['term'] in queries_docs[i] and
                        q['vector'] is not None]
         if query_terms:
             query_vector = vectorize_query(query_terms,
-                                              client,
-                                              sst_list,
-                                              sst_cutoff,
-                                              sst_weight,
-                                              [])
-            #preference_vec = vectorize_preferences('user_preferences.csv', subsets_info, client, 
-                                                       #sst_list, sst_cutoff)
-            #preference_vec = vectorize_preferences('user_preferences.csv', subsets_info,
-                                                       #client, user, sst_list, sst_cutoff)
-            #query_vector = vectorize_query(query_terms,
-            #                                   client,
-            #                                   sst_list,
-            #                                   sst_cutoff,
-            #                                   sst_weight,
-            #                                   preference_vec,
-            #                                   personalize=True)
-            end_time = time.time()
-            times['vectorize_query'].append(end_time-start_time)
-            start_time = time.time()
+                                           client,
+                                           sst_list,
+                                           sst_cutoff,
+                                           sst_weight)
+#             PLACEHOLDER FOR PERSONALIZATION#
+#             preference_vec = vectorize_preferences('user_preferences.csv',
+#                                                    subsets_info,
+#                                                    client,
+#                                                    sst_list,
+#                                                    sst_cutoff)
+#             preference_vec = vectorize_preferences('user_preferences.csv',
+#                                                    subsets_info,
+#                                                    client,
+#                                                    user,
+#                                                    sst_list,
+#                                                    sst_cutoff)
+#             query_vector = vectorize_query(query_terms,
+#                                            client,
+#                                            sst_list,
+#                                            sst_cutoff,
+#                                            sst_weight,
+#                                            preference_vec,
+#                                            personalize=True)
+
             recommendations = recommend_subset(query_vector,
                                                subset_details,
                                                num_results=1)
-            end_time = time.time()
-            times['recommend_subset'].append(end_time-start_time)
             query['new_result'] = recommendations[0]['name']
-    print('Vectorize Query: {}'.format(np.average(times['vectorize_query'])))
-    print('Recommend Subset: {}'.format(np.average(times['recommend_subset'])))
+
     if save_file:
         writer = csv.DictWriter(open(results_filename, 'w'),
                                 fieldnames=queries[0].keys())
@@ -477,7 +484,7 @@ def score_test_queries(query_results):
     score = 0
     scored_queries = 0
     for query in query_results:
-        if query['new_result'] == query['result']:
+        if query['new_result'] == query['scored_result']:
             score += int(query['score'])
             scored_queries += 1
     print('Total Queries: {}'.format(unique_queries))
@@ -494,12 +501,10 @@ def sigmoid(x):
     return 1 / (1 + math.exp(-x*3))
 
 
-def optimize_function(weights, data):
+def optimize_function(weights, data, client):
     '''
     Optimization function called by optimize_weights
     '''
-    print(weights)
-    start_time = time.time()
     subset_details = create_subset_details_v3(client,
                                               data['sst_list'],
                                               data['skt_list'],
@@ -508,23 +513,19 @@ def optimize_function(weights, data):
                                               weights[1],
                                               weights[2],
                                               weights[3])
-    end_time = time.time()
-    print('Subset details: {:2}s'.format(end_time-start_time))
-    start_time = time.time()
+
     query_results = test_queries(client,
                                  data['queries'],
                                  subset_details,
                                  data['sst_list'],
                                  weights[4],
                                  weights[5],
-                                 results_filename='intermediate_results.csv',
                                  save_file=False)
-    end_time = time.time()
-    print('Query results: {:2}s'.format(end_time-start_time))
+
     return score_test_queries(query_results)
 
 
-def optimize_weights(weights, data):
+def optimize_weights(data, client):
     '''
     Take a set of graded queries, output optimal weights & final score
     '''
@@ -534,54 +535,46 @@ def optimize_weights(weights, data):
                                              (0, 0.5),
                                              (0, 1.0),
                                              (0, 0.5),
-                                             (0, 1.0),],
-                                     args=(data,),
+                                             (0, 1.0)],
+                                     args=(data, client),
                                      maxiter=100)
     print(results)
     return results
 
-if __name__ == '__main__':
-    client = LuminosoClient.connect('/projects/a53y655v/prtcgdw7')
 
-    rebuild = False
-    optimize = False
+def run(account_id, project_id, username, query_file, api_url, rebuild=False,
+        optimize=False, prefix='Category'):
+
+    client = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url,
+                                                               account_id,
+                                                               project_id),
+                                    username=username)
 
     if rebuild:
-        print('Rebuilding data')
+        print('Rebuilding subset_vector_file.p')
         data = {}
         data['sst_list'] = subset_shared_terms(client)
         data['skt_list'] = subset_key_terms(client)
-        #data['sst_list'], data['skt_list'] = subset_terms(client)
-        data['subset_term_info'] = get_subset_term_info(client, 'Category',
+        data['subset_term_info'] = get_subset_term_info(client, prefix,
                                                         term_count=1000)
-        pickle.dump(data, open('optimization_dataV2.p', 'wb'))
+        pickle.dump(data, open('subset_vector_file.p', 'wb'))
     else:
-        print('Loading data from file')
-        data = pickle.load(open('optimization_dataV2.p', 'rb'))
+        print('Loading data from subset_vector_file.p')
+        data = pickle.load(open('subset_vector_file.p', 'rb'))
 
     queries = []
-    queries_reader = csv.DictReader(open('intermediate_result_scores.csv', 'r'))
+    queries_reader = csv.DictReader(open(query_file, 'r'))
     for row in queries_reader:
         queries.append(row)
     data['queries'] = queries
 
     if optimize:
-        results = optimize_weights(np.asarray([0.10381204,
-                                               0.14558712,
-                                               0.001,
-                                               1]),
-                                   data)
-        optimal_weights = results.x
+        print('Rebuilding optimized_weights.p')
+        optimal_weights = optimize_weights(data, client).x
+        pickle.dump(optimal_weights, open('optimized_weights.p', 'wb'))
     else:
-        optimal_weights = [  2.02412519e-01,   3.36485478e+00,   3.24752969e-03,
-         1.94472692e-02,   5.15786456e-03,   2.92425875e-02]
-        #[ 0.50638655,  8.04703426,  0.02479144,  0.62509743,  0.01024333, 0.14478892]
-        #[2.92725989e-03,   8.94950051e-02,   2.71150000e-02,1.41931234e+01]
-        #[  9.25061528e-03,   2.96993695e-01,   5.80252751e-01, 1.39775613e+01]
-        #[  4.19304125e-03, 1.22478451e-01, 4.59817417e-01, 6.20227358e+00]
-        #[ 0.01113418,  0.36183964,  0.37692194,  9.99969457]
-        #[ 0.02463569,  0.6435483 ,  0.71295812,  8.03028856]
-        #[ 0.69229096,  0.06517147,  0.52024399,  1.17443286]
+        print('Loading data from optimized_weights.p')
+        optimal_weights = pickle.load(open('optimized_weights.p', 'rb'))
 
     subset_details = create_subset_details_v3(client,
                                               data['sst_list'],
@@ -591,24 +584,70 @@ if __name__ == '__main__':
                                               optimal_weights[1],
                                               optimal_weights[2],
                                               optimal_weights[3],)
-    writer = csv.DictWriter(open('subset_best_terms.csv', 'w'),
-                            fieldnames=subset_details[0].keys())
-    writer.writeheader()
-    writer.writerows(subset_details)
+
     query_results = test_queries(client,
                                  data['queries'],
                                  subset_details,
                                  data['sst_list'],
                                  optimal_weights[4],
                                  optimal_weights[5],
-                                 results_filename='intermediate_results.csv',
+                                 results_filename=query_file,
                                  save_file=True)
     score_test_queries(query_results)
-    '''
-    weight[0] = skt_cutoff-subset_details
-    weight[1] = skt_weight-subset_details
-    weight[2] = sst_cutoff-subset_details
-    weight[3] = sst_weight-subset_details
-    weight[4] = sst_cutoff2-vectorize_query
-    weight[5] = sst_weight2-vectorize_query
-    '''
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Recommendation Engine\n\n'
+        'The recommendation engine creates a set of subset vectors'
+        ' which are representative of the key features of each subset.'
+        ' These subset vectors can be compared to the vector of an incoming'
+        ' query in order to produce a recommended subset.\n\n'
+        'query_file needs to be a CSV file with the following headers:\n'
+        'query: phrase to be queries against recommendation engine\n'
+        'new_result: placeholder column for recommendation results\n'
+        'scored_result: one or more scored results per query\n'
+        'score: score for query when "scored_result" is returned (1-3 scale)',
+        formatter_class=RawTextHelpFormatter)
+
+    parser.add_argument('account_id',
+                        help="The ID of the account that owns the"
+                        "project, such as 'demo'")
+    parser.add_argument('project_id',
+                        help="The ID of the project to analyze,"
+                        "such as 'pr2jsnm'")
+    parser.add_argument('username',
+                        help="A Luminoso username with access to"
+                        "the project")
+    parser.add_argument('query_file',
+                        help="Name of the file containing a set"
+                        "of queries")
+    parser.add_argument('-r',
+                        '--rebuild',
+                        default=False, action='store_true',
+                        help="Rebuild the subset vector file:"
+                        "subset_vector_file.p"
+                        "each subset")
+    parser.add_argument('-o',
+                        '--optimize',
+                        default=False, action='store_true',
+                        help="Re-optimize the function weights, and store in:"
+                        "optimized_weights.p")
+    parser.add_argument('-u',
+                        '--url',
+                        default='https://analytics.luminoso.com/api/v4',
+                        help="The base URL for the Luminoso API (defaults to"
+                        "the production API.")
+    parser.add_argument('-p',
+                        '--prefix',
+                        default='Category',
+                        help="Prefix of subsets to be used, for example:"
+                        "'Category' is the prefix for 'Category: subset'")
+
+    args = parser.parse_args()
+    run(args.account_id, args.project_id, args.username, args.query_file, args.url,
+        rebuild=args.rebuild, optimize=args.optimize, prefix=args.prefix)
+
+
+if __name__ == '__main__':
+    main()
