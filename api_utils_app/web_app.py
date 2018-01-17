@@ -268,7 +268,7 @@ def subset_search():
                                             password=session['password'])
             project = client.get()['name']
             if field:
-                docs = get_all_docs(client)
+                docs = get_all_docs(client, '__all__')
                 subset_list = {}
                 for doc in docs:
                     if field in doc['source']:
