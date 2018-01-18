@@ -32,13 +32,13 @@ def extract_labels(labels):
     return extracted_labels
 
 
-def get_all_docs(client, subset_field=None, batch_size=20000):
+def get_docs_labels(client, subset_field, batch_size=20000):
     '''
     Pull all docs from project, using a particular subset as the LABEL
     '''
-    if subset_field and ':' in subset_field:
+    if ':' in subset_field:
         subset_field = subset_field.lower()
-    elif subset_field:
+    elif subset_field != '__all__':
         subset_field = '{}:'.format(subset_field.lower())
 
     docs = []
@@ -263,16 +263,16 @@ def main(args):
     # ADDED FLAG
     if args.csv_file:
         test_docs, test_labels = get_test_docs_from_file(args.testing_data)
-        train_docs, train_labels = get_all_docs(train_client, args.subset_field)
+        train_docs, train_labels = get_docs_labels(train_client, args.subset_field)
         flag = 1
     elif args.testing_data == args.training_project_id:
-        docs, labels = get_all_docs(train_client, args.subset_field)
+        docs, labels = get_docs_labels(train_client, args.subset_field)
         train_docs, test_docs, train_labels, test_labels = split_train_test(docs,labels,float(args.split))
         flag = 2
     # ADDED FOURTH OPTION
     elif args.no_test:
         test_client = client.change_path('/projects/{}/{}'.format(args.account_id, args.testing_data))
-        train_docs, train_labels = get_all_docs(train_client, args.subset_field)
+        train_docs, train_labels = get_docs_labels(train_client, args.subset_field)
         #test_docs = test_client.get('docs')
         test_docs = []
         offset = 0
@@ -294,8 +294,8 @@ def main(args):
         print(len(test_docs))
     else:
         test_client = client.change_path('/projects/{}/{}'.format(args.account_id, args.testing_data))
-        train_docs, train_labels = get_all_docs(train_client, args.subset_field)
-        test_docs, test_labels = get_all_docs(test_client, args.subset_field)
+        train_docs, train_labels = get_docs_labels(train_client, args.subset_field)
+        test_docs, test_labels = get_docs_labels(test_client, args.subset_field)
         flag = 4
 
     
