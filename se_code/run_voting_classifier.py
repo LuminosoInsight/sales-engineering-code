@@ -32,13 +32,13 @@ def extract_labels(labels):
     return extracted_labels
 
 
-def get_all_docs(client, subset_field, batch_size=20000):
+def get_all_docs(client, subset_field=None, batch_size=20000):
     '''
     Pull all docs from project, using a particular subset as the LABEL
     '''
-    if ':' in subset_field:
+    if subset_field and ':' in subset_field:
         subset_field = subset_field.lower()
-    else:
+    elif subset_field:
         subset_field = '{}:'.format(subset_field.lower())
 
     docs = []
