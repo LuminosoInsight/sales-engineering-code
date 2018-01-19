@@ -102,104 +102,13 @@ def create_subset_details_v3(client, sst_list, skt_list, subset_term_info,
                     })
     return subset_details
 
-
-def subset_shared_terms(client, terms_per_subset=50, scan_terms=1000,
-                        min_score=30):
-    '''
-    Returns terms that are well represented across multiple subsets in the
-    entire project
-    '''
-    subset_counts = client.get()['counts']
-    subset_scores = {}
-    index = 0
-    for subset in sorted(subset_counts):
-        index += 1
-        subset_terms = client.get('terms', subset=subset, limit=scan_terms)
-        length = 0
-        termlist = []
-        all_terms = []
-        for term in subset_terms:
-            if length + len(term['term']) > 15000:
-                all_terms.extend(client.get('terms', terms=termlist))
-                termlist = []
-                length = 0
-            termlist.append(term['term'])
-            length += len(term['term'])
-        if len(termlist) > 0:
-            all_terms.extend(client.get('terms', terms=termlist))
-        all_term_dict = {term['term']: term['distinct_doc_count']
-                         for term in all_terms}
-
-        for term in subset_terms:
-            term_in_subset = term['distinct_doc_count']
-            term_outside_subset = all_term_dict[term['term']] - term_in_subset
-            docs_in_subset = subset_counts[subset]
-            docs_outside_subset = (subset_counts['__all__'] -
-                                   subset_counts[subset])
-            table = np.array([
-                [term_in_subset, term_outside_subset],
-                [docs_in_subset, docs_outside_subset]
-            ])
-            _, pvalue = fisher_exact(table, alternative='greater')
-            if term['score'] > min_score:
-                if term['term'] in subset_scores:
-                    subset_scores[term['term']] += pvalue
-                else:
-                    subset_scores[term['term']] = pvalue
-
-    return {k: v/len(subset_counts) for k, v in subset_scores.items()}
-
-
-def subset_key_terms(client, terms_per_subset=10, scan_terms=1000,
-                     min_score=30):
-    """
-    Find 'key terms' for a subset, those that appear disproportionately more
-    inside a subset than outside of it.
-    """
-    subset_counts = client.get()['counts']
-    subset_scores = {subset: [] for subset in subset_counts}
-    index = 0
-    for subset in sorted(subset_counts):
-        index += 1
-        subset_terms = client.get('terms', subset=subset, limit=scan_terms)
-        length = 0
-        termlist = []
-        all_terms = []
-        for term in subset_terms:
-            if length + len(term['term']) > 1000:
-                all_terms.extend(client.get('terms', terms=termlist))
-                termlist = []
-                length = 0
-            termlist.append(term['term'])
-            length += len(term['term'])
-        if len(termlist) > 0:
-            all_terms.extend(client.get('terms', terms=termlist))
-        all_term_dict = {term['term']: term['distinct_doc_count']
-                         for term in all_terms}
-
-        for term in subset_terms:
-            term_in_subset = term['distinct_doc_count']
-            term_outside_subset = (all_term_dict[term['term']] -
-                                   term_in_subset + 1)
-            docs_in_subset = subset_counts[subset]
-            docs_outside_subset = (subset_counts['__all__'] -
-                                   subset_counts[subset] + 1)
-            table = np.array([
-                [term_in_subset, term_outside_subset],
-                [docs_in_subset, docs_outside_subset]
-            ])
-            oddsratio, pvalue = fisher_exact(table, alternative='greater')
-            if term['score'] > min_score:
-                if subset in subset_scores:
-                    subset_scores[subset].append({'term': term['term'],
-                                                  'p-value': pvalue,
-                                                  'oddsratio': oddsratio})
-                else:
-                    subset_scores[subset] = [{'term': term['term'],
-                                              'p-value': pvalue,
-                                              'oddsratio': oddsratio}]
-
-    return subset_scores
+def create_subset_info(subset_details):
+    subset_info = {}
+    for detail in subset_details:
+        subset_info[detail['name']] = {'doc_count': detail['doc_count'],
+                                       'vector': detail['vector'],
+                                       'top_term': detail['top_term']}
+    return subset_info
 
 
 def subset_terms(client, scan_terms=1000, min_score=30):
@@ -265,7 +174,7 @@ def subset_terms(client, scan_terms=1000, min_score=30):
 def get_query_terms(query, client):
     query_doc = client.post_data('docs/vectors',
                                  json.dumps([{'text': query}]),
-                                 content_type='application/json')
+                                 content_type='application/json')[0]
     query_doc_terms = [t for t, _, _ in query_doc['terms']]
     query_terms = client.get('/terms',
                              terms=list(set([term for term in query_doc_terms])))
@@ -275,49 +184,56 @@ def get_query_terms(query, client):
     return query_terms
 
 
-def vectorize_preferences(preference_file, subsets_info, client, #user,
+def vectorize_preferences(preference_file, subset_info, client, #user,
                           sst_list, sst_cutoff):
-    preference_vectors = []
-    preference_weights = []
+    preference_list = []
+    #preference_vectors = []
+    #preference_weights = []
     with open(preference_file) as f:
         reader = csv.DictReader(f)
         for row in reader:
-            score = row['Score']
+            score = int(row['Score'])
 #             PLACEHOLDER FOR PERSONALIZATION
 #             score = row[user]
             preference = row['Preference']
             if row['Type'] == 'Category':
-                if score >= 0:
-                    preference_vectors.append(subsets_info[preference]['vector'])
-                    preference_weights.append(score)
-                else:
-                    preference_vectors.append(-1 * subsets_info[preference]['vector'])
-                    preference_weights.append(-1 * score)
+                #if score >= 0:
+                preference_list.append({
+                    'name': preference,
+                    'vector': subset_info[preference]['vector'],
+                    'score': score
+                })
+                #else:
+                #    preference_vectors.append(-1 * subset_info[preference]['vector'])
+                #    preference_weights.append(-1 * score)
             else:
                 query_terms = get_query_terms(preference, client)
                 pref_vec = vectorize_query(query_terms,
                                            client,
                                            sst_list,
                                            sst_cutoff)
-                if score >= 0:
-                    preference_vectors.append(pref_vec)
-                    preference_weights.append(score)
-                else:
-                    preference_vectors.append(-1 * pref_vec)
-                    preference_weights.append(-1 * score)
-    preference_vec = np.average(preference_vectors,
-                                weights=preference_weights,
-                                axis=0)
-    return preference_vec
+                #if score >= 0:
+                preference_list.append({
+                    'name': preference,
+                    'vector': subset_info[preference]['vector'],
+                    'score': score
+                })
+                    #preference_vectors.append(pref_vec)
+                    #preference_weights.append(score)
+                #else:
+                #    preference_vectors.append(-1 * pref_vec)
+                #    preference_weights.append(-1 * score)
+    #preference_vec = np.average(preference_vectors,
+    #                            weights=preference_weights,
+    #                            axis=0)
+    return preference_list
 
-
-def vectorize_query(query_terms, client, sst_list, sst_cutoff,
-                    sst_weight, preference_vec=None, personalize=False):
+def vectorize_query(query_terms, client, sst_list, sst_cutoff, sst_weight,
+                    preference_list=None, pref_weight=100, dist_cutoff=.5):
     '''
     Create a search vector based on the search query input by the user and
     weighting of the resulting match score based on the search query's length
     '''
-
     texts = []
     term_vectors = []
     term_weights = []
@@ -331,9 +247,29 @@ def vectorize_query(query_terms, client, sst_list, sst_cutoff,
                 term_weights.append(1)
     question_vec = np.average(term_vectors, weights=term_weights, axis=0)
 
-    if personalize:
-        personal_vecs = [question_vec, preference_vec]
-        question_vec = np.average(personal_vecs, weights=[1, .25], axis=0)
+    if preference_list:
+        pref_list = []
+        for preference in preference_list:
+            if np.linalg.norm(preference['vector'] - question_vec) < dist_cutoff:
+                if preference['score'] >= 0:
+                    pref_list.append({
+                    'name': preference['name'],
+                    'vector': preference['vector'],
+                    'score': preference['score']
+                    })
+                else:
+                    pref_list.append({
+                    'name': preference['name'],
+                    'vector': -1 * preference['vector'],
+                    'score': -1 * preference['score']
+                    })
+        #dist_list = sorted(dist_list, key=lambda pref: pref['distance'], reverse=True)
+        #personal_vecs = [question_vec, preference_vec]
+        #question_vec = np.average(personal_vecs, weights=[1, pref_weight], axis=0)
+        for pref in pref_list:
+            question_vec = np.average([question_vec, pref['vector']], 
+                                      weights=[pref_weight, pref['score'] ** 2], 
+                                      axis=0)
     return question_vec
 
 
@@ -405,8 +341,9 @@ def find_example_docs(client, subset, query_vec, n_docs=1, source_field=None):
     return example_docs
 
 
-def test_queries(client, queries, subset_details, sst_list, sst_cutoff,
-                 sst_weight, results_filename=None, save_file=False):
+def test_queries(client, queries, subset_details, pref_list, sst_list, 
+                 sst_cutoff, sst_weight, pref_cutoff, pref_weight,
+                 results_filename=None, save_file=False):
     '''
     Reads a set of queries from a CSV file and outputs a CSV file with
     recommendation results.
@@ -442,7 +379,10 @@ def test_queries(client, queries, subset_details, sst_list, sst_cutoff,
                                            client,
                                            sst_list,
                                            sst_cutoff,
-                                           sst_weight)
+                                           sst_weight,
+                                           pref_list,
+                                           pref_cutoff,
+                                           pref_weight)
 #             PLACEHOLDER FOR PERSONALIZATION#
 #             preference_vec = vectorize_preferences('user_preferences.csv',
 #                                                    subsets_info,
@@ -517,9 +457,12 @@ def optimize_function(weights, data, client):
     query_results = test_queries(client,
                                  data['queries'],
                                  subset_details,
+                                 data['pref_list'],
                                  data['sst_list'],
                                  weights[4],
                                  weights[5],
+                                 weights[6],
+                                 weights[7],
                                  save_file=False)
 
     return score_test_queries(query_results)
@@ -535,7 +478,9 @@ def optimize_weights(data, client):
                                              (0, 0.5),
                                              (0, 1.0),
                                              (0, 0.5),
-                                             (0, 1.0)],
+                                             (0, 1.0),
+                                             (0, 20.0),
+                                             (25, 200)],
                                      args=(data, client),
                                      maxiter=100)
     print(results)
@@ -553,8 +498,9 @@ def run(account_id, project_id, username, query_file, api_url, rebuild=False,
     if rebuild:
         print('Rebuilding subset_vector_file.p')
         data = {}
-        data['sst_list'] = subset_shared_terms(client)
-        data['skt_list'] = subset_key_terms(client)
+        #data['sst_list'] = subset_shared_terms(client)
+        #data['skt_list'] = subset_key_terms(client)
+        data['sst_list'], data['skt_list'] = subset_terms(client)
         data['subset_term_info'] = get_subset_term_info(client, prefix,
                                                         term_count=1000)
         pickle.dump(data, open('subset_vector_file.p', 'wb'))
@@ -576,6 +522,7 @@ def run(account_id, project_id, username, query_file, api_url, rebuild=False,
         print('Loading data from optimized_weights.p')
         optimal_weights = pickle.load(open('optimized_weights.p', 'rb'))
 
+    
     subset_details = create_subset_details_v3(client,
                                               data['sst_list'],
                                               data['skt_list'],
@@ -585,12 +532,18 @@ def run(account_id, project_id, username, query_file, api_url, rebuild=False,
                                               optimal_weights[2],
                                               optimal_weights[3],)
 
+    subset_info = create_subset_info(subset_details)
+    data['pref_list'] = vectorize_preferences('personalization_test.csv', subset_info, client, #user,
+                          data['sst_list'], optimal_weights[4])
     query_results = test_queries(client,
                                  data['queries'],
                                  subset_details,
+                                 data['pref_list'],
                                  data['sst_list'],
                                  optimal_weights[4],
                                  optimal_weights[5],
+                                 optimal_weights[6],
+                                 optimal_weights[7],
                                  results_filename=query_file,
                                  save_file=True)
     score_test_queries(query_results)
