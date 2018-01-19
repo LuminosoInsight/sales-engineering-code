@@ -383,25 +383,6 @@ def test_queries(client, queries, subset_details, pref_list, sst_list,
                                            pref_list,
                                            pref_cutoff,
                                            pref_weight)
-#             PLACEHOLDER FOR PERSONALIZATION#
-#             preference_vec = vectorize_preferences('user_preferences.csv',
-#                                                    subsets_info,
-#                                                    client,
-#                                                    sst_list,
-#                                                    sst_cutoff)
-#             preference_vec = vectorize_preferences('user_preferences.csv',
-#                                                    subsets_info,
-#                                                    client,
-#                                                    user,
-#                                                    sst_list,
-#                                                    sst_cutoff)
-#             query_vector = vectorize_query(query_terms,
-#                                            client,
-#                                            sst_list,
-#                                            sst_cutoff,
-#                                            sst_weight,
-#                                            preference_vec,
-#                                            personalize=True)
 
             recommendations = recommend_subset(query_vector,
                                                subset_details,
@@ -488,7 +469,8 @@ def optimize_weights(data, client):
 
 
 def run(account_id, project_id, username, query_file, api_url, rebuild=False,
-        optimize=False, prefix='Category'):
+        optimize=False, prefix='Category', personalization_file=None,
+        rebuild_personalization=False):
 
     client = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url,
                                                                account_id,
@@ -532,20 +514,40 @@ def run(account_id, project_id, username, query_file, api_url, rebuild=False,
                                               optimal_weights[2],
                                               optimal_weights[3],)
 
-    subset_info = create_subset_info(subset_details)
-    data['pref_list'] = vectorize_preferences('personalization_test.csv', subset_info, client, #user,
-                          data['sst_list'], optimal_weights[4])
-    query_results = test_queries(client,
-                                 data['queries'],
-                                 subset_details,
-                                 data['pref_list'],
-                                 data['sst_list'],
-                                 optimal_weights[4],
-                                 optimal_weights[5],
-                                 optimal_weights[6],
-                                 optimal_weights[7],
-                                 results_filename=query_file,
-                                 save_file=True)
+    if personalization_file:
+        if rebuild_personalization:
+            subset_info = create_subset_info(subset_details)
+            data['pref_list'] = vectorize_preferences(personalization_file, 
+                                                      subset_info, 
+                                                      client, #user,
+                                                      data['sst_list'], 
+                                                      optimal_weights[4])
+            pickle.dump(data['pref_list'], open('preferences_list.p', 'wb'))
+        else:
+            data['pref_list'] = pickle.load(open('preferences_list.p', 'rb'))
+        query_results = test_queries(client,
+                                     data['queries'],
+                                     subset_details,
+                                     data['pref_list'],
+                                     data['sst_list'],
+                                     optimal_weights[4],
+                                     optimal_weights[5],
+                                     optimal_weights[6],
+                                     optimal_weights[7],
+                                     results_filename=query_file,
+                                     save_file=True)
+    else:
+        query_results = test_queries(client,
+                                     data['queries'],
+                                     subset_details,
+                                     None,
+                                     data['sst_list'],
+                                     optimal_weights[4],
+                                     optimal_weights[5],
+                                     None,
+                                     None,
+                                     results_filename=query_file,
+                                     safe_file=True)
     score_test_queries(query_results)
 
 
@@ -596,10 +598,15 @@ def main():
                         default='Category',
                         help="Prefix of subsets to be used, for example:"
                         "'Category' is the prefix for 'Category: subset'")
+    parser.add_argument('-f',
+                        '--personalization_file',
+                        default=None,
+                        help="File name containing the personalization data")
 
     args = parser.parse_args()
     run(args.account_id, args.project_id, args.username, args.query_file, args.url,
-        rebuild=args.rebuild, optimize=args.optimize, prefix=args.prefix)
+        rebuild=args.rebuild, optimize=args.optimize, prefix=args.prefix,
+        personalization_file=args.personalization_file)
 
 
 if __name__ == '__main__':
