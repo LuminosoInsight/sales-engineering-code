@@ -75,18 +75,19 @@ def compass_stream():
     api_url = request.form['api_url']
     client = LuminosoClient.connect('/projects/{}/{}'.format(from_acct, from_proj))
     docs = get_all_docs(client)
-    
+    avg_doc_len = np.mean([len(d['text']) for d in docs[:100]])
+    if 'date' in docs[0]: #assumes all docs have a date if the first one does
+        docs = sorted(docs, key=lambda k: k['date'])
     compass_username = request.form['comp_name']
     compass_password = request.form['comp_pass']
     stream_time = request.form['stream_time']
     total_time = 0
+    slice_start = 0
     while total_time < int(float(stream_time) * 60):
-        batch_size = randint(1, int(len(docs) / 10))
+        batch_size = randint(1, min(int(40000/avg_doc_len), int(len(docs) / 10)))
         interval = randint(int(batch_size / 10), int(batch_size / 5))
-        
-        curr_docs = []
-        for i in range(batch_size):
-            curr_docs.append(docs[randint(0, len(docs) - 1)])
+        curr_docs = docs[slice_start:slice_start+batch_size]
+        slice_start += batch_size
         messages = format_messages(curr_docs)
         post_messages(api_url, messages, interval, compass_username, compass_password)
         print('POSTed {}, sleeping for {}'.format(batch_size, interval))
