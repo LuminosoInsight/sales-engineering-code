@@ -122,10 +122,11 @@ def tableau_export():
     skt_on = (request.form.get('skt') == 'on')
     drivers_on = (request.form.get('drivers') == 'on')
     trends = (request.form.get('trends') == 'on')
+    driver_rebuild = (requests.form.get('rebuild') == 'on')
     topic_drive = (request.form.get('topic_drive') == 'on')
     average_score = (request.form.get('average_score') == 'on')
     
-    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(from_acct, from_proj, skt_limit=skt_limit, term_count=term_count)
+    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(from_acct, from_proj, skt_limit=skt_limit, term_count=term_count, rebuild=driver_rebuild)
     subsets = reorder_subsets(subsets)
 
     doc_table, xref_table = create_doc_table(client, docs, subsets, themes, drivers)
