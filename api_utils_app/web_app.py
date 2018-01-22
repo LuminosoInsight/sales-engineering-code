@@ -123,7 +123,7 @@ def tableau_export():
     skt_on = (request.form.get('skt') == 'on')
     drivers_on = (request.form.get('drivers') == 'on')
     trends = (request.form.get('trends') == 'on')
-    driver_rebuild = (requests.form.get('rebuild') == 'on')
+    driver_rebuild = (request.form.get('rebuild') == 'on')
     topic_drive = (request.form.get('topic_drive') == 'on')
     average_score = (request.form.get('average_score') == 'on')
     
