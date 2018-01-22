@@ -28,7 +28,7 @@ def is_number(s):
 def reorder_subsets(subsets):
     new_subsets = []
     for s in subsets:
-        if is_number(s['subset'].partition(':')[2]):
+        if is_number(s['subset'].split(':')[-1]):
             new_subsets.insert(0, s)
         else:
             new_subsets.append(s)
@@ -277,7 +277,7 @@ def add_score_drivers_to_project(client, docs, drivers):
         for subset_to_score in drivers:
             if subset_to_score in [a.split(':')[0] for a in doc['subsets']]:
                 predict.update({subset_to_score: float([a for a in doc['subsets'] 
-                         if subset_to_score in a][0].split(':')[1])})
+                         if subset_to_score in a][0].split(':')[-1])})
         mod_docs.append({'_id': doc['_id'],
                          'predict': predict})
     client.put_data('docs', json.dumps(mod_docs), content_type='application/json')
@@ -354,7 +354,7 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
                     for score_doc in docs:
                         for category in score_doc[0]['document']['subsets']:
                             if subset in category:
-                                avg_score += int(category.split(':')[1])
+                                avg_score += int(category.split(':')[-1])
                                 break
                     try:
                         avg_score = float(avg_score/len(docs))
@@ -410,7 +410,7 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
                 for score_doc in docs:
                     for category in score_doc[0]['document']['subsets']:
                         if subset in category:
-                            avg_score += int(category.split(':')[1])
+                            avg_score += int(category.split(':')[-1])
                             break
                 try:
                     avg_score = float(avg_score/len(docs))
@@ -463,7 +463,7 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
                 for score_doc in docs:
                     for category in score_doc[0]['document']['subsets']:
                         if subset in category:
-                            avg_score += int(category.split(':')[1])
+                            avg_score += int(category.split(':')[-1])
                             break
                 try:
                     avg_score = float(avg_score/len(docs))
