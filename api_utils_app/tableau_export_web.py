@@ -35,7 +35,7 @@ def reorder_subsets(subsets):
             new_subsets.append(s)
     return new_subsets
 
-def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4):
+def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4, rebuild=False):
 
     print('Extracting Lumi data...')
     client = LuminosoClient.connect('/projects/{}/{}'.format(account, project))
@@ -56,8 +56,10 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
     skt = subset_key_terms(client, skt_limit)
 
     drivers = list(set([key for d in docs for key in d['predict'].keys()]))
+    exist_flag = True
     # See if any score drivers are present, if not, create some from subsets
     if not any(drivers):
+        exist_flag = False
         drivers = []
         subset_headings = list(set([s['subset'].partition(':')[0] for s in subsets]))
         for subset in subset_headings:
@@ -66,8 +68,8 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
             if all([is_number(v) for v in subset_values]):
                 drivers.append(subset)
         
-        if drivers:
-            add_score_drivers_to_project(client, docs, drivers)
+    if rebuild or not exist_flag:
+        add_score_drivers_to_project(client, docs, drivers)
     return client, docs, topics, terms, subsets, drivers, skt, themes
 
 
