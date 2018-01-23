@@ -5,7 +5,7 @@ from luminoso_api import LuminosoClient
 from pack64 import unpack64
 
 
-def search_subsets(client, question, subset_vecs, subset_list, min_docs=20, top_subsets=5, top_reviews=2, field=None):
+def search_subsets(client, question, subset_vecs, subset_list, min_docs=50, top_subsets=5, top_reviews=2, field=None):
     
     # Get question vector
     q_doc = client.post_data('docs/vectors',json.dumps([{'text':question}]),content_type='application/json')[0]
