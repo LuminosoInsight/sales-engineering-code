@@ -27,7 +27,7 @@ def search_subsets(client, question, subset_vecs, subset_list, min_docs=20, top_
         if subset_list[idx]['count'] >= min_docs:
             matching_subset = subset_list[idx]['subset']
             if field:
-                example_docs = client.get('docs/search', vector=q_vec, limit=2000)['search_results']
+                example_docs = client.get('docs/search', vector=q_vec, limit=5000)['search_results']
                 example_docs = [e for e in example_docs if e[0]['document']['source'][field] == matching_subset]
             else:
                 example_docs = client.get('docs/search', vector=q_vec, subset=matching_subset)['search_results']
