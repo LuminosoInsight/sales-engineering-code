@@ -28,13 +28,13 @@ def is_number(s):
 def reorder_subsets(subsets):
     new_subsets = []
     for s in subsets:
-        if is_number(s['subset'].partition(':')[2]):
+        if is_number(s['subset'].split(':')[-1]):
             new_subsets.insert(0, s)
         else:
             new_subsets.append(s)
     return new_subsets
 
-def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4):
+def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4, rebuild=False):
 
     print('Extracting Lumi data...')
     client = LuminosoClient.connect('/projects/{}/{}'.format(account, project))
@@ -55,8 +55,10 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
     skt = subset_key_terms(client, skt_limit)
 
     drivers = list(set([key for d in docs for key in d['predict'].keys()]))
+    exist_flag = True
     # See if any score drivers are present, if not, create some from subsets
     if not any(drivers):
+        exist_flag = False
         drivers = []
         subset_headings = list(set([s['subset'].partition(':')[0] for s in subsets]))
         for subset in subset_headings:
@@ -65,8 +67,8 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
             if all([is_number(v) for v in subset_values]):
                 drivers.append(subset)
     
-        if drivers:
-            add_score_drivers_to_project(client, docs, drivers)
+    if rebuild or not exist_flag:
+        add_score_drivers_to_project(client, docs, drivers)
     return client, docs, topics, terms, subsets, drivers, skt, themes
 
 
@@ -275,7 +277,7 @@ def add_score_drivers_to_project(client, docs, drivers):
         for subset_to_score in drivers:
             if subset_to_score in [a.split(':')[0] for a in doc['subsets']]:
                 predict.update({subset_to_score: float([a for a in doc['subsets'] 
-                         if subset_to_score in a][0].split(':')[1])})
+                         if subset_to_score in a][0].split(':')[-1])})
         mod_docs.append({'_id': doc['_id'],
                          'predict': predict})
     client.put_data('docs', json.dumps(mod_docs), content_type='application/json')
@@ -352,7 +354,7 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
                     for score_doc in docs:
                         for category in score_doc[0]['document']['subsets']:
                             if subset in category:
-                                avg_score += int(category.split(':')[1])
+                                avg_score += int(category.split(':')[-1])
                                 break
                     try:
                         avg_score = float(avg_score/len(docs))
@@ -408,7 +410,7 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
                 for score_doc in docs:
                     for category in score_doc[0]['document']['subsets']:
                         if subset in category:
-                            avg_score += int(category.split(':')[1])
+                            avg_score += int(category.split(':')[-1])
                             break
                 try:
                     avg_score = float(avg_score/len(docs))
@@ -461,7 +463,7 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
                 for score_doc in docs:
                     for category in score_doc[0]['document']['subsets']:
                         if subset in category:
-                            avg_score += int(category.split(':')[1])
+                            avg_score += int(category.split(':')[-1])
                             break
                 try:
                     avg_score = float(avg_score/len(docs))
@@ -603,11 +605,12 @@ def main():
     parser.add_argument('-trends', '--trend_tables', default=False, action='store_true', help="Generate trends_table and trendingterms_table")
     parser.add_argument('-sktt', '--skt_table', default=False, action='store_true',help="Do not generate skt_tables")
     parser.add_argument('-drive', '--drive', default=False, action='store_true',help="Do not generate driver_table")
+    parser.add_argument('-rebuild', '--rebuild', default=False, action='store_true',help="Rebuild drivers even if previous drivers exist")
     parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="Generate drivers_table with topics instead of drivers")
     parser.add_argument('-avg', '--average_score', default=False, action='store_true', help="Add average scores to drivers_table")
     args = parser.parse_args()
 
-    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, skt_limit=int(args.skt_limit), term_count=int(args.term_count))
+    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, skt_limit=int(args.skt_limit), term_count=int(args.term_count), rebuild=args.rebuild)
     subsets = reorder_subsets(subsets)
 
     if not args.doc:
