@@ -86,8 +86,10 @@ def compass_stream():
     while total_time < int(float(stream_time) * 60):
         batch_size = randint(1, min(int(40000/avg_doc_len), int(len(docs) / 10)))
         interval = randint(int(batch_size / 10), int(batch_size / 5))
-        curr_docs = docs[slice_start:slice_start+batch_size]
+        curr_docs = docs[slice_start:min(slice_start+batch_size, len(docs) - 1)]
         slice_start += batch_size
+        if slice_start >= len(docs):
+            slice_start = 0
         messages = format_messages(curr_docs)
         post_messages(api_url, messages, interval, compass_username, compass_password)
         print('POSTed {}, sleeping for {}'.format(batch_size, interval))
