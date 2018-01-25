@@ -53,6 +53,10 @@ def main():
         'column_dest',
         help="Name of column for combined data to be written to"
         )
+    parser.add_argument(
+        '-b', '--blanks', default=False, action='store_true',
+        help="Retain blank text to accurately represent share of voice"
+        )
     args = parser.parse_args()
     
     write_table = []
@@ -67,7 +71,7 @@ def main():
                     write_row.update({'string_' + args.column_dest: key.split('ext_')[1]})
                 else:
                     write_row.update({'string_' + args.column_dest: 'Text'})
-                if read_row[key] != '':
+                if read_row[key] != '' or args.blanks:
                     write_table.append(write_row)
     dict_to_file(write_table, args.output_file)
     
