@@ -246,7 +246,7 @@ def add_score_drivers_to_project(client, docs, drivers):
         for subset_to_score in drivers:
             if subset_to_score in [a.split(':')[0] for a in doc['subsets']]:
                 predict.update({subset_to_score: float([a for a in doc['subsets'] 
-                         if subset_to_score in a][0].split(':')[-1])})
+                         if subset_to_score.lower() == a.split(':')[0].strip().lower()][0].split(':')[-1])})
         mod_docs.append({'_id': doc['_id'],
                          'predict': predict})
     client.put_data('docs', json.dumps(mod_docs), content_type='application/json')
