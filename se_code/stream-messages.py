@@ -39,6 +39,7 @@ BATCH_SIZES = [i for i in range(1, 16)]
 # Default number of seconds to wait between requests (0-10, inclusive)
 INTERVALS = [i for i in range(11)]
 
+# Compass, by way of Arrow, expects this date format to filter messages
 DATE_FMT = '%Y-%m-%dT%H:%M:%S'
 
 
