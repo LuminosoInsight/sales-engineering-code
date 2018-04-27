@@ -1,6 +1,7 @@
 """
 Script that posts messages to a Compass project, in an infinite loop, at random
-intervals, and in batches of random size.
+intervals, and in batches of random size. It also purges messages older than one
+day to prevent the UI from becoming unresponsive.
 
 Requires an input file as its first argument, followed optionally by a Compass
 API url (the default is prod-compass), the project ID and the user name (who
@@ -19,7 +20,7 @@ Because the script must be runnable on any machine, it uses only packages
 available in Python 2.6 or 2.7.
 """
 import codecs
-from datetime import datetime
+from datetime import datetime, timedelta
 from getpass import getpass
 import gzip
 import json
@@ -37,6 +38,8 @@ HEADERS = None
 BATCH_SIZES = [i for i in range(1,16)]
 # Default number of seconds to wait between requests (0-10, inclusive)
 INTERVALS = [i for i in range(11)]
+
+DATE_FMT = '%Y-%m-%dT%H:%M:%S'
 
 
 def _get_password():
@@ -128,6 +131,7 @@ def main(args):
     # Get the documents to iterate over for streaming
     docs = _load_messages(args.input_file)
     messages_url = args.url + 'projects/%s/p/messages/' % args.project_id
+    purge_url = args.url + 'projects/%s/p/purge/' % args.project_id
     
     # Stream until interrupted
     interrupted = False
@@ -159,7 +163,18 @@ def main(args):
         except Exception as e:
             sys.stderr.write('%r\n' % e)
             interrupted = True
-            
+
+        # Delete messages more than a day old
+        to_date = (datetime.utcnow() - timedelta(days=1)).strftime(DATE_FMT)
+        try:
+            requests.delete(
+                purge_url + '?to_date=%s' % to_date, headers=HEADERS
+            )
+        except Exception as e:
+            sys.stderr.write(
+                '\nCould not purge messages posted before %s: %r' % (to_date, e)
+            )
+
         first = last
         time.sleep(interval)
 
