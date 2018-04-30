@@ -40,7 +40,7 @@ BATCH_SIZES = [i for i in range(1, 16)]
 INTERVALS = [i for i in range(11)]
 
 # Compass, by way of Arrow, expects this date format to filter messages
-DATE_FMT = '%Y-%m-%dT%H:%M:%S'
+DATE_FMT = '%Y-%m-%d %H:%M:%S'
 
 
 def _get_password():
