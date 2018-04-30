@@ -1,6 +1,7 @@
 """
 Script that posts messages to a Compass project, in an infinite loop, at random
-intervals, and in batches of random size.
+intervals, and in batches of random size. It also purges messages older than a
+day to prevent the UI from becoming unresponsive.
 
 Requires an input file as its first argument, followed optionally by a Compass
 API url (the default is prod-compass), the project ID and the user name (who
@@ -19,7 +20,7 @@ Because the script must be runnable on any machine, it uses only packages
 available in Python 2.6 or 2.7.
 """
 import codecs
-from datetime import datetime
+from datetime import datetime, timedelta
 from getpass import getpass
 import gzip
 import json
@@ -34,14 +35,17 @@ import time
 HEADERS = None
 
 # Default number of messages to post per request (1-15, inclusive)
-BATCH_SIZES = [i for i in range(1,16)]
+BATCH_SIZES = [i for i in range(1, 16)]
 # Default number of seconds to wait between requests (0-10, inclusive)
 INTERVALS = [i for i in range(11)]
+
+# Compass, by way of Arrow, expects this date format to filter messages
+DATE_FMT = '%Y-%m-%dT%H:%M:%S'
 
 
 def _get_password():
     return os.environ.get('COMPASS_PASSWORD') or getpass()
-    
+
 
 def _parse_range(integer_pair):
     """
@@ -54,7 +58,7 @@ def _parse_range(integer_pair):
         bounds = [int(i.strip()) for i in integer_pair.split('-', 1)]
     except ValueError as e:
         raise RuntimeError('Invalid integers in range %r' % integer_pair)
-        
+
     if bounds[1] < 1:
         raise RuntimeError('Minimum value for second integer in range %r is 1'
                            % integer_pair)
@@ -90,7 +94,7 @@ def _load_messages(infile):
         with codecs.open(infile, encoding='utf-8') as f:
             reader = DictReader(f)
             return [{'text': row['text']} for row in reader]
-    
+
     if infile.endswith('.jsons.gz'):
         ifp = gzip.open(infile, 'rt')
     elif infile.endswith('.jsons'):
@@ -110,16 +114,16 @@ def _with_timestamps(docs):
         d['timestamp'] = datetime.utcnow().isoformat()
     return docs
 
-    
+
 def main(args):
     if args.intervals:
         global INTERVALS
         INTERVALS = _parse_range(args.intervals)
-        
+
     if args.batches:
         global BATCH_SIZES
         BATCH_SIZES = _parse_range(args.batches)
-        
+
     # Log in and set the auth header
     global HEADERS
     login_url = args.url + 'login/'
@@ -128,7 +132,8 @@ def main(args):
     # Get the documents to iterate over for streaming
     docs = _load_messages(args.input_file)
     messages_url = args.url + 'projects/%s/p/messages/' % args.project_id
-    
+    purge_url = args.url + 'projects/%s/p/purge/' % args.project_id
+
     # Stream until interrupted
     interrupted = False
     total = 0
@@ -159,7 +164,19 @@ def main(args):
         except Exception as e:
             sys.stderr.write('%r\n' % e)
             interrupted = True
-            
+
+        # Delete messages more than a day old
+        to_date = (datetime.utcnow() - timedelta(days=1)).strftime(DATE_FMT)
+        try:
+            requests.delete(
+                purge_url + '?to_date=%s' % to_date, headers=HEADERS
+            )
+        except Exception as e:
+            sys.stderr.write(
+                '\nCould not purge messages posted before %s: %r' %
+                (to_date, e)
+            )
+
         first = last
         time.sleep(interval)
 
@@ -185,12 +202,12 @@ if __name__ == '__main__':
         help='8-character project ID for project (default: mfjwdkt4)'
     )
     parser.add_argument(
-        '-i', '--intervals', type=str, 
+        '-i', '--intervals', type=str,
         help='a range of integers, used to select a random number of seconds '
              'to sleep between requests'
     )
     parser.add_argument(
-        '-b', '--batches', type=str, 
+        '-b', '--batches', type=str,
         help='a range of integers, used to select a random number of messages '
              'to post per request'
     )
