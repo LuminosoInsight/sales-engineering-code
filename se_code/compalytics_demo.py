@@ -313,7 +313,7 @@ def main(args):
     # To better simulate randomness, we can start from an arbitrary place in
     # the document list
     first = random.randint(1, len(docs))
-    unclassified_docs = []
+    collected_docs = []
     while not interrupted:
         if first >= len(docs):
             first = 0
@@ -332,16 +332,16 @@ def main(args):
                 # This behemoth collects any texts which are classified as
                 # 'Unclassified' or 'Other'. Currently, it filters if at least
                 # one topic flags as such.
-                unclassified_docs.extend([
+                collected_docs.extend([
                     r['text'] for r in resp.json() if any(
                         [t['name'] in TOPICS for t in r['topics']]
                     )
                 ])
 
                 # Trim excess documents; retain only the most recent ones
-                if len(unclassified_docs) > RECALCULATE_THRESHOLD:
-                    unclassified_docs = unclassified_docs[
-                        len(unclassified_docs) - RECALCULATE_THRESHOLD:
+                if len(collected_docs) > RECALCULATE_THRESHOLD:
+                    collected_docs = collected_docs[
+                        len(collected_docs) - RECALCULATE_THRESHOLD:
                     ]
 
                 # The carriage return forces an overwrite over the same line.
@@ -352,7 +352,7 @@ def main(args):
                                   ' collected %d messages;'
                                   ' sleeping %d') %
                                  (total, args.compass_pid,
-                                  len(unclassified_docs), interval))
+                                  len(collected_docs), interval))
                 sys.stdout.flush()
         except Exception as e:
             _log_error('%r' % e)
@@ -360,7 +360,7 @@ def main(args):
 
         # This duplicates a bit of logic, but it saves the additional
         # indentation
-        if len(unclassified_docs) < RECALCULATE_THRESHOLD:
+        if len(collected_docs) < RECALCULATE_THRESHOLD:
             first = last
             time.sleep(interval)
             continue
@@ -379,7 +379,7 @@ def main(args):
                 # Ensure that the window size is maintained on the project
                 cutoff = max(
                     0,
-                    len(resp.json()['result']) + len(unclassified_docs) - WINDOW_SIZE
+                    len(resp.json()['result']) + len(collected_docs) - WINDOW_SIZE
                 )
                 delete_doc_ids.extend(
                     [d['_id'] for d in resp.json()['result']][:cutoff]
@@ -403,8 +403,8 @@ def main(args):
                 else:
                     continue
 
-            # POST unclassified docs to the Analytics project
-            texts = [{'text': d} for d in unclassified_docs]
+            # POST collected docs to the Analytics project
+            texts = [{'text': d} for d in collected_docs]
             resp = requests.post(
                 analytics_upload_url,
                 headers=ANALYTICS_HEADERS,
@@ -412,7 +412,7 @@ def main(args):
                 verify=VERIFY
             )
             if check_analytics_resp_ok(resp):
-                _log('POSTed %d messages to %s' % (len(unclassified_docs),
+                _log('POSTed %d messages to %s' % (len(collected_docs),
                                                    args.analytics_pid))
             else:
                 continue
@@ -425,12 +425,12 @@ def main(args):
                 verify=VERIFY
             )
             if check_analytics_resp_ok(resp):
-                _log('Rebuilding project successful')
+                _log('Rebuilt project successfully')
 
-            # Clearing unclassified_docs should always happen regardless of the
+            # Clearing collected_docs should always happen regardless of the
             # result of the rebuild call, since we have already POSTed the
             # documents to the project.
-            unclassified_docs = []
+            collected_docs = []
 
         except (ConnectionError, requests.exceptions.ConnectionError) as e:
             # Analytics might be down. This isn't showstopping; we can wait for
