@@ -33,7 +33,7 @@ specifies how many documents to retain on the Analytics project in total.
 The -t switch specifies a list of topics that determines whether a document is
 passed to the Analytics project; if any of the classifiers returns a topic on
 this list, the document is sent. It requires a list of strings, separated by
-spaces. If the topic has a space in it, it can be enclosed in quotation marks.
+spaces. If the topic contains a space, it can be enclosed in quotation marks.
 For example, '-t "topic 1" topic2' is valid.
 
 Because the script must be runnable on any machine, it uses only packages
@@ -65,7 +65,7 @@ INTERVALS = [i for i in range(11)]
 DATE_FMT = '%Y-%m-%d %H:%M:%S'
 # Analytics, on the other hand, expects this date format. Python's
 # datetime.utcnow() is not ISO 8601 compliant since it excludes the Z for UTC
-# time, so we specify our own format for strftime() that is.
+# time, so we specify our own format for strftime() that does.
 ANALYTICS_DATE_FMT = '%Y-%m-%dT%H:%M:%SZ'
 
 # Terrible hack to circumvent certs errors
@@ -333,9 +333,8 @@ def main(args):
             if check_compass_resp_ok(resp):
                 total += len(resp.json())
 
-                # This behemoth collects any texts which are classified as
-                # 'Unclassified' or 'Other'. Currently, it filters if at least
-                # one topic flags as such.
+                # This behemoth collects any messages whose classifications
+                # include any of the passed-in topics
                 collected_docs.extend([
                     r['text'] for r in resp.json() if any(
                         [t['name'] in TOPICS for t in r['topics']]
