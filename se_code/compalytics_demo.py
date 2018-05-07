@@ -9,7 +9,9 @@ Script that performs the following in an infinite loop:
   - POSTs collected messages to the project
   - Triggers a rebuild of the project
 
-Requires an input file as its first argument.
+Requires an input file as its first argument. The input file may be in jsons,
+jsons.gz, or csv format, as long as it has one document per line with the text
+of the message in a "text" field.
 
 Optionally, the details (API URL, project ID, user name) of both of the Compass
 and Analytics projects can be provided.
@@ -17,9 +19,6 @@ and Analytics projects can be provided.
 If either the Compass user or Analytics user's password is not stored in the
 COMPASS_PASSWORD or ANALYTICS_PASSWORD environment variable, respectively, the
 user will be prompted for it.
-
-The input file may be in jsons, jsons.gz, or csv format, as long as it has one
-document per line with the text of the message in a "text" field.
 
 The random selection of both batch and interval sizes may be influenced or
 eliminated altogether by passing an integer range to the "-b" or "-i" switches.
@@ -64,7 +63,9 @@ INTERVALS = [i for i in range(11)]
 
 # Compass, by way of Arrow, expects this date format to filter messages
 DATE_FMT = '%Y-%m-%d %H:%M:%S'
-# Analytics, on the other hand, expects this date format
+# Analytics, on the other hand, expects this date format. Python's
+# datetime.utcnow() is not ISO 8601 compliant since it excludes the Z for UTC
+# time, so we specify our own format for strftime() that is.
 ANALYTICS_DATE_FMT = '%Y-%m-%dT%H:%M:%SZ'
 
 # Terrible hack to circumvent certs errors
@@ -73,7 +74,10 @@ VERIFY = True
 # Classifications to keep an eye out for
 TOPICS = ('UNCLASSIFIED', 'Other')
 
-RECALCULATE_THRESHOLD = 201
+# How many messages to collect before rebuilding the project
+REBUILD_THRESHOLD = 201
+
+# How many messages to keep on the Analytics project
 WINDOW_SIZE = 997
 
 # See http://wiki.bash-hackers.org/scripting/terminalcodes for a more indepth
@@ -117,7 +121,7 @@ def _parse_range(integer_pair):
     return [i for i in range(bounds[0], bounds[1])]
 
 
-def _validate_recalc_threshold(threshold):
+def _validate_rebuild_threshold(threshold):
     if threshold < 50:
         raise RuntimeError('Minimum value for recalculation threshold is 50')
 
@@ -247,10 +251,10 @@ def _validate_and_set_params(args):
         global BATCH_SIZES
         BATCH_SIZES = _parse_range(args.batches)
 
-    if args.recalc_threshold:
-        global RECALCULATE_THRESHOLD
-        _validate_recalc_threshold(args.recalc_threshold)
-        RECALCULATE_THRESHOLD = args.recalc_threshold
+    if args.rebuild_threshold:
+        global REBUILD_THRESHOLD
+        _validate_rebuild_threshold(args.rebuild_threshold)
+        REBUILD_THRESHOLD = args.rebuild_threshold
 
     if args.window_size:
         global WINDOW_SIZE
@@ -339,9 +343,9 @@ def main(args):
                 ])
 
                 # Trim excess documents; retain only the most recent ones
-                if len(collected_docs) > RECALCULATE_THRESHOLD:
+                if len(collected_docs) > REBUILD_THRESHOLD:
                     collected_docs = collected_docs[
-                        len(collected_docs) - RECALCULATE_THRESHOLD:
+                        len(collected_docs) - REBUILD_THRESHOLD:
                     ]
 
                 # The carriage return forces an overwrite over the same line.
@@ -360,7 +364,7 @@ def main(args):
 
         # This duplicates a bit of logic, but it saves the additional
         # indentation
-        if len(collected_docs) < RECALCULATE_THRESHOLD:
+        if len(collected_docs) < REBUILD_THRESHOLD:
             first = last
             time.sleep(interval)
             continue
@@ -491,9 +495,9 @@ if __name__ == '__main__':
              ' to post per request'
     )
     parser.add_argument(
-        '-r', '--recalc_threshold', type=int, default=RECALCULATE_THRESHOLD,
+        '-r', '--rebuild_threshold', type=int, default=REBUILD_THRESHOLD,
         help='how many messages to collect before attempting to rebuild the'
-             ' Analytics project (default: %d, minimum: 50)' % RECALCULATE_THRESHOLD
+             ' Analytics project (default: %d, minimum: 50)' % REBUILD_THRESHOLD
     )
     parser.add_argument(
         '-w', '--window_size', type=int, default=WINDOW_SIZE,
