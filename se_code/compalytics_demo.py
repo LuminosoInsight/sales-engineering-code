@@ -73,8 +73,8 @@ VERIFY = True
 # Classifications to keep an eye out for
 TOPICS = ('UNCLASSIFIED', 'Other')
 
-RECALCULATE_THRESHOLD = 100
-WINDOW_SIZE = 500
+RECALCULATE_THRESHOLD = 201
+WINDOW_SIZE = 997
 
 # See http://wiki.bash-hackers.org/scripting/terminalcodes for a more indepth
 # explanation of these terminal codes
@@ -191,6 +191,7 @@ def _login(url, username, password):
     if not resp.ok:
         raise RuntimeError('Cannot log in as "%s": %s' % (username, resp.text))
 
+    # Analytics and Compass pass tokens differently
     token = (resp.json().get('token') or
              resp.json().get('result', {}).get('token'))
 
@@ -489,14 +490,14 @@ if __name__ == '__main__':
              ' to post per request'
     )
     parser.add_argument(
-        '-r', '--recalc_threshold', type=int, default=201,
+        '-r', '--recalc_threshold', type=int, default=RECALCULATE_THRESHOLD,
         help='how many messages to collect before attempting to rebuild the'
-             ' Analytics project (default 201, minimum 50)'
+             ' Analytics project (default %d, minimum 50)' % RECALCULATE_THRESHOLD
     )
     parser.add_argument(
-        '-w', '--window_size', type=int, default=997,
+        '-w', '--window_size', type=int, default=WINDOW_SIZE,
         help='how many messages to retain on the Analytics project (default'
-             ' 997, minimum 50, maximum 25000'
+             ' %d, minimum 50, maximum 25000' % WINDOW_SIZE
     )
     parser.add_argument(
         '-t', '--topics', type=str, nargs='+', default=TOPICS,
