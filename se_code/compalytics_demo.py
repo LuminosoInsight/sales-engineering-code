@@ -399,7 +399,8 @@ def main(args):
                     verify=VERIFY
                 )
                 if check_analytics_resp_ok(resp):
-                    _log('Purged %d messages' % len(delete_doc_ids))
+                    _log('Purged %d messages from %s' % (len(delete_doc_ids),
+                                                         args.analytics_pid))
                 else:
                     continue
 
@@ -425,7 +426,7 @@ def main(args):
                 verify=VERIFY
             )
             if check_analytics_resp_ok(resp):
-                _log('Rebuilt project successfully')
+                _log('Rebuilt project %s successfully' % args.analytics_pid)
 
             # Clearing collected_docs should always happen regardless of the
             # result of the rebuild call, since we have already POSTed the
@@ -492,17 +493,17 @@ if __name__ == '__main__':
     parser.add_argument(
         '-r', '--recalc_threshold', type=int, default=RECALCULATE_THRESHOLD,
         help='how many messages to collect before attempting to rebuild the'
-             ' Analytics project (default %d, minimum 50)' % RECALCULATE_THRESHOLD
+             ' Analytics project (default: %d, minimum: 50)' % RECALCULATE_THRESHOLD
     )
     parser.add_argument(
         '-w', '--window_size', type=int, default=WINDOW_SIZE,
-        help='how many messages to retain on the Analytics project (default'
-             ' %d, minimum 50, maximum 25000' % WINDOW_SIZE
+        help='how many messages to retain on the Analytics project (default:'
+             ' %d, minimum: 50, maximum: 25000)' % WINDOW_SIZE
     )
     parser.add_argument(
         '-t', '--topics', type=str, nargs='+', default=TOPICS,
         help='a space-separated list of topics that messages sent to Analytics'
-             ' project must be classified with'
+             ' project must be classified with (default: %s)' % ' '.join(TOPICS)
     )
 
     main(parser.parse_args())
