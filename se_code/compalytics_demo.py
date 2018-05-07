@@ -4,11 +4,10 @@ Script that performs the following in an infinite loop:
   in batches of random size
 - Collects messages that are classified with a certain topic
   (default: Unclassified, Other)
-- Purges messages on the Compass project that are older than a day
 - When enough messages are collected:
   - Purges old messages on the Analytics project
   - POSTs collected messages to the project
-  - Trigger a rebuild of the project
+  - Triggers a rebuild of the project
 
 Requires an input file as its first argument.
 
@@ -32,8 +31,8 @@ Analytics project. The -r switch specifies the amount of documents that should
 be collected before attempting to modify the Analytics project. The -w switch
 specifies how many documents to retain on the Analytics project in total.
 
-The -t switch specifies a list of topics that determine whether a document is
-passed to the Analytics project; if any of the classifiers return a topic on
+The -t switch specifies a list of topics that determines whether a document is
+passed to the Analytics project; if any of the classifiers returns a topic on
 this list, the document is sent. It requires a list of strings, separated by
 spaces. If the topic has a space in it, it can be enclosed in quotation marks.
 For example, '-t "topic 1" topic2' is valid.
@@ -42,7 +41,7 @@ Because the script must be runnable on any machine, it uses only packages
 available in Python 2.6 or 2.7.
 """
 import codecs
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import partial
 from getpass import getpass
 import gzip
@@ -238,7 +237,7 @@ def _check_resp_base(resp, token_getter=None):
     return False
 
 
-def _validate_args(args):
+def _validate_and_set_params(args):
     if args.intervals:
         global INTERVALS
         INTERVALS = _parse_range(args.intervals)
@@ -263,7 +262,7 @@ def _validate_args(args):
 
 
 def main(args):
-    _validate_args(args)
+    _validate_and_set_params(args)
 
     # For convenience's sake, define partial functions to preload relevant
     # parameters into response checking, which can potentially re-log in as
@@ -294,9 +293,6 @@ def main(args):
 
     # Define API URLs
     compass_classify_url = '{}projects/{}/p/messages/'.format(
-        args.compass_url, args.compass_pid
-    )
-    compass_purge_url = '{}projects/{}/p/purge/'.format(
         args.compass_url, args.compass_pid
     )
 
@@ -351,8 +347,8 @@ def main(args):
                 # The weird terminal character actually wipes the line, so we
                 # don't leave old data on it.
                 sys.stdout.write('\r' + ERASE_LINE)
-                sys.stdout.write(('POSTed %d messages to %s;'
-                                  ' collected %d unclassified;'
+                sys.stdout.write(('Classified %d messages against %s;'
+                                  ' collected %d messages;'
                                   ' sleeping %d') %
                                  (total, args.compass_pid,
                                   len(unclassified_docs), interval))
@@ -360,20 +356,6 @@ def main(args):
         except Exception as e:
             _log_error('%r' % e)
             interrupted = True
-
-        # Delete messages more than a day old
-        to_date = (datetime.utcnow() - timedelta(days=1)).strftime(DATE_FMT)
-        try:
-            requests.delete(
-                compass_purge_url + '?to_date=%s' % to_date,
-                headers=COMPASS_HEADERS,
-                verify=VERIFY
-            )
-        except Exception as e:
-            _log_error(
-                'Could not purge messages posted before %s: %r' %
-                (to_date, e)
-            )
 
         # This duplicates a bit of logic, but it saves the additional
         # indentation
@@ -434,7 +416,7 @@ def main(args):
             else:
                 continue
 
-            # Trigger a recalculate
+            # Trigger a rebuild
             resp = requests.post(
                 analytics_build_url,
                 headers=ANALYTICS_HEADERS,
@@ -442,10 +424,10 @@ def main(args):
                 verify=VERIFY
             )
             if check_analytics_resp_ok(resp):
-                _log('Recalculate successful')
+                _log('Rebuilding project successful')
 
             # Clearing unclassified_docs should always happen regardless of the
-            # result of the recalculate call, since we have already POSTed the
+            # result of the rebuild call, since we have already POSTed the
             # documents to the project.
             unclassified_docs = []
 
@@ -490,11 +472,11 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-cp', '--compass_pid', type=str, default='gbbj642t',
-        help='8-character project ID for project (default: gbbj642t)'
+        help='8-character project ID for Compass project (default: gbbj642t)'
     )
     parser.add_argument(
         '-ap', '--analytics_pid', type=str, default='pr6svkfn',
-        help='8-character project ID for project (default: pr6svkfn)'
+        help='8-character project ID for Analytics project (default: pr6svkfn)'
     )
     parser.add_argument(
         '-i', '--intervals', type=str,
@@ -518,7 +500,8 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '-t', '--topics', type=str, nargs='+', default=TOPICS,
-        help=''
+        help='a space-separated list of topics that messages sent to Analytics'
+             ' project must be classified with'
     )
 
     main(parser.parse_args())
