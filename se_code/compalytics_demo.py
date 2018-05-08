@@ -66,9 +66,6 @@ INTERVALS = [i for i in range(11)]
 # format for strftime() that does.
 ANALYTICS_DATE_FMT = '%Y-%m-%dT%H:%M:%SZ'
 
-# Terrible hack to circumvent certs errors
-VERIFY = True
-
 # Classifications to keep an eye out for
 TOPICS = ('UNCLASSIFIED', 'Other')
 
