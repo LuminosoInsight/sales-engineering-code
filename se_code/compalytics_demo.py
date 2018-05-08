@@ -162,16 +162,6 @@ def _load_messages(infile):
     return docs
 
 
-def _with_timestamps(docs):
-    """
-    Add or modify the timestamp field with the current time (UTC) in each dict
-    in the `docs` list with the current time (UTC) and return the list.
-    """
-    for d in docs:
-        d['timestamp'] = datetime.utcnow().isoformat()
-    return docs
-
-
 def _with_date_metadata(docs):
     """
     Add a timestamp of the current time (UTC) as metadata to each element in
@@ -305,7 +295,7 @@ def main(args):
     docs = _load_messages(args.input_file)
 
     # Define API URLs
-    compass_classify_url = '{}projects/{}/p/messages/'.format(
+    compass_classify_url = '{}projects/{}/p/classify/'.format(
         args.compass_url, args.compass_pid
     )
 
@@ -335,7 +325,7 @@ def main(args):
         try:
             resp = requests.post(
                 compass_classify_url, headers=COMPASS_HEADERS,
-                data=json.dumps(_with_timestamps(docs[first:last])),
+                data=json.dumps(docs[first:last]),
                 verify=VERIFY
             )
             if check_compass_resp_ok(resp):
