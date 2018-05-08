@@ -272,23 +272,23 @@ def main(args):
     compass_login_url = args.compass_url + 'login/'
     analytics_login_url = args.analytics_url + 'v4/user/login/'
 
-    get_analytics_token = partial(
+    analytics_token_getter = partial(
         _get_analytics_token, args.analytics_username, analytics_login_url
     )
     check_analytics_resp_ok = partial(
-        _check_resp_base, **{'token_getter': get_analytics_token}
+        _check_resp_base, **{'token_getter': analytics_token_getter}
     )
 
-    get_compass_token = partial(
+    compass_token_getter = partial(
         _get_compass_token, args.compass_username, compass_login_url
     )
     check_compass_resp_ok = partial(
-        _check_resp_base, **{'token_getter': get_compass_token}
+        _check_resp_base, **{'token_getter': compass_token_getter}
     )
 
     # Log in and set the auth header
-    get_analytics_token()
-    get_compass_token()
+    analytics_token_getter()
+    compass_token_getter()
 
     # Get the documents to iterate over for streaming
     docs = _load_messages(args.input_file)
