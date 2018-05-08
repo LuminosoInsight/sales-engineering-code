@@ -119,16 +119,26 @@ def _parse_range(integer_pair):
     return [i for i in range(bounds[0], bounds[1])]
 
 
-def _validate_rebuild_threshold(threshold):
-    if threshold < 50:
-        raise RuntimeError('Minimum value for recalculation threshold is 50')
-
-
 def _validate_window_size(window_size):
     if window_size < 50:
         raise RuntimeError('Minimum window size is 50')
     elif window_size > 25000:
         raise RuntimeError('Maximum window size is 25000')
+
+
+def _validate_rebuild_threshold(threshold):
+    """
+    Makes sure the rebuild threshold is a sane number; that is, at least twice
+    the minimum number of documents on an Analytics project (50) and crucially,
+    not more than the set window size on the project.
+
+    This relies on WINDOW_SIZE having been validated and set beforehand!
+    """
+    if threshold < 50:
+        raise RuntimeError('Minimum value for rebuild threshold is 50')
+    if threshold > WINDOW_SIZE:
+        raise RuntimeError('Maximum value for rebuild threshold is the window'
+                           ' size (currently %d)' % WINDOW_SIZE)
 
 
 def _load_messages(infile):
@@ -249,15 +259,15 @@ def _validate_and_set_params(args):
         global BATCH_SIZES
         BATCH_SIZES = _parse_range(args.batches)
 
-    if args.rebuild_threshold:
-        global REBUILD_THRESHOLD
-        _validate_rebuild_threshold(args.rebuild_threshold)
-        REBUILD_THRESHOLD = args.rebuild_threshold
-
     if args.window_size:
         global WINDOW_SIZE
         _validate_window_size(args.window_size)
         WINDOW_SIZE = args.window_size
+
+    if args.rebuild_threshold:
+        global REBUILD_THRESHOLD
+        _validate_rebuild_threshold(args.rebuild_threshold)
+        REBUILD_THRESHOLD = args.rebuild_threshold
 
     # Verification already handled by argparse
     global TOPICS
