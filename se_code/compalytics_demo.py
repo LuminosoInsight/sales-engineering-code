@@ -189,7 +189,7 @@ def _login(url, username, password):
     Return an Authorization header given the 'url', 'username', and `password`.
     """
     user_data = {'username': username, 'password': password}
-    resp = requests.post(url, data=user_data, verify=VERIFY)
+    resp = requests.post(url, data=user_data)
     if not resp.ok:
         raise RuntimeError('Cannot log in as "%s": %s' % (username, resp.text))
 
@@ -324,8 +324,7 @@ def main(args):
         try:
             resp = requests.post(
                 compass_classify_url, headers=COMPASS_HEADERS,
-                data=json.dumps(docs[first:last]),
-                verify=VERIFY
+                data=json.dumps(docs[first:last])
             )
             if check_compass_resp_ok(resp):
                 total += len(resp.json())
@@ -372,8 +371,7 @@ def main(args):
                 analytics_documents_url,
                 headers=ANALYTICS_HEADERS,
                 params={'doc_fields': json.dumps(['date', '_id']),
-                        'limit': 25000},
-                verify=VERIFY
+                        'limit': 25000}
             )
             if check_analytics_resp_ok(resp):
                 # Ensure that the window size is maintained on the project
@@ -395,8 +393,7 @@ def main(args):
                 resp = requests.delete(
                     analytics_documents_url,
                     headers=ANALYTICS_HEADERS,
-                    params={'ids': json.dumps(delete_doc_ids)},
-                    verify=VERIFY
+                    params={'ids': json.dumps(delete_doc_ids)}
                 )
                 if check_analytics_resp_ok(resp):
                     _log('Purged %d messages from %s' % (len(delete_doc_ids),
@@ -409,8 +406,7 @@ def main(args):
             resp = requests.post(
                 analytics_upload_url,
                 headers=ANALYTICS_HEADERS,
-                data=json.dumps({'docs': _with_date_metadata(texts)}),
-                verify=VERIFY
+                data=json.dumps({'docs': _with_date_metadata(texts)})
             )
             if check_analytics_resp_ok(resp):
                 _log('POSTed %d messages to %s' % (len(collected_docs),
@@ -422,8 +418,7 @@ def main(args):
             resp = requests.post(
                 analytics_build_url,
                 headers=ANALYTICS_HEADERS,
-                data=json.dumps({}),
-                verify=VERIFY
+                data=json.dumps({})
             )
             if check_analytics_resp_ok(resp):
                 _log('Rebuilt project %s successfully' % args.analytics_pid)
