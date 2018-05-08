@@ -61,11 +61,9 @@ BATCH_SIZES = [i for i in range(1, 16)]
 # Default number of seconds to wait between requests (0-10, inclusive)
 INTERVALS = [i for i in range(11)]
 
-# Compass, by way of Arrow, expects this date format to filter messages
-DATE_FMT = '%Y-%m-%d %H:%M:%S'
-# Analytics, on the other hand, expects this date format. Python's
-# datetime.utcnow() is not ISO 8601 compliant since it excludes the Z for UTC
-# time, so we specify our own format for strftime() that does.
+# Analytics expects this date format. Python's datetime.utcnow() is not ISO
+# 8601 compliant since it excludes the Z for UTC time, so we specify our own
+# format for strftime() that does.
 ANALYTICS_DATE_FMT = '%Y-%m-%dT%H:%M:%SZ'
 
 # Terrible hack to circumvent certs errors
