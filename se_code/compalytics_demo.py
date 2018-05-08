@@ -343,8 +343,8 @@ def main(args):
             except (AnalyticsNotReady,
                     ConnectionError,
                     requests.exceptions.ConnectionError) as e:
-                # Analytics might be down. This isn't showstopping; we can wait
-                # for it to come back up.
+                # Analytics isn't responding correctly, for whatever reason.
+                # This isn't showstopping; we can wait for it to come back up.
                 _log_error('%r' % e)
             except Exception as e:
                 _log_error('%r' % e)
@@ -360,13 +360,12 @@ def classify_messages(args, docs, collected_docs, check_resp):
     - `args` containing Compass information in compass_pid and compass_url
       fields
     - A set of `docs` (a list of dicts containing a 'text' field) to classify
+    - A `check_resp` function to check the output of requests made to the
+      Compass project (returning True if OK and False otherwise)
 
     Classifies `docs` against the Compass project, and modifies collected_docs
     _in place_ to include texts that are classified with any of the elements of
     TOPICS.
-
-    `check_resp` is a function that checks the output of the POST request and
-    returns True if OK (can derive topics from it), False if not.
     """
     # Define API URL of interest
     url = '{}projects/{}/p/classify/'.format(
@@ -391,6 +390,19 @@ def classify_messages(args, docs, collected_docs, check_resp):
 
 
 def update_analytics_project(args, collected_docs, check_resp):
+    """
+    Given:
+    - `args` containing Analytics information in analytics_url, analytics_pid
+      and analytics_username fields
+    - A list of `collected_docs` (strings) to upload to the Analytics project
+    - A `check_resp` function to check the output of requests made to the
+      Analytics project (returning True if OK and False otherwise)
+
+    Purges old documents from the Analytics project, uploads the contents of
+    `collected_docs` to the project and triggers a rebuild on it.
+
+    Raises an AnalyticsNotReady exception if an intermediate step fails.
+    """
     # Define API URLs of interest
     upload_url = '{}v5/projects/{}/upload/'.format(
         args.analytics_url, args.analytics_pid
