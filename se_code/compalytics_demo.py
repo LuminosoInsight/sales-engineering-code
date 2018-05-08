@@ -105,7 +105,7 @@ def _parse_range(integer_pair):
     """
     try:
         bounds = [int(i.strip()) for i in integer_pair.split('-', 1)]
-    except ValueError as e:
+    except ValueError:
         raise RuntimeError('Invalid integers in range %r' % integer_pair)
 
     if bounds[1] < 1:
@@ -338,7 +338,6 @@ def main(args):
                 # project.
                 collected_docs = []
             except (AnalyticsNotReady,
-                    ConnectionError,
                     requests.exceptions.ConnectionError) as e:
                 # Analytics isn't responding correctly, for whatever reason.
                 # This isn't showstopping; we can wait for it to come back up.
