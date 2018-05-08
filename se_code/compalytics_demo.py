@@ -84,6 +84,10 @@ CURSOR_UP_ONE = '\x1b[1A'
 ERASE_LINE = '\x1b[2K'
 
 
+class AnalyticsNotReady(Exception):
+    pass
+
+
 # Define some lightweight logging functions to keep terminal footprint short
 def _log(s, writer=sys.stdout):
     writer.write('\n' + ERASE_LINE + s)
@@ -293,21 +297,6 @@ def main(args):
     # Get the documents to iterate over for streaming
     docs = _load_messages(args.input_file)
 
-    # Define API URLs
-    compass_classify_url = '{}projects/{}/p/classify/'.format(
-        args.compass_url, args.compass_pid
-    )
-
-    analytics_upload_url = '{}v5/projects/{}/upload/'.format(
-        args.analytics_url, args.analytics_pid
-    )
-    analytics_build_url = '{}v5/projects/{}/build/'.format(
-        args.analytics_url, args.analytics_pid
-    )
-    analytics_documents_url = '{}v4/projects/{}/{}/docs/'.format(
-        args.analytics_url, args.analytics_username, args.analytics_pid
-    )
-
     # Stream until interrupted
     interrupted = False
     total = 0
@@ -322,122 +311,157 @@ def main(args):
         interval = random.choice(INTERVALS)
         last = min(first + batch_size, len(docs))
         try:
-            resp = requests.post(
-                compass_classify_url, headers=COMPASS_HEADERS,
-                data=json.dumps(docs[first:last])
-            )
-            if check_compass_resp_ok(resp):
-                total += len(resp.json())
+            classify_messages(args,
+                              docs[first:last],
+                              collected_docs,
+                              check_compass_resp_ok)
 
-                # This behemoth collects any messages whose classifications
-                # include any of the passed-in topics
-                collected_docs.extend([
-                    r['text'] for r in resp.json() if any(
-                        [t['name'] in TOPICS for t in r['topics']]
-                    )
-                ])
-
-                # Trim excess documents; retain only the most recent ones
-                if len(collected_docs) > REBUILD_THRESHOLD:
-                    collected_docs = collected_docs[
-                        len(collected_docs) - REBUILD_THRESHOLD:
-                    ]
-
-                # The carriage return forces an overwrite over the same line.
-                # The weird terminal character actually wipes the line, so we
-                # don't leave old data on it.
-                sys.stdout.write('\r' + ERASE_LINE)
-                sys.stdout.write(('Classified %d messages against %s;'
-                                  ' collected %d messages;'
-                                  ' sleeping %d') %
-                                 (total, args.compass_pid,
-                                  len(collected_docs), interval))
-                sys.stdout.flush()
+            total += last-first
+            # The carriage return forces an overwrite over the same line.
+            # The weird terminal character actually wipes the line, so we
+            # don't leave old data on it.
+            sys.stdout.write('\r' + ERASE_LINE)
+            sys.stdout.write(('Classified %d messages against %s;'
+                              ' collected %d messages;'
+                              ' sleeping %d') %
+                             (total, args.compass_pid,
+                              len(collected_docs), interval))
+            sys.stdout.flush()
         except Exception as e:
             _log_error('%r' % e)
             interrupted = True
 
-        # This duplicates a bit of logic, but it saves the additional
-        # indentation
-        if len(collected_docs) < REBUILD_THRESHOLD:
-            first = last
-            time.sleep(interval)
-            continue
-
-        try:
-            # Purge older documents from the Analytics project
-            delete_doc_ids = []
-            resp = requests.get(
-                analytics_documents_url,
-                headers=ANALYTICS_HEADERS,
-                params={'doc_fields': json.dumps(['date', '_id']),
-                        'limit': 25000}
-            )
-            if check_analytics_resp_ok(resp):
-                # Ensure that the window size is maintained on the project
-                cutoff = max(
-                    0,
-                    len(resp.json()['result']) + len(collected_docs) - WINDOW_SIZE
+        if len(collected_docs) >= REBUILD_THRESHOLD:
+            try:
+                update_analytics_project(
+                    args, collected_docs, check_analytics_resp_ok
                 )
-                delete_doc_ids.extend(
-                    [d['_id'] for d in resp.json()['result']][:cutoff]
-                )
-            else:
-                # For this and subsequent calls to the Analytics project: we
-                # need these steps to succeed, so if an intermediate step
-                # fails, skip the rest and wait for the next iteration (when
-                # the project hopefully comes back up)
-                continue
-
-            if delete_doc_ids:
-                resp = requests.delete(
-                    analytics_documents_url,
-                    headers=ANALYTICS_HEADERS,
-                    params={'ids': json.dumps(delete_doc_ids)}
-                )
-                if check_analytics_resp_ok(resp):
-                    _log('Purged %d messages from %s' % (len(delete_doc_ids),
-                                                         args.analytics_pid))
-                else:
-                    continue
-
-            # POST collected docs to the Analytics project
-            texts = [{'text': d} for d in collected_docs]
-            resp = requests.post(
-                analytics_upload_url,
-                headers=ANALYTICS_HEADERS,
-                data=json.dumps({'docs': _with_date_metadata(texts)})
-            )
-            if check_analytics_resp_ok(resp):
-                _log('POSTed %d messages to %s' % (len(collected_docs),
-                                                   args.analytics_pid))
-            else:
-                continue
-
-            # Trigger a rebuild
-            resp = requests.post(
-                analytics_build_url,
-                headers=ANALYTICS_HEADERS,
-                data=json.dumps({})
-            )
-            if check_analytics_resp_ok(resp):
-                _log('Rebuilt project %s successfully' % args.analytics_pid)
-
-            # Clearing collected_docs should always happen regardless of the
-            # result of the rebuild call, since we have already POSTed the
-            # documents to the project.
-            collected_docs = []
-
-        except (ConnectionError, requests.exceptions.ConnectionError) as e:
-            # Analytics might be down. This isn't showstopping; we can wait for
-            # it to come back up.
-            _log_error('%r' % e)
-        except Exception as e:
-            _log_error('%r' % e)
-            interrupted = True
+                # Clearing collected_docs should always happen here, since at
+                # this point we have already POSTed the documents to the
+                # project.
+                collected_docs = []
+            except (AnalyticsNotReady,
+                    ConnectionError,
+                    requests.exceptions.ConnectionError) as e:
+                # Analytics might be down. This isn't showstopping; we can wait
+                # for it to come back up.
+                _log_error('%r' % e)
+            except Exception as e:
+                _log_error('%r' % e)
+                interrupted = True
 
         first = last
         time.sleep(interval)
+
+
+def classify_messages(args, docs, collected_docs, check_resp):
+    """
+    Given:
+    - `args` containing Compass information in compass_pid and compass_url
+      fields
+    - A set of `docs` (a list of dicts containing a 'text' field) to classify
+
+    Classifies `docs` against the Compass project, and modifies collected_docs
+    _in place_ to include texts that are classified with any of the elements of
+    TOPICS.
+
+    `check_resp` is a function that checks the output of the POST request and
+    returns True if OK (can derive topics from it), False if not.
+    """
+    # Define API URL of interest
+    url = '{}projects/{}/p/classify/'.format(
+        args.compass_url, args.compass_pid
+    )
+
+    resp = requests.post(url, headers=COMPASS_HEADERS, data=json.dumps(docs))
+    if check_resp(resp):
+        # This behemoth collects any messages whose classifications
+        # include any of the passed-in topics
+        collected_docs.extend([
+            r['text'] for r in resp.json() if any(
+                [t['name'] in TOPICS for t in r['topics']]
+            )
+        ])
+
+        # Trim excess documents; retain only the most recent ones
+        if len(collected_docs) > REBUILD_THRESHOLD:
+            collected_docs = collected_docs[
+                (len(collected_docs) - REBUILD_THRESHOLD):
+            ]
+
+
+def update_analytics_project(args, collected_docs, check_resp):
+    # Define API URLs of interest
+    upload_url = '{}v5/projects/{}/upload/'.format(
+        args.analytics_url, args.analytics_pid
+    )
+    build_url = '{}v5/projects/{}/build/'.format(
+        args.analytics_url, args.analytics_pid
+    )
+    documents_url = '{}v4/projects/{}/{}/docs/'.format(
+        args.analytics_url, args.analytics_username, args.analytics_pid
+    )
+
+    # Purge older documents from the Analytics project
+    resp = requests.get(
+        documents_url,
+        headers=ANALYTICS_HEADERS,
+        params={'doc_fields': json.dumps(['date', '_id']),
+                'limit': 25000}
+    )
+    if not check_resp:
+        # For this and subsequent calls to the Analytics project: we
+        # need these steps to succeed, so if an intermediate step
+        # fails, skip the rest and wait for the next iteration (when
+        # the project hopefully comes back up)
+        raise AnalyticsNotReady(
+            'Could not retrieve documents from Analytics project'
+        )
+
+    # Ensure that the window size is maintained on the project
+    cutoff = max(
+        0,
+        len(resp.json()['result']) + len(collected_docs) - WINDOW_SIZE
+    )
+    delete_doc_ids = [d['_id'] for d in resp.json()['result']][:cutoff]
+
+    if delete_doc_ids:
+        resp = requests.delete(
+            documents_url,
+            headers=ANALYTICS_HEADERS,
+            params={'ids': json.dumps(delete_doc_ids)}
+        )
+        if not check_resp(resp):
+            raise AnalyticsNotReady(
+                'Could not delete documents from Analytics project'
+            )
+
+        _log('Purged %d messages from %s' % (len(delete_doc_ids),
+                                             args.analytics_pid))
+
+    # POST collected docs to the Analytics project
+    texts = [{'text': d} for d in collected_docs]
+    resp = requests.post(
+        upload_url,
+        headers=ANALYTICS_HEADERS,
+        data=json.dumps({'docs': _with_date_metadata(texts)})
+    )
+    if not check_resp(resp):
+        raise AnalyticsNotReady(
+            'Could not upload documents to Analytics project'
+        )
+
+    _log('POSTed %d messages to %s' % (len(collected_docs),
+                                       args.analytics_pid))
+
+    # Trigger a rebuild
+    resp = requests.post(
+        build_url,
+        headers=ANALYTICS_HEADERS,
+        data=json.dumps({})
+    )
+    if check_resp(resp):
+        _log('Rebuilt project %s successfully' % args.analytics_pid)
 
 
 if __name__ == '__main__':
