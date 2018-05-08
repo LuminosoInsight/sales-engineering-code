@@ -235,8 +235,7 @@ def _check_resp_base(resp, token_getter=None):
     elif resp.status_code == 401:
         token_getter()
     else:
-        msg = '%s - %s' % (resp.status_code, resp.reason)
-        _log_error('ERROR: %s' % msg)
+        _log_error('ERROR: %s - %s' % (resp.status_code, resp.reason))
     return False
 
 
