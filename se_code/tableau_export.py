@@ -1,6 +1,5 @@
 from luminoso_api import LuminosoClient
 from pack64 import unpack64
-import run_voting_classifier # need accuracy/coverage chart
 from conjunctions_disjunctions import get_new_results
 from subset_key_terms import subset_key_terms
 from scipy.stats import linregress
@@ -15,17 +14,37 @@ import numpy as np
 
 
 def get_as(vector1, vector2):
+    '''
+    Calculate the association score between two vectors
+    :param vector1: First vector
+    :param vector2: Second vector
+    :return: Cosine similarity of two vectors
+    '''
+
     return np.dot(unpack64(vector1), unpack64(vector2))
 
 
 def is_number(s):
+    '''
+    Detect whether a string is a number
+    :param s: string to be tested
+    :return: True/False
+    '''
+
     try:
         float(s)
         return True
     except ValueError:
         return False
 
+
 def reorder_subsets(subsets):
+    '''
+    Convert numeric subsets into numbers within a list
+    :param subsets: List of subsets (strings)
+    :return: Revised list of subsets
+    '''
+
     new_subsets = []
     for s in subsets:
         if is_number(s['subset'].split(':')[-1]):
@@ -34,7 +53,20 @@ def reorder_subsets(subsets):
             new_subsets.append(s)
     return new_subsets
 
+
 def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4, rebuild=False):
+    '''
+    Extract relevant data from Luminoso project
+    :param account: Luminoso account id
+    :param project: Luminoso project id
+    :param skt_limit: Number of terms per subset when creating subset key terms
+    :param term_count: Number of top terms to include in the analysis
+    :param interval: The appropriate time interval for trending ('day', 'week', 'month', 'year')
+    :param themes: Number of themes to calculate
+    :param theme_terms: Number of terms to represent each theme
+    :param rebuild: Whether or not to rebuild the Luminoso project
+    :return: Return lists of dictionaries containing project data
+    '''
 
     print('Extracting Lumi data...')
     client = LuminosoClient.connect('/projects/{}/{}'.format(account, project))
@@ -51,11 +83,11 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
     topics = client.get('topics')
     themes = client.get('/terms/clusters/', num_clusters=themes, num_cluster_terms=theme_terms)
     terms = client.get('terms', limit=term_count)
-    terms_doc_count = client.get('terms/doc_counts', limit=term_count, format='json')
     skt = subset_key_terms(client, skt_limit)
 
     drivers = list(set([key for d in docs for key in d['predict'].keys()]))
     exist_flag = True
+
     # See if any score drivers are present, if not, create some from subsets
     if not any(drivers):
         exist_flag = False
@@ -72,11 +104,18 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
     return client, docs, topics, terms, subsets, drivers, skt, themes
 
 
-def create_doc_term_table(client, docs, terms, threshold):
+def create_doc_term_table(docs, terms, threshold):
+    '''
+    Creates a tabulated format for the relationships between docs & terms
+    :param docs: List of document dictionaries
+    :param terms: List of term dictionaries
+    :param threshold: Threshold for similarity when tagging docs with terms
+    :return: List of dicts containing doc_ids, related terms, score & whether an exact match was found
+    '''
+
     doc_term_table = []
     for doc in docs:
         if doc['vector']:
-            doc_vector = unpack64(doc['vector'])
             terms_in_docs = []
             for t in doc['terms']:
                 terms_in_docs.append(t[0])
@@ -85,15 +124,23 @@ def create_doc_term_table(client, docs, terms, threshold):
                 if term['term'] in terms_in_docs:
                     term_in_doc = 1
                 if term['vector']:
-                    term_vector = unpack64(term['vector'])
-                    if np.dot(doc_vector, term_vector) >= threshold:
+                    assoc_score = get_as(doc['vector'], term['vector'])
+                    if assoc_score >= threshold:
                         doc_term_table.append({'doc_id': doc['_id'], 
                                                'term': term['text'],
-                                               'association': np.dot(doc_vector, term_vector),
+                                               'association': assoc_score,
                                                'exact_match': term_in_doc})
     return doc_term_table
-    
-def create_doc_topic_table(client, docs, topics):
+
+
+def create_doc_topic_table(docs, topics):
+    '''
+    Create a tabulation of docs and topics they're related to
+    :param docs: List of document dictionaries
+    :param topics: List of topic dictionaries
+    :return: List of document ids associated topic and score
+    '''
+
     doc_topic_table = []
     for doc in docs:
         if doc['vector']:
@@ -113,7 +160,14 @@ def create_doc_topic_table(client, docs, topics):
                                     'association': max_score})
     return doc_topic_table
 
-def create_topic_topic_table(client, topics):
+
+def create_topic_topic_table(topics):
+    '''
+    Create a tabulation of topic to topic relationships
+    :param topics: List of topic dictionaries
+    :return: List of topic pairs and association score
+    '''
+
     topic_topic_table = []
     for topic in topics:
         for t in topics:
@@ -125,7 +179,15 @@ def create_topic_topic_table(client, topics):
                                           'association': np.dot(topic_vector, t_vector)})
     return topic_topic_table
 
-def create_term_topic_table(client, terms, topics):
+
+def create_term_topic_table(terms, topics):
+    '''
+    Create a tabulation of topic to term relationships
+    :param terms: List of term dictionaries
+    :param topics: List of topic dictionaries
+    :return: List of topics, terms and association score
+    '''
+
     term_topic_table = []
     for term in terms:
         for t in topics:
@@ -137,7 +199,15 @@ def create_term_topic_table(client, terms, topics):
                                          'association': np.dot(term_vector, topic_vector)})
     return term_topic_table
 
-def create_doc_subset_table(client, docs, subsets):
+
+def create_doc_subset_table(docs, subsets):
+    '''
+    Create a tabulation of documents and associated subsets
+    :param docs: List of document dictionaries
+    :param subsets: List of subsets (strings)
+    :return: List of document ids, subsets, subset names and subset values
+    '''
+
     doc_subset_table = []
     subset_headings = list(dict.fromkeys([s['subset'].partition(':')[0] for s in subsets]))
     subset_headings.remove('__all__')
@@ -157,11 +227,19 @@ def create_doc_subset_table(client, docs, subsets):
                 })
     return doc_subset_table
 
-def create_doc_table(client, docs, subsets, themes, drivers):
+
+def create_doc_table(client, docs, subsets, themes):
+    '''
+    Create a tabulation of documents and their related subsets & themes
+    :param client: LuminosoClient object set to project path
+    :param docs: List of document dictionaries
+    :param subsets: List of subsets (string)
+    :param themes: List of theme dictionaries
+    :return: List of documents with associated themes and list of cross-references between docs and subsets
+    '''
 
     print('Creating doc table...')
     doc_table = []
-    xref_table = []
     subset_headings = list(dict.fromkeys([s['subset'].partition(':')[0] for s in subsets]))
     subset_headings.remove('__all__')
     subset_headings = {s: i for i, s in enumerate(subset_headings)}
@@ -171,6 +249,7 @@ def create_doc_table(client, docs, subsets, themes, drivers):
         header.append('Subset {}'.format(n))
         info.append(h)
 
+    # Get 20 documents related to a particular theme
     for i, theme in enumerate(themes):
         search_terms = [t['text'] for t in theme['terms']]
         theme['name'] = ', '.join(search_terms)[:-2]
@@ -210,23 +289,19 @@ def create_doc_table(client, docs, subsets, themes, drivers):
     xref_table.append(xref_dic)
     return doc_table, xref_table
 
+
 def create_skt_table(client, skt):
+    '''
+    Create tabulation of subset key terms analysis (terms distinctive within a subset)
+    :param client: LuminosoClient object pointed to project path
+    :param skt: List of subset key terms dictionaries
+    :return: List of subset key terms output with example documents & match counts
+    '''
 
     print('Creating subset key terms table...')
-    terms_to_get = []
-    length = 0
     terms = []
     for s, t, o, p in skt:
         terms.extend(client.get('terms/doc_counts', terms=[t['term']], subsets=[s], format='json'))
-        #if length > 10000 - len(t['term']):
-        #    terms.extend(client.get('terms/doc_counts', terms=terms_to_get, subsets=[s], format='json'))
-        #    terms_to_get = []
-        #    length = 0
-        #terms_to_get.append(t['term'])
-        #length += len(t['term'])
-    #if length > 0:
-     #   terms.extend(client.get('terms/doc_counts', terms=terms_to_get, subsets=[s], format='json'))
-        
     
     terms = {t['text']: t for t in terms}
     skt_table = []
@@ -263,13 +338,28 @@ def create_skt_table(client, skt):
 
 
 def wait_for_jobs(client, text):
+    '''
+    Repeatedly test for project recalculation, display text when complete
+    :param client: LuminosoClient object pointed to project path
+    :param text: String to print when complete
+    :return: None
+    '''
+
     time_waiting = 0
     while len(client.get()['running_jobs']) != 0:
         sys.stderr.write('\r\tWaiting for {} ({}sec)'.format(text, time_waiting))
         time.sleep(30)
         time_waiting += 30
 
+
 def add_score_drivers_to_project(client, docs, drivers):
+    '''
+    Create add data to 'predict' field to support creation of ScoreDrivers if none existed
+    :param client: LuminosoClient object pointed to project path
+    :param docs: List of document dictionaries
+    :param drivers: List of subsets (string) that contain numerics (could be score drivers)
+    :return: None
+    '''
    
     mod_docs = []
     for doc in docs:
@@ -289,7 +379,15 @@ def add_score_drivers_to_project(client, docs, drivers):
     wait_for_jobs(client, 'driver training')
     print('Done training.')
 
+
 def create_terms_table(client, terms):
+    '''
+    Create a tabulation of top terms and their exact/total match counts
+    :param client: LuminosoClient object pointed to a project path
+    :param terms: List of term dictionaries
+    :return: List of terms, and match counts
+    '''
+
     print('Creating terms table...')
     table = []
     for t in terms:
@@ -301,7 +399,13 @@ def create_terms_table(client, terms):
         table.append(row)
     return table
 
-def create_themes_table(client, themes):
+
+def create_themes_table(themes):
+    '''
+    Create tabulation of themes and doc count for each theme
+    :param themes: List of theme dictionaries
+    :return: List of themes, terms, and doc count
+    '''
     print('Creating themes table...')
     for i, theme in enumerate(themes):
         search_terms = [t['text'] for t in theme['terms']]
@@ -314,6 +418,15 @@ def create_themes_table(client, themes):
                     
 
 def create_drivers_table(client, drivers, topic_drive, average_score):
+    '''
+    Create tabulation of ScoreDrivers output, complete with doc counts, example docs, scores and driver clusters
+    :param client: LuminosoClient object pointed to project path
+    :param drivers: List of drivers (string)
+    :param topic_drive: Whether or not to include topics as drivers (bool)
+    :param average_score: Whether or not to compute the average score for documents containing drivers (bool)
+    :return: List of drivers with scores, example docs, clusters and type
+    '''
+
     driver_table = []
     for subset in drivers:
         if topic_drive:
@@ -485,7 +598,15 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
     return driver_table
 
 
-def create_trends_table(terms, topics, docs):
+def create_trends_table(terms, docs):
+    '''
+    Creates tabulation of terms and their association per document in order to compute trends over time
+    :param terms: List of term dictionaries
+    :param docs: List of document dictionaries
+    :return: List of documents with associated terms and scores as well as a list of terms and slopes for
+    preset percentages of the overall timeine.
+    '''
+
     term_list = []
     for t in terms:
         if t['vector'] != None:
@@ -537,7 +658,6 @@ def create_trends_table(terms, topics, docs):
         half_slope_ranking = half_slope_ranking[::-1]
 
         results = np.hstack((dates, results))
-        #trends_table = [{key:value for key, value in zip(headers, r)} for r in results]
         trends_table = []
         for i in range(len(results)):
             for j in range(len(concept_list)):
@@ -559,21 +679,15 @@ def create_trends_table(terms, topics, docs):
         trends_table = []
         trendingterms_table = []
     return trends_table, trendingterms_table
-
-#def create_prediction_table():
-    
-    
-#def create_pairings_table():
-    
-    
-
-#def create_prediction_table():
-    
-    
-#def create_pairings_table():
     
     
 def write_table_to_csv(table, filename):
+    '''
+    Function for writing lists of dictionaries to a CSV file
+    :param table: List of dictionaries to be written
+    :param filename: Filename to be written to (string)
+    :return: None
+    '''
 
     print('Writing to file {}.'.format(filename))
     if len(table) == 0:
@@ -614,7 +728,7 @@ def main():
     subsets = reorder_subsets(subsets)
 
     if not args.doc:
-        doc_table, xref_table = create_doc_table(client, docs, subsets, themes, drivers)
+        doc_table, xref_table = create_doc_table(client, docs, subsets, themes)
         write_table_to_csv(doc_table, 'doc_table.csv')
         write_table_to_csv(xref_table, 'xref_table.csv')
     
@@ -623,27 +737,27 @@ def main():
         write_table_to_csv(terms_table, 'terms_table.csv')
         
     if args.doc_term:
-        doc_term_table = create_doc_term_table(client, docs, terms, float(args.assoc_threshold))
+        doc_term_table = create_doc_term_table(docs, terms, float(args.assoc_threshold))
         write_table_to_csv(doc_term_table, 'doc_term_table.csv')
     
     if args.doc_topic:
-        doc_topic_table = create_doc_topic_table(client, docs, topics)
+        doc_topic_table = create_doc_topic_table(docs, topics)
         write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
         
     if args.topic_topic:
-        topic_topic_table = create_topic_topic_table(client, topics)
+        topic_topic_table = create_topic_topic_table(topics)
         write_table_to_csv(topic_topic_table, 'topic_topic_table.csv')
         
     if args.term_topic:
-        term_topic_table = create_term_topic_table(client, terms, topics)
+        term_topic_table = create_term_topic_table(terms, topics)
         write_table_to_csv(term_topic_table, 'term_topic_table.csv')
         
     if not args.doc_subset:
-        doc_subset_table = create_doc_subset_table(client, docs, subsets)
+        doc_subset_table = create_doc_subset_table(docs, subsets)
         write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
 
     if not args.themes:
-        themes_table = create_themes_table(client, themes)
+        themes_table = create_themes_table(themes)
         write_table_to_csv(themes_table, 'themes_table.csv')
 
     if not args.skt_table:
@@ -655,7 +769,7 @@ def main():
         write_table_to_csv(driver_table, 'drivers_table.csv')
     
     if args.trend_tables:
-        trends_table, trendingterms_table = create_trends_table(terms, topics, docs)
+        trends_table, trendingterms_table = create_trends_table(terms, docs)
         write_table_to_csv(trends_table, 'trends_table.csv')
         write_table_to_csv(trendingterms_table, 'trendingterms_table.csv')
 

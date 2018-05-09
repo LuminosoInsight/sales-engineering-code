@@ -80,7 +80,7 @@ def generate_intent_score(term_list, dispersion_list, collocation_list):
     return term_list
 
 
-def create_intent_pairs(term_list, num_intent_topics=75, intent_threshold=1):
+def create_intent_pairs(term_list, num_intent_topics=75, intent_threshold=1, add_generic=False):
 
     '''Generate a list of intent topic definitions'''
 
@@ -97,9 +97,10 @@ def create_intent_pairs(term_list, num_intent_topics=75, intent_threshold=1):
                         if similarity > .6 and similarity < .98]
 
         # Add generic intents
-        intent_list.append({'name': 'general-{}'.format(term['text']),
-                                    'topic_def': [{'text': term['text']}],
-                                    'text': 'general-{}'.format(term['text'])})
+        if add_generic:
+            intent_list.append({'name': 'general-{}'.format(term['text']),
+                                        'topic_def': [{'text': term['text']}],
+                                        'text': 'general-{}'.format(term['text'])})
 
         for term2 in second_terms:
                 topic_text = '{} {}'.format(term['text'], term2['text'])
@@ -145,6 +146,9 @@ def remove_duplicates(client, intent_list):
 
 
 def set_intent_vectors(client, intent_list, threshold=.9):
+
+    '''Create vectors for each intent, return full list'''
+
     for label in intent_list:
         intent_vectors = []
         for topic_def in label['topic_def']:
@@ -163,6 +167,8 @@ def set_intent_vectors(client, intent_list, threshold=.9):
 
 
 def doc_search(client, intent_list, all_terms):
+
+    '''Search all documents for examples matching each intent'''
 
     docs = get_all_docs(client)
     for doc in docs:
@@ -189,13 +195,15 @@ def doc_search(client, intent_list, all_terms):
 
 def save_doc_search_results(docs, intent_list, threshold=.5):
 
+    '''Save document search results to a file'''
+
     labels = [intent['name'] for intent in intent_list]
     intents = []
     auto_intents = []
 
     with open('results.csv', 'w') as file:
         writer = csv.writer(file)
-        headers = ['_id', 'text', 'intent', 'score']
+        headers = ['_id', 'text', 'intent', 'score', 'subsets']
         headers.extend(labels)
         writer.writerow(headers)
         count = 0
@@ -230,7 +238,7 @@ def main(args):
                                       collocation_list)
 
     print('Generating intents...')
-    intent_list = create_intent_pairs(term_list, num_intent_topics=args.pair_terms)
+    intent_list = create_intent_pairs(term_list, num_intent_topics=args.pair_terms, add_generic=args.generic)
     intent_list = remove_duplicates(client, intent_list)
     intent_list = set_intent_vectors(client, intent_list)
 
@@ -274,6 +282,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '-t', '--intent_threshold', default=1,
         help='Threshold for determining a term\'s "intentness"'
+        )
+    parser.add_argument(
+        '-g', '--generic', default=False, action='store_true',
+        help='Flag to include "generic" intents (single term intents)'
         )
     args = parser.parse_args()
     main(args)
