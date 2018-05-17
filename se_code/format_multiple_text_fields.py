@@ -61,10 +61,10 @@ def main():
     
     write_table = []
     table = file_to_dict(args.input_file)
-    text_fields = [field for field in table[0] if 'text_' in field.lower() or 'text' == field.lower()]
+    text_fields = [field for field in table[0] if 'text_' in field.lower() or 'text' == field.lower().strip()]
     for read_row in table:
         for key in read_row:
-            if 'text_' in key.lower() or 'text' == key.lower():
+            if 'text_' in key.lower() or 'text' == key.lower().strip():
                 write_row = {k: v for k, v in read_row.items() if k not in text_fields}
                 write_row.update({'Text': read_row[key]})
                 if 'text_' in key.lower():
