@@ -39,23 +39,19 @@ def char_position(letters):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Format a CSV given an input file'
+        description='Changing a CSV with multiple text columns into a CSV with one text column and a metadata field describing the name of the original column.'
     )
     parser.add_argument(
         'input_file',
-        help="Name of the file that we want to modify"
+        help="Name of the file that we want to modify."
         )
     parser.add_argument(
         'output_file',
-        help="Name of the file to write the modification to"
+        help="Name of the output file (after modifications are complete)."
         )
     parser.add_argument(
         'column_dest',
-        help="Name of column for combined data to be written to"
-        )
-    parser.add_argument(
-        '-b', '--blanks', default=False, action='store_true',
-        help="Retain blank text to accurately represent share of voice"
+        help="Name of the new column to use as metadata to determine which original column the text came from."
         )
     args = parser.parse_args()
     
@@ -71,8 +67,7 @@ def main():
                     write_row.update({'string_' + args.column_dest: key.split('ext_')[1]})
                 else:
                     write_row.update({'string_' + args.column_dest: 'Text'})
-                if read_row[key] != '' or args.blanks:
-                    write_table.append(write_row)
+                write_table.append(write_row)
     dict_to_file(write_table, args.output_file)
     
 if __name__ == '__main__':
