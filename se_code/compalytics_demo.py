@@ -434,19 +434,24 @@ def update_analytics_project(args, collected_docs, check_resp):
     delete_doc_ids = [d['_id'] for d in resp.json()['result']][:cutoff]
 
     if delete_doc_ids:
-        resp = requests.delete(
-            documents_url,
-            headers=ANALYTICS_HEADERS,
-            params={'ids': json.dumps(delete_doc_ids)}
-        )
-        if not check_resp(resp):
-            raise AnalyticsNotReady(
-                'Could not delete documents from Analytics project'
+        n_docs_deleted = 0
+        while n_docs_deleted < len(delete_doc_ids):
+            resp = requests.delete(
+                documents_url,
+                headers=ANALYTICS_HEADERS,
+                params={'ids': json.dumps(
+                    delete_doc_ids[n_docs_deleted : n_docs_deleted+50]
+                )}
             )
+            if not check_resp(resp):
+                raise AnalyticsNotReady(
+                    'Could not delete documents from Analytics project'
+                )
+            n_docs_deleted += 50
 
         _log('Purged %d messages from %s' % (len(delete_doc_ids),
                                              args.analytics_pid))
-
+            
     # POST collected docs to the Analytics project
     texts = [{'text': d} for d in collected_docs]
     resp = requests.post(
