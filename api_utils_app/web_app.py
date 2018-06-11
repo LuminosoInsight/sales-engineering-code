@@ -69,11 +69,12 @@ def compass_demo():
 @app.route('/compass_stream', methods=['POST'])
 def compass_stream():
     url = request.form['url'].strip()
-    from_acct, from_proj = parse_url(url)
-    client = LuminosoClient.connect('/projects/', username=session['username'],
-                                               password=session['password'])
-    api_url = request.form['api_url']
-    client = LuminosoClient.connect('/projects/{}/{}'.format(from_acct, from_proj))
+    api_url, from_acct, from_proj = parse_url(url)
+
+    client = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, from_acct, from_proj),
+                                    username = session['username'],
+                                    password = session['password']
+    )
     docs = get_all_docs(client)
     avg_doc_len = np.mean([len(d['text']) for d in docs[:100]])
     if 'date' in docs[0]: #assumes all docs have a date if the first one does
@@ -104,7 +105,7 @@ def tableau_export_page():
 @app.route('/tableau_export', methods=['POST'])
 def tableau_export():
     url = request.form['url'].strip()
-    from_acct, from_proj = parse_url(url)
+    api_url, from_acct, from_proj = parse_url(url)
     foldername = request.form['folder_name'].strip()
     term_count = request.form['term_count'].strip()
     if term_count == '':
@@ -129,7 +130,7 @@ def tableau_export():
     topic_drive = (request.form.get('topic_drive') == 'on')
     average_score = (request.form.get('average_score') == 'on')
     
-    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(from_acct, from_proj, skt_limit=skt_limit, term_count=term_count, rebuild=driver_rebuild)
+    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(api_url, from_acct, from_proj, skt_limit=skt_limit, term_count=term_count, rebuild=driver_rebuild)
     subsets = reorder_subsets(subsets)
 
     doc_table, xref_table = create_doc_table(client, docs, subsets, themes, drivers)
@@ -183,21 +184,24 @@ def setup_classifier():
     
     if request.method == 'POST':
         train_url = request.form['train_url'].strip()
-        train_acct, training_project_id = parse_url(train_url)
+        train_api_url, train_acct, training_project_id = parse_url(train_url)
         test_url = request.form['test_url'].strip()
-        test_acct, testing_project_id = parse_url(test_url)
+        test_api_url, test_acct, testing_project_id = parse_url(test_url)
         subset_field = request.form['subset_label'].strip()
         
-        client = LuminosoClient.connect(username=session['username'],
-                                        password=session['password'])
-        
-        train_client = client.change_path('/projects/{}/{}'.format(train_acct,training_project_id))
+        train_client = client.change_path('{}/projects/{}/{}'.format(train_api_url, train_acct,training_project_id),
+                                          username=session['username'],
+                                          password=session['password']
+                                          )
         
         if training_project_id == testing_project_id:
             docs, labels = get_docs_labels(train_client, subset_field)
             train_docs, test_docs, train_labels, test_labels = split_train_test(docs, labels)
         else:
-            test_client = client.change_path('/projects/{}/{}'.format(test_acct, testing_project_id))
+            test_client = client.change_path('{}/projects/{}/{}'.format(test_api_url, test_acct, testing_project_id),
+                                             username=session['username'],
+                                             password=session['password']
+                                             )
             train_docs, train_labels = get_docs_labels(train_client, subset_field)
             test_docs, test_labels = get_docs_labels(test_client, subset_field)
         
@@ -235,11 +239,11 @@ def live_classifier():
 @app.route('/plutchik', methods=['POST'])
 def plutchik():
     url = request.form['url'].strip()
-    from_acct, from_proj = parse_url(url)
-    client = LuminosoClient.connect('/projects/', username=session['username'],
-                                                password=session['password'])
-    client = client.change_path('/')
-    client = client.change_path('/projects/{}/{}'.format(from_acct, from_proj))
+    api_url, from_acct, from_proj = parse_url(url)
+    client = LuminosoClient.connect('{}/projects/'.format(api_url, from_acct, from_proj),
+                                    username=session['username'],
+                                    password=session['password'])
+
     delete = (request.form.get('delete') == 'on')
     name = request.form['dest_name'].strip()
     copy = (request.form.get('copy') == 'on')
@@ -266,8 +270,8 @@ def subset_search():
         if 'url' in request.form:
             url = request.form['url'].strip()
             field = request.form['field'].strip()
-            from_acct, from_proj = parse_url(url)
-            client = LuminosoClient.connect('/projects/{}/{}'.format(from_acct,from_proj),
+            api_url, from_acct, from_proj = parse_url(url)
+            client = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, from_acct, from_proj),
                                             username=session['username'],
                                             password=session['password'])
             project = client.get()['name']
@@ -320,9 +324,11 @@ def conj_disj():
     
     if request.method == 'POST':
         url = request.form['url'].strip()
-        from_acct, from_proj = parse_url(url)
-        client = LuminosoClient.connect('/projects/{}/{}'.format(from_acct,from_proj), username=session['username'],
-                                            password=session['password'])
+        api_url, from_acct, from_proj = parse_url(url)
+        client = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, from_acct,from_proj),
+                                        username=session['username'],
+                                        password=session['password']
+                                        )
         neg_terms = []
         if len(request.form['neg_terms']) > 0:
             neg_terms = request.form['neg_terms'].split(',')
@@ -366,34 +372,48 @@ def topic_utils():
 def topic_utils_copy():
     #NOTE: Should add a checkbox for if the existing topics should be deleted first
     url = request.form['url'].strip()
-    from_acct, from_proj = parse_url(url)
+    api_url, from_acct, from_proj = parse_url(url)
     dests = [parse_url(url.strip()) for url in request.form['dest_urls'].split(',')]
-    cli = LuminosoClient.connect('/projects/', username=session['username'],
-                                            password=session['password'])
+
     for dest_proj in dests:
-        to_acct, to_proj = dest_proj
-        copy_topics(cli, from_acct=from_acct, from_proj=from_proj,
-                        to_acct=to_acct, to_proj=to_proj)
+        api_url, to_acct, to_proj = dest_proj
+        copy_topics(
+            LuminosoClient.connect('{}/projects/'.format(api_url),
+                                   username=session['username'],
+                                   password=session['password']
+                                   ),
+            from_acct=from_acct,
+            from_proj=from_proj,
+            to_acct=to_acct,
+            to_proj=to_proj
+        )
     #NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
     return render_template('copy_topics.html', urls=session['apps_to_show'])
 
 @app.route('/topic_utils/delete', methods=['POST'])
 def topic_utils_delete():
     dests = [parse_url(url.strip()) for url in request.form['urls'].split(',')]
-    cli = LuminosoClient.connect('/projects/', username=session['username'],
-                                            password=session['password'])
+
     for dest_proj in dests:
-        acct, proj = dest_proj
-        del_topics(cli, acct_id=acct, proj_id=proj)
+        api_url, acct, proj = dest_proj
+        del_topics(
+            LuminosoClient.connect('{}/projects/'.format(api_url),
+                                   username=session['username'],
+                                   password=session['password']
+                                   ),
+            acct_id=acct,
+            proj_id=proj
+        )
     #NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
     return render_template('delete_topics.html', urls=session['apps_to_show'])
 
 @app.route('/text_filter', methods=['POST'])
 def text_filter():
     url = request.form['url'].strip()
-    from_acct, from_proj = parse_url(url)
-    client = LuminosoClient.connect('/projects/', username=session['username'],
-                                               password=session['password'])
+    api_url, from_acct, from_proj = parse_url(url)
+    client = LuminosoClient.connect('{}/projects/'.format(api_url),
+                                    username=session['username'],
+                                    password=session['password'])
     text = request.form['remove'].strip()
     #exact = (request.form['exact'] == 'on')
     exact = (request.form.get('exact') == 'on')
@@ -410,9 +430,10 @@ def text_filter():
 @app.route('/subset_filter', methods=['POST'])
 def subset_filter():
     url = request.form['url'].strip()
-    from_acct, from_proj = parse_url(url)
-    client = LuminosoClient.connect('/projects/', username=session['username'],
-                                               password=session['password'])
+    api_url, from_acct, from_proj = parse_url(url)
+    client = LuminosoClient.connect('{}/projects/'.format(api_url),
+                                    username=session['username'],
+                                    password=session['password'])
     count = int(request.form['min_count'].strip())
     name = request.form['dest_name'].strip()
     more = (request.form.get('more') == 'on')
@@ -453,8 +474,8 @@ def delete_topics_page():
 @app.route('/term_utils/search', methods=['GET','POST'])
 def term_utils_search():
     url = request.args.get('url', 0, type=str).strip()
-    acct, proj = parse_url(url)
-    cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,
+    api_url, acct, proj = parse_url(url)
+    cli = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, acct, proj),
                             username=session['username'],
                             password=session['password'])
     return jsonify(get_terms(cli))
@@ -462,21 +483,21 @@ def term_utils_search():
 @app.route('/term_utils/merge')
 def term_utils_merge():
     url = request.args.get('url', 0, type=str)
-    acct, proj = parse_url(url)
+    api_url, acct, proj = parse_url(url)
     terms = eval(request.args.get('terms', 0, type=str))
-    cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,
-                            username=session['username'],
-                            password=session['password'])
+    cli = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, acct, proj),
+                                 username=session['username'],
+                                 password=session['password'])
     return jsonify(merge_terms(cli, terms))
 
 @app.route('/term_utils/ignore')
 def term_utils_ignore():
     url = request.args.get('url', 0, type=str).strip()
-    acct, proj = parse_url(url)
+    api_url, acct, proj = parse_url(url)
     terms = eval(request.args.get('terms', 0, type=str))
-    cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,
-                            username=session['username'],
-                            password=session['password'])
+    cli = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, acct, proj),
+                                 username=session['username'],
+                                 password=session['password'])
     return jsonify(ignore_terms(cli, terms))
 
 @app.route('/deduper_page')
@@ -486,14 +507,14 @@ def deduper_page():
 @app.route('/dedupe')
 def dedupe_util():
     url = request.args.get('url', 0, type=str)
-    acct, proj = parse_url(url)
+    api_url, acct, proj = parse_url(url)
     copy = (request.args.get('copy') == 'true')
     print(copy)
     recalc = (request.args.get('recalc') == 'true')
     reconcile = request.args.get('reconcile')
-    cli = LuminosoClient.connect('/projects/'+acct+'/'+proj,
-                            username=session['username'],
-                            password=session['password'])
+    cli = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, acct, proj),
+                                 username=session['username'],
+                                 password=session['password'])
     return jsonify(dedupe(acct=acct, proj=proj, cli=cli,
             recalc=recalc, reconcile_func=reconcile, copy=copy))
 
@@ -574,12 +595,12 @@ def bp_run():
     use_gaps = request.args.get('use_gaps', "on", type=str)
     sample_docs = request.args.get('sample_docs', 10, type=int)
     url = request.args.get('url', type=str)
-    acct, proj = parse_url(url)
+    api_url, acct, proj = parse_url(url)
     bp = BPDetector()
     bp.threshold = thresh
     bp.window_size = window_size
     bp.use_gaps = use_gaps == "on"
-    output_fp, name, acct = bp.run(acct=acct, proj=proj,
+    output_fp, name, acct = bp.run(api_url=api_url, acct=acct, proj=proj,
             user=session['username'],
             passwd=session['password'],
             sample_docs=sample_docs,

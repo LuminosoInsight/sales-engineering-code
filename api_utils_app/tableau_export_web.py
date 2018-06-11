@@ -1,6 +1,6 @@
 from luminoso_api import LuminosoClient
 from pack64 import unpack64
-import run_voting_classifier # need accuracy/coverage chart
+#import run_voting_classifier # need accuracy/coverage chart
 from conjunctions_disjunctions import get_new_results
 from subset_key_terms import subset_key_terms
 from scipy.stats import linregress
@@ -35,10 +35,10 @@ def reorder_subsets(subsets):
             new_subsets.append(s)
     return new_subsets
 
-def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4, rebuild=False):
+def pull_lumi_data(api_url, account, project, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4, rebuild=False):
 
     print('Extracting Lumi data...')
-    client = LuminosoClient.connect('/projects/{}/{}'.format(account, project))
+    client = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, account, project))
     subsets = client.get('subsets/stats')
 
     docs = []

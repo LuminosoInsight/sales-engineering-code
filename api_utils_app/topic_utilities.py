@@ -24,9 +24,10 @@ def copy_topics(cli, from_acct, from_proj, to_acct, to_proj):
         __post_topic(dest_proj, topic)
 
 def parse_url(url):
+    api_url = url.partition('.com')[0] + '.com/api/v4/'
     if '?account=' in url: #old url format
         acct = re.search("\?account=(.*)&", url).group(1)
         proj = re.search("&projectId=(.*)", url).group(1)
     else:
-        acct,proj = url.split('app/#/projects/')[1].split('/')
-    return (acct, proj)
+        acct, proj = url.split('app/#/projects/')[1].split('/')
+    return (api_url, acct, proj)
