@@ -115,6 +115,27 @@ def create_intent_pairs(term_list, num_intent_topics=75, intent_threshold=1, add
     return intent_list
 
 
+def remove_duplicate_terms(term_list, threshold=.85):
+
+    '''Remove Duplicate Terms'''
+
+    duplicate_terms = []
+    term_vects = [unpack64(term['vector']) for term in term_list]
+    all_scores = np.dot(term_vects, np.transpose(term_vects))
+    num_largest = 3000 + len(term_list)
+    indices = (-all_scores).argpartition(num_largest, axis=None)[:num_largest]
+
+    x, y = np.unravel_index(indices, all_scores.shape)
+    count = 0
+    for x, y in zip(x, y):
+        if x < y and all_scores[x, y] >= threshold:
+            print('Duplicate Found: {}=={}'.format(term_list[x]['text'],term_list[y]['text']))
+            duplicate_terms.append(term_list[y]['term'])
+            count += 1
+
+    return [t for t in term_list if t['term'] not in duplicate_terms]
+
+
 def remove_duplicates(client, intent_list):
 
     '''Remove Duplicate Intents'''
@@ -236,6 +257,7 @@ def main(args):
     term_list = generate_intent_score(term_list,
                                       dispersion_list,
                                       collocation_list)
+    term_list = remove_duplicate_terms(term_list, threshold=.85)
 
     print('Generating intents...')
     intent_list = create_intent_pairs(term_list, num_intent_topics=args.pair_terms, add_generic=args.generic)
