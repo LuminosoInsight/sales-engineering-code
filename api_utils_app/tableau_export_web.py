@@ -35,10 +35,9 @@ def reorder_subsets(subsets):
             new_subsets.append(s)
     return new_subsets
 
-def pull_lumi_data(api_url, account, project, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4, rebuild=False):
+def pull_lumi_data(client, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4, rebuild=False):
 
     print('Extracting Lumi data...')
-    client = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, account, project))
     subsets = client.get('subsets/stats')
 
     docs = []

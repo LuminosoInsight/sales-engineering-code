@@ -106,6 +106,9 @@ def tableau_export_page():
 def tableau_export():
     url = request.form['url'].strip()
     api_url, from_acct, from_proj = parse_url(url)
+    client = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, from_acct, from_proj),
+                                    username = session['username'],
+                                    password = session['password'])
     foldername = request.form['folder_name'].strip()
     term_count = request.form['term_count'].strip()
     if term_count == '':
@@ -130,7 +133,7 @@ def tableau_export():
     topic_drive = (request.form.get('topic_drive') == 'on')
     average_score = (request.form.get('average_score') == 'on')
     
-    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(api_url, from_acct, from_proj, skt_limit=skt_limit, term_count=term_count, rebuild=driver_rebuild)
+    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(client, skt_limit=skt_limit, term_count=term_count, rebuild=driver_rebuild)
     subsets = reorder_subsets(subsets)
 
     doc_table, xref_table = create_doc_table(client, docs, subsets, themes, drivers)
