@@ -21,7 +21,7 @@ def get_as(vector1, vector2):
     :return: Cosine similarity of two vectors
     '''
 
-    return np.dot(unpack64(vector1), unpack64(vector2))
+    return np.dot([float(v) for v in unpack64(vector1)], [float(v) for v in unpack64(vector2)])
 
 
 def is_number(s):
@@ -54,7 +54,7 @@ def reorder_subsets(subsets):
     return new_subsets
 
 
-def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4, rebuild=False):
+def pull_lumi_data(account, project, api_url, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4, rebuild=False):
     '''
     Extract relevant data from Luminoso project
     :param account: Luminoso account id
@@ -69,7 +69,7 @@ def pull_lumi_data(account, project, skt_limit, term_count=100, interval='day', 
     '''
 
     print('Extracting Lumi data...')
-    client = LuminosoClient.connect('/projects/{}/{}'.format(account, project))
+    client = LuminosoClient.connect(url='{}/projects/{}/{}'.format(api_url, account, project))
     subsets = client.get('subsets/stats')
 
     docs = []
@@ -144,12 +144,12 @@ def create_doc_topic_table(docs, topics):
     doc_topic_table = []
     for doc in docs:
         if doc['vector']:
-            doc_vector = unpack64(doc['vector'])
+            doc_vector = [float(v) for v in unpack64(doc['vector'])]
             max_score = 0
             max_topic = ''
             for topic in topics:
                 if topic['vector']:
-                    topic_vector = unpack64(topic['vector'])
+                    topic_vector = [float(v) for v in unpack64(topic['vector'])]
                     #if np.dot(doc_vector, topic_vector) >= .3:
                     score = np.dot(doc_vector, topic_vector)
                     if score > max_score:
@@ -172,8 +172,8 @@ def create_topic_topic_table(topics):
     for topic in topics:
         for t in topics:
             if topic['vector'] and t['vector'] and topic['name'] != t['name']:
-                topic_vector = unpack64(topic['vector'])
-                t_vector = unpack64(t['vector'])
+                topic_vector = [float(v) for v in unpack64(topic['vector'])]
+                t_vector = [float(v) for v in unpack64(t['vector'])]
                 topic_topic_table.append({'topic': topic['name'],
                                           'second topic': t['name'],
                                           'association': np.dot(topic_vector, t_vector)})
@@ -192,8 +192,8 @@ def create_term_topic_table(terms, topics):
     for term in terms:
         for t in topics:
             if term['vector'] and t['vector']:
-                term_vector = unpack64(term['vector'])
-                topic_vector = unpack64(t['vector'])
+                term_vector = [float(v) for v in unpack64(term['vector'])]
+                topic_vector = [float(v) for v in unpack64(t['vector'])]
                 term_topic_table.append({'term': term['text'],
                                          'topic': t['name'],
                                          'association': np.dot(term_vector, topic_vector)})
@@ -610,7 +610,7 @@ def create_trends_table(terms, docs):
     term_list = []
     for t in terms:
         if t['vector'] != None:
-            term_list.append(unpack64(t['vector']))
+            term_list.append([float(v) for v in unpack64(t['vector'])])
         else:
             term_list.append([0 for i in range(len(term_list[0]))])
     term_vecs = np.asarray(term_list)
@@ -621,7 +621,7 @@ def create_trends_table(terms, docs):
     dated_docs.sort(key = lambda k: k['date'])
     dates = np.asarray([[datetime.datetime.fromtimestamp(int(d['date'])).strftime('%Y-%m-%d %H:%M:%S')] for d in dated_docs])
 
-    doc_vecs = np.asarray([unpack64(t['vector']) for t in dated_docs])
+    doc_vecs = np.asarray([[float(v) for v in unpack64(t['vector'])] for t in dated_docs])
     
     if len(doc_vecs) > 0:
 
@@ -705,6 +705,7 @@ def main():
     )
     parser.add_argument('account_id', help="The ID of the account that owns the project, such as 'demo'")
     parser.add_argument('project_id', help="The ID of the project to analyze, such as '2jsnm'")
+    parser.add_argument('--api_url', default='https://analytics.luminoso.com/api/v4', help="Root URL of Analytics")
     parser.add_argument('-t', '--term_count', default=100, help="The number of top terms to pull from the project")
     parser.add_argument('-a', '--assoc_threshold', default=.5, help="The minimum association threshold to display")
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
@@ -724,7 +725,7 @@ def main():
     parser.add_argument('-avg', '--average_score', default=False, action='store_true', help="Add average scores to drivers_table")
     args = parser.parse_args()
 
-    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, skt_limit=int(args.skt_limit), term_count=int(args.term_count), rebuild=args.rebuild)
+    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, args.api_url, skt_limit=int(args.skt_limit), term_count=int(args.term_count), rebuild=args.rebuild)
     subsets = reorder_subsets(subsets)
 
     if not args.doc:

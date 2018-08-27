@@ -16,7 +16,7 @@ import os
 
 
 def get_as(vector1, vector2):
-    return np.dot(unpack64(vector1), unpack64(vector2))
+    return np.dot([float(v) for v in unpack64(vector1)], [float(v) for v in unpack64(vector2)])
 
 
 def is_number(s):
@@ -76,10 +76,10 @@ def create_doc_term_table(client, docs, terms, threshold):
     doc_term_table = []
     for doc in docs:
         if doc['vector']:
-            doc_vector = unpack64(doc['vector'])
+            doc_vector = [float(v) for v in unpack64(doc['vector'])]
             for term in terms:
                 if term['vector']:
-                    term_vector = unpack64(term['vector'])
+                    term_vector = [float(v) for v in unpack64(term['vector'])]
                     if np.dot(doc_vector, term_vector) >= threshold:
                         doc_term_table.append({'doc_id': doc['_id'], 
                                                'term': term['text'],
@@ -90,12 +90,12 @@ def create_doc_topic_table(client, docs, topics):
     doc_topic_table = []
     for doc in docs:
         if doc['vector']:
-            doc_vector = unpack64(doc['vector'])
+            doc_vector = [float(v) for v in unpack64(doc['vector'])]
             max_score = 0
             max_topic = ''
             for topic in topics:
                 if topic['vector']:
-                    topic_vector = unpack64(topic['vector'])
+                    topic_vector = [float(v) for v in unpack64(topic['vector'])]
                     #if np.dot(doc_vector, topic_vector) >= .3:
                     score = np.dot(doc_vector, topic_vector)
                     if score > max_score:
@@ -468,7 +468,7 @@ def create_trends_table(terms, topics, docs):
     term_list = []
     for t in terms:
         if t['vector'] != None:
-            term_list.append(unpack64(t['vector']))
+            term_list.append([float(v) for v in unpack64(t['vector'])])
         else:
             term_list.append([0 for i in range(len(term_list[0]))])
     term_vecs = np.asarray(term_list)
@@ -479,7 +479,7 @@ def create_trends_table(terms, topics, docs):
     dated_docs.sort(key = lambda k: k['date'])
     dates = np.asarray([[datetime.datetime.fromtimestamp(int(d['date'])).strftime('%Y-%m-%d %H:%M:%S')] for d in dated_docs])
 
-    doc_vecs = np.asarray([unpack64(t['vector']) for t in dated_docs])
+    doc_vecs = np.asarray([[float(v) for v in unpack64(t['vector'])] for t in dated_docs])
     
     if len(doc_vecs) > 0:
 
