@@ -1,4 +1,4 @@
-from luminoso_api.json_stream import open_json_or_csv_somehow
+from luminoso_api.v4_json_stream import open_json_or_csv_somehow
 from luminoso_api import LuminosoClient
 from collections import defaultdict
 from math import floor, ceil
