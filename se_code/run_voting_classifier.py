@@ -134,7 +134,7 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
     test_docs = train_client.upload('docs/vectors', test_docs)
     classification = classify_documents(test_docs, classifiers, vectorizers)
     percentage = .1
-    
+
     if save_results:
         results_dict = []
         percentage_results_dict = []
@@ -166,7 +166,7 @@ def classify_test_documents(train_client, test_docs, test_labels, classifiers,
                     percentage_results_dict.append(dict({'text': text,
                                               'truth': truth,
                                               'prediction': prediction,
-                                              'correct': z[1] == prediction,                           
+                                              'correct': z[1] == prediction,
                                               'max_score': max_score},
                                          **dict(zip(class_list, z[2]))))
             print('Saving results to ' + filename +'_percentage.csv file...')

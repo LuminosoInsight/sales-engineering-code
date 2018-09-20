@@ -161,8 +161,8 @@ def weighted_t_test(values1, weights1, values2, weights2):
     stats1 = DescrStatsW(values1, weights=weights1, ddof=0)
     stats2 = DescrStatsW(values2, weights=weights2, ddof=0)
 
-    # Calculate the pooled variance.
-    s_p = ((n1 - 1) * stats1.var + (n2 - 1) * stats2.var) / (n1 + n2 - 2)
+    # Calculate the pooled standard deviation.
+    s_p = (((n1 - 1) * stats1.var + (n2 - 1) * stats2.var) / (n1 + n2 - 2)) ** 0.5
 
     # Calculate the difference in (weighted) means.
     mean_diff = stats1.mean - stats2.mean
@@ -210,10 +210,10 @@ def weighted_score_drivers(scores, fuzzy_docs, term_info):
         # cont for more than conceptual matches
         term_present_weights = fuzzy_docs[term_present_selector][term]
 
-        # If a term has 0.5 or more weight in a document, it must have started
+        # If a term has weight of 1 or more in a document, it must have started
         # as an exact match. Keep track of this because we want the number of
         # exact matches as a column in the table.
-        term_count = (fuzzy_docs[term] >= 0.5).sum()
+        term_count = (fuzzy_docs[term] >= 1).sum()
 
         # We can calculate a score driver value as long as we have at least 2
         # positive examples.
@@ -295,7 +295,7 @@ def run():
     # Show the top 200 score drivers so we have something to look at while this runs
     top_global_drivers = global_drivers.sort_values('importance')[-200:]
 
-    print(tab_separated(top_global_drivers))
+    print(top_global_drivers)
 
     # Find out what instances exist in the data, so we can iterate over them
     instances = sorted(set(doc_metadata['instance']))
@@ -315,7 +315,7 @@ def run():
 
         # Show the top 50 instance score drivers
         top_instance_drivers = instance_drivers.sort_values('importance')[-50:]
-        print(tab_separated(top_instance_drivers))
+        print(top_instance_drivers)
     
     # Write a TSV file of the score driver results for every term and every instance
     result = pd.concat(all_instance_drivers, axis=0)
