@@ -1,6 +1,7 @@
 from luminoso_api.v5_client import LuminosoClient
 from pack64 import unpack64
 
+import argparse
 import numpy as np
 import pandas as pd
 from statsmodels.stats.weightstats import DescrStatsW
@@ -102,7 +103,7 @@ def get_fuzzy_doc_frame(docs, term_info, term_vecs):
     return semi_dense_docs
 
 
-def get_doc_metadata(docs, instance_field='hotel_id', predicted_field='rating'):
+def get_doc_metadata(docs, instance_field='hotel_id', score_field='rating'):
     """
     Get a dataframe whose rows are documents and whose columns are:
 
@@ -115,8 +116,9 @@ def get_doc_metadata(docs, instance_field='hotel_id', predicted_field='rating'):
     doc_metadata = []
     for doc in docs:
         score = None
+        instance = None
         for md_item in doc['metadata']:
-            if md_item['name'] == predicted_field:
+            if md_item['name'] == score_field:
                 score = md_item['value']
             elif md_item['name'] == instance_field:
                 instance = md_item['value']
@@ -218,9 +220,9 @@ def weighted_score_drivers(scores, fuzzy_docs, term_info):
 
         # We can calculate a score driver value as long as we have at least 2
         # positive examples.
-        if term_present_selector.sum() > 1:
-            term_present_scores = scores[term_present_selector]
-            term_present_weights = fuzzy_docs[term_present_selector][term]
+        term_present_scores = scores[term_present_selector]
+        term_present_weights = fuzzy_docs[term_present_selector][term]
+        if term_present_selector.sum() > 1 and term_present_weights.sum() > 1:
             constant_weights = np.ones(len(scores))
 
             # Run a t-test comparing (weighted) documents that contain the term
@@ -266,7 +268,7 @@ def tab_separated(frame):
     return frame.to_csv(sep='\t', float_format='%.3f')
 
 
-def run():
+def run(project_id, instance_field, score_field):
     """
     Run a demo of score drivers. The documents are hotel reviews, the scores
     are the review scores on a 0-100 scale, and the instances are the different
@@ -276,13 +278,13 @@ def run():
     of the score drivers.
     """
     root_client = LuminosoClient.connect()
-    client = root_client.client_for_path('/projects/prq5w34f')
+    client = root_client.client_for_path('/projects/{}'.format(project_id))
 
     print('Getting terms')
     term_info_frame, term_vec_frame = get_term_data(client)
     print('Getting documents')
     docs = download_docs(client)
-    doc_metadata = get_doc_metadata(docs, instance_field='hotel_id', predicted_field='rating')
+    doc_metadata = get_doc_metadata(docs, instance_field=instance_field, score_field=score_field)
     print('Finding conceptually related terms')
     fuzzy_doc_frame = get_fuzzy_doc_frame(docs, term_info_frame, term_vec_frame)
 
@@ -328,4 +330,11 @@ def run():
 
 
 if __name__ == '__main__':
-    run()
+    parser = argparse.ArgumentParser(
+        description='Find domain terms correlated with score differences.'
+    )
+    parser.add_argument('project_id', help="The ID of the project to analyze, such as 'prjh3nrb'")
+    parser.add_argument('instance_field', help="The metadata field that distinguishes things to compare, such as 'restaurant'")
+    parser.add_argument('score_field', help="The metadata field that contains scores, such as 'rating'")
+    args = parser.parse_args()
+    run(args.project_id, args.instance_field, args.score_field)
