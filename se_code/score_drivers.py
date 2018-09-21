@@ -151,11 +151,12 @@ def weighted_t_test(values1, weights1, values2, weights2):
     For details on the formula, see:
     https://en.wikipedia.org/wiki/Student%27s_t-test#Independent_two-sample_t-test
     """
-    # We also need to know the raw number of data points, without weights.
-    # (Adding up the weights doesn't seem to do things right -- you could get a sum
-    # less than 1, and statistics don't work with N < 1.)
-    n1 = len(weights1)
-    n2 = len(weights2)
+    # Get the effective total weights of the sets we're comparing.
+    n1 = weights1.sum()
+    n2 = weights2.sum()
+
+    if n1 <= 1 or n2 <= 1:
+        raise ValueError("Score drivers must have at least one exact match")
 
     # Get the descriptive statistics for the two samples to compare
     stats1 = DescrStatsW(values1, weights=weights1, ddof=0)
@@ -270,7 +271,7 @@ def run():
     Run a demo of score drivers. The documents are hotel reviews, the scores
     are the review scores on a 0-100 scale, and the instances are the different
     hotels being reviewed.
-    
+
     For each hotel, we show its top score drivers, then output a TSV file of all
     of the score drivers.
     """
@@ -316,11 +317,11 @@ def run():
         # Show the top 50 instance score drivers
         top_instance_drivers = instance_drivers.sort_values('importance')[-50:]
         print(top_instance_drivers)
-    
+
     # Write a TSV file of the score driver results for every term and every instance
     result = pd.concat(all_instance_drivers, axis=0)
     result_csv = tab_separated(result)
-    
+
     print("Writing score-drivers.tsv")
     with open('score-drivers.tsv', 'w', encoding='utf-8') as out:
         print(result_csv, file=out)
