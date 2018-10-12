@@ -38,18 +38,21 @@ def add_score_drivers_to_project(client, docs, drivers):
     for doc in docs:
         predict = {}
         for subset_to_score in drivers:
-            if subset_to_score in [a.split(':')[0] for a in doc['subsets']]:
+            if subset_to_score in [':'.join(a.split(':')[:-1]) for a in doc['subsets']]:
                 predict.update({subset_to_score: float([a for a in doc['subsets'] 
-                         if subset_to_score.strip().lower() == a.split(':')[0].strip().lower()][0].split(':')[-1])})
+                         if subset_to_score.strip().lower() == ':'.join(a.split(':')[:-1]).strip().lower()][0].split(':')[-1])})
         mod_docs.append({'_id': doc['_id'],
                          'predict': predict})
     client.put_data('docs', json.dumps(mod_docs), content_type='application/json')
     client.post('docs/recalculate')
 
     wait_for_jobs(client, 'recalculation')
+    print()
     print('Done recalculating. Training...')
+    print()
     client.post('prediction/train')
     wait_for_jobs(client, 'driver training')
+    print()
     print('Done training.')
     
 def create_drivers_table(client, drivers, topic_drive):
@@ -265,7 +268,7 @@ def main():
     exist_flag = True
 
     # See if any score drivers are present, if not, create some from subsets
-    if not any(drivers):
+    if not any(drivers) or args.rebuild:
         exist_flag = False
         drivers = []
         subset_headings = list(set([':'.join(s['subset'].split(':')[:-1]) for s in subsets]))
