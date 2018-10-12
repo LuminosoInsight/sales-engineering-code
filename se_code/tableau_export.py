@@ -703,9 +703,7 @@ def main():
     parser = argparse.ArgumentParser(
         description='Export data to Tableau compatible CSV files.'
     )
-    parser.add_argument('account_id', help="The ID of the account that owns the project, such as 'demo'")
-    parser.add_argument('project_id', help="The ID of the project to analyze, such as '2jsnm'")
-    parser.add_argument('--api_url', default='https://analytics.luminoso.com/api/v4', help="Root URL of Analytics")
+    parser.add_argument('project_url', help="The URL of the Daylight project to export from")
     parser.add_argument('-t', '--term_count', default=100, help="The number of top terms to pull from the project")
     parser.add_argument('-a', '--assoc_threshold', default=.5, help="The minimum association threshold to display")
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
@@ -724,8 +722,12 @@ def main():
     parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="Generate drivers_table with topics instead of drivers")
     parser.add_argument('-avg', '--average_score', default=False, action='store_true', help="Add average scores to drivers_table")
     args = parser.parse_args()
-
-    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(args.account_id, args.project_id, args.api_url, skt_limit=int(args.skt_limit), term_count=int(args.term_count), rebuild=args.rebuild)
+    
+    acct = args.project_url.strip('/').split('/')[-2]
+    proj = args.project_url.strip('/').split('/')[-1]
+    api_url = '/'.join(args.project_url.strip('/').split('/')[:-5]).strip('/') + '/api/v4'
+    
+    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(acct, proj, api_url, skt_limit=int(args.skt_limit), term_count=int(args.term_count), rebuild=args.rebuild)
     subsets = reorder_subsets(subsets)
 
     if not args.doc:
