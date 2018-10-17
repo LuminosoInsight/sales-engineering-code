@@ -38,21 +38,18 @@ def add_score_drivers_to_project(client, docs, drivers):
     for doc in docs:
         predict = {}
         for subset_to_score in drivers:
-            if subset_to_score in [':'.join(a.split(':')[:-1]) for a in doc['subsets']]:
+            if subset_to_score in [a.split(':')[0] for a in doc['subsets']]:
                 predict.update({subset_to_score: float([a for a in doc['subsets'] 
-                         if subset_to_score.strip().lower() == ':'.join(a.split(':')[:-1]).strip().lower()][0].split(':')[-1])})
+                         if subset_to_score.strip().lower() == a.split(':')[0].strip().lower()][0].split(':')[-1])})
         mod_docs.append({'_id': doc['_id'],
                          'predict': predict})
     client.put_data('docs', json.dumps(mod_docs), content_type='application/json')
     client.post('docs/recalculate')
 
     wait_for_jobs(client, 'recalculation')
-    print()
     print('Done recalculating. Training...')
-    print()
     client.post('prediction/train')
     wait_for_jobs(client, 'driver training')
-    print()
     print('Done training.')
     
 def create_drivers_table(client, drivers, topic_drive):
@@ -77,7 +74,16 @@ def create_drivers_table(client, drivers, topic_drive):
                 row['score'] = driver['driver_score']
                 # ADDED RELATED TERMS
                 related_terms = driver['terms']
-                list_terms = client.get('terms', terms=related_terms)
+                char_length_count = 0
+                terms_to_get = []
+                list_terms = []
+                for k, r in enumerate(related_terms):
+                    char_length_count += len(r)
+                    terms_to_get.append(r)
+                    if char_length_count > 250 or (k == len(related_terms) - 1):
+                        list_terms.extend(client.get('terms', terms=terms_to_get))
+                        char_length_count = 0
+                        terms_to_get = []
                 doc_count_terms_list = [related_terms[0]]
                 related_text = []
                 for term in list_terms:
@@ -108,87 +114,110 @@ def create_drivers_table(client, drivers, topic_drive):
                 if len(docs) >= 3:
                     row['example_doc3'] = docs[2][0]['document']['text']
                 driver_table.append(row)
-        score_drivers = client.get('prediction/drivers', predictor_name=subset)
-        for driver in score_drivers['negative']:
-            row = {}
-            row['driver'] = driver['text']
-            row['type'] = 'auto_found'
-            row['subset'] = subset
-            row['impact'] = driver['regressor_dot']
-            row['score'] = driver['driver_score']
-            # ADDED RELATED TERMS
-            related_terms = driver['similar_terms']
-            list_terms = client.get('terms', terms=related_terms)
-            doc_count_terms_list = [related_terms[0]]
-            related_text = []
-            for term in list_terms:
-                related_text.append(term['text'])
-            row['related_terms'] = related_text
-            doc_count = client.get('terms/doc_counts', terms=doc_count_terms_list, use_json=True)
-            count_sum = 0
-            for doc_dict in doc_count:
-                count_sum += (doc_dict['num_exact_matches'] + doc_dict['num_related_matches'])
-            row['doc_count'] = count_sum
+        try:
+            score_drivers = client.get('prediction/drivers', predictor_name=subset)
+            for driver in score_drivers['negative']:
+                row = {}
+                row['driver'] = driver['text']
+                row['type'] = 'auto_found'
+                row['subset'] = subset
+                row['impact'] = driver['regressor_dot']
+                row['score'] = driver['driver_score']
+                # ADDED RELATED TERMS
+                related_terms = driver['similar_terms']
+                char_length_count = 0
+                terms_to_get = []
+                list_terms = []
+                for k, r in enumerate(related_terms):
+                    char_length_count += len(r)
+                    terms_to_get.append(r)
+                    if char_length_count > 250 or (k == len(related_terms) - 1):
+                        list_terms.extend(client.get('terms', terms=terms_to_get))
+                        char_length_count = 0
+                        terms_to_get = []
+                #list_terms = client.get('terms', terms=related_terms)
+                doc_count_terms_list = [related_terms[0]]
+                related_text = []
+                for term in list_terms:
+                    related_text.append(term['text'])
+                row['related_terms'] = related_text
+                doc_count = client.get('terms/doc_counts', terms=doc_count_terms_list, use_json=True)
+                count_sum = 0
+                for doc_dict in doc_count:
+                    count_sum += (doc_dict['num_exact_matches'] + doc_dict['num_related_matches'])
+                row['doc_count'] = count_sum
 
 
-                # Use the driver term to find related documents
-            search_docs = client.get('docs/search', terms=[driver['term']], limit=500, exact_only=True)
+                    # Use the driver term to find related documents
+                search_docs = client.get('docs/search', terms=[driver['term']], limit=500, exact_only=True)
 
-                # Sort documents based on their association with the coefficient vector
-            for doc in search_docs['search_results']:
-                document = doc[0]['document']
-                document['driver_as'] = get_as(score_drivers['coefficient_vector'],document['vector'])
+                    # Sort documents based on their association with the coefficient vector
+                for doc in search_docs['search_results']:
+                    document = doc[0]['document']
+                    document['driver_as'] = get_as(score_drivers['coefficient_vector'],document['vector'])
 
-            docs = sorted(search_docs['search_results'], key=lambda k: k[0]['document']['driver_as']) 
-            row['example_doc'] = ''
-            row['example_doc2'] = ''
-            row['example_doc3'] = ''
-            if len(docs) >= 1:
-                row['example_doc'] = docs[0][0]['document']['text']
-            if len(docs) >= 2:
-                row['example_doc2'] = docs[1][0]['document']['text']
-            if len(docs) >= 3:
-                row['example_doc3'] = docs[2][0]['document']['text']
-            driver_table.append(row)
-        for driver in score_drivers['positive']:
-            row = {}
-            row['driver'] = driver['text']
-            row['type'] = 'auto_found'
-            row['subset'] = subset
-            row['impact'] = driver['regressor_dot']
-            row['score'] = driver['driver_score']
-            related_terms = driver['similar_terms']
-            list_terms = client.get('terms', terms=related_terms)
-            doc_count_terms_list = [related_terms[0]]
-            related_text = []
-            for term in list_terms:
-                related_text.append(term['text'])
-            row['related_terms'] = related_text
-            doc_count = client.get('terms/doc_counts', terms=doc_count_terms_list, use_json=True)
-            count_sum = 0
-            for doc_dict in doc_count:
-                count_sum += (doc_dict['num_exact_matches'] + doc_dict['num_related_matches'])
-            row['doc_count'] = count_sum
+                docs = sorted(search_docs['search_results'], key=lambda k: k[0]['document']['driver_as']) 
+                row['example_doc'] = ''
+                row['example_doc2'] = ''
+                row['example_doc3'] = ''
+                if len(docs) >= 1:
+                    row['example_doc'] = docs[0][0]['document']['text']
+                if len(docs) >= 2:
+                    row['example_doc2'] = docs[1][0]['document']['text']
+                if len(docs) >= 3:
+                    row['example_doc3'] = docs[2][0]['document']['text']
+                driver_table.append(row)
+            for driver in score_drivers['positive']:
+                row = {}
+                row['driver'] = driver['text']
+                row['type'] = 'auto_found'
+                row['subset'] = subset
+                row['impact'] = driver['regressor_dot']
+                row['score'] = driver['driver_score']
+                related_terms = driver['similar_terms']
+                char_length_count = 0
+                terms_to_get = []
+                list_terms = []
+                for k, r in enumerate(related_terms):
+                    char_length_count += len(r)
+                    terms_to_get.append(r)
+                    if char_length_count > 250 or (k == len(related_terms) - 1):
+                        list_terms.extend(client.get('terms', terms=terms_to_get))
+                        char_length_count = 0
+                        terms_to_get = []
+                doc_count_terms_list = [related_terms[0]]
+                related_text = []
+                for term in list_terms:
+                    related_text.append(term['text'])
+                row['related_terms'] = related_text
+                doc_count = client.get('terms/doc_counts', terms=doc_count_terms_list, use_json=True)
+                count_sum = 0
+                for doc_dict in doc_count:
+                    count_sum += (doc_dict['num_exact_matches'] + doc_dict['num_related_matches'])
+                row['doc_count'] = count_sum
 
-                # Use the driver term to find related documents
-            search_docs = client.get('docs/search', terms=[driver['term']], limit=500, exact_only=True)
+                    # Use the driver term to find related documents
+                search_docs = client.get('docs/search', terms=[driver['term']], limit=500, exact_only=True)
 
-                # Sort documents based on their association with the coefficient vector
-            for doc in search_docs['search_results']:
-                document = doc[0]['document']
-                document['driver_as'] = get_as(score_drivers['coefficient_vector'],document['vector'])
+                    # Sort documents based on their association with the coefficient vector
+                for doc in search_docs['search_results']:
+                    document = doc[0]['document']
+                    document['driver_as'] = get_as(score_drivers['coefficient_vector'],document['vector'])
 
-            docs = sorted(search_docs['search_results'], key=lambda k: -k[0]['document']['driver_as'])
-            row['example_doc'] = ''
-            row['example_doc2'] = ''
-            row['example_doc3'] = ''
-            if len(docs) >= 1:
-                row['example_doc'] = docs[0][0]['document']['text']
-            if len(docs) >= 2:
-                row['example_doc2'] = docs[1][0]['document']['text']
-            if len(docs) >= 3:
-                row['example_doc3'] = docs[2][0]['document']['text']
-            driver_table.append(row)
+                docs = sorted(search_docs['search_results'], key=lambda k: -k[0]['document']['driver_as'])
+                row['example_doc'] = ''
+                row['example_doc2'] = ''
+                row['example_doc3'] = ''
+                if len(docs) >= 1:
+                    row['example_doc'] = docs[0][0]['document']['text']
+                if len(docs) >= 2:
+                    row['example_doc2'] = docs[1][0]['document']['text']
+                if len(docs) >= 3:
+                    row['example_doc3'] = docs[2][0]['document']['text']
+                driver_table.append(row)
+        except:
+            print('WARNING: %s is not a trained regressor, skipping...' % subset)
+            continue
     
     return driver_table
     
@@ -213,10 +242,19 @@ def write_table_to_csv(table, filename):
     if len(table) == 0:
         print('Warning: No data to write to {}.'.format(filename))
         return
-    with open(filename, 'w') as file:
-        writer = csv.DictWriter(file, fieldnames=table[0].keys())
-        writer.writeheader()
-        writer.writerows(table)
+    try:
+        with open(filename, 'w', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=table[0].keys())
+            writer.writeheader()
+            writer.writerows(table)
+    except UnicodeEncodeError as e:
+        print('WARNING: Unicode Decode Error occurred, attempting to handle. Error was: %s' % e)
+        write_table = [{k: v for k, v in t.items()} for t in table]
+        with open(filename, 'w', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=write_table[0].keys())
+            writer.writeheader()
+            writer.writerows(write_table)
+        print('Unicode Decode Error was handled')
 
 def wait_for_jobs(client, text):
     '''
@@ -262,25 +300,23 @@ def main():
         
     print('Getting Drivers...')
     docs = get_all_docs(client)
-    
     subsets = client.get('subsets/stats')
     drivers = list(set([key for d in docs for key in d['predict'].keys()]))
     exist_flag = True
 
     # See if any score drivers are present, if not, create some from subsets
-    if not any(drivers) or args.rebuild:
+    if not any(drivers):
         exist_flag = False
         drivers = []
-        subset_headings = list(set([':'.join(s['subset'].split(':')[:-1]) for s in subsets]))
+        subset_headings = list(set([s['subset'].partition(':')[0] for s in subsets]))
         for subset in subset_headings:
-            subset_values = [s['subset'].split(':')[-1] for s in subsets
-                             if ':'.join(s['subset'].split(':')[:-1]) == subset]
+            subset_values = [s['subset'].partition(':')[2] for s in subsets
+                             if s['subset'].partition(':')[0] == subset]
             if all([is_number(v) for v in subset_values]):
                 drivers.append(subset)
     
     if args.rebuild or not exist_flag:
         add_score_drivers_to_project(client, docs, drivers)
-        
         
     driver_table = create_drivers_table(client, drivers, args.topic_drivers)
     write_table_to_csv(driver_table, 'drivers_table.csv')
