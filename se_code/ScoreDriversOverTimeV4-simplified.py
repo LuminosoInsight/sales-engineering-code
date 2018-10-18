@@ -12,7 +12,9 @@
 # The documents in the project will need to have predictors. The output is based on a score driver for each topic/predictor combination for the date specified.  For best results the project needs at least 52 weeks of data leading up to the final 16 week window.
 # 
 # v4 added the use of a branch function to create the new project instead of creating a new project from scratch. This saves doc count.
-
+#
+# Sample Command Line:
+#    python ScoreDriversOverTimeV4-simplified.py -e 2018-05-25 -a https://eu-analytics.luminoso.com/api/v4 -r 16 -n 17 -o NoName c86f546w prdcj9gb
 
 from luminoso_api import LuminosoClient
 import argparse
@@ -136,6 +138,10 @@ def main(args):
                 #print('Dumped results to file. Predictor: {}'.format(predictor))
 
             # delete the project
+            if (args.delete):
+                print("deleting project")
+                delete_result = client_branch.delete()
+                print(delete_result)
 
             end_time = end_time + 60*60*24*7
             start_time = end_time - (60*60*24*7*rolling_weeks)
@@ -180,5 +186,9 @@ if __name__ == '__main__':
         '-o', '--output_name', default=1,
         help='Give a name to the output file'
         )
+    parser.add_argument(
+        '-d', '--delete', action='store_true',
+        help='Delete the temporary project'
+    )
     args = parser.parse_args()
     main(args)
