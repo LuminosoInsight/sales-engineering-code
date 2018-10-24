@@ -38,8 +38,8 @@ def main():
     
     root_1 = '/'.join(args.project_url_1.strip('/').split('/')[:-5]).strip('/')
     project_1_id = args.project_url_1.strip('/').split('/')[-1]
-    root_1 = '/'.join(args.project_url_2.strip('/').split('/')[:-5]).strip('/')
-    project_1_id = args.project_url_2.strip('/').split('/')[-1]
+    root_2 = '/'.join(args.project_url_2.strip('/').split('/')[:-5]).strip('/')
+    project_2_id = args.project_url_2.strip('/').split('/')[-1]
     
     count = 0
     token = input('Daylight Token: ')
