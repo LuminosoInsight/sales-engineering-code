@@ -1,4 +1,4 @@
-import csv, json
+import csv, json, argparse
 from luminoso_api import V5LuminosoClient as LuminosoClient
 FIELDS = ['Relevance Ranking', 'Concept', 'Exact Matches', 'Exact Match Percent of All Documents', 'Conceptual Matches', 'Conceptual Match Percent of All Documents', 'Total Matches', 'Total Match Percent of All Documents']
 
