@@ -54,7 +54,7 @@ def reorder_subsets(subsets):
     return new_subsets
 
 
-def pull_lumi_data(account, project, api_url, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4, rebuild=False):
+def pull_lumi_data(account, project, api_url, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4, rebuild=False, username=None):
     '''
     Extract relevant data from Luminoso project
     :param account: Luminoso account id
@@ -69,7 +69,10 @@ def pull_lumi_data(account, project, api_url, skt_limit, term_count=100, interva
     '''
 
     print('Extracting Lumi data...')
-    client = LuminosoClient.connect(url='{}/projects/{}/{}'.format(api_url, account, project))
+    if username:
+        client = LuminosoClient.connect(url='{}/projects/{}/{}'.format(api_url, account, project), username=username)
+    else:
+        client = LuminosoClient.connect(url='{}/projects/{}/{}'.format(api_url, account, project))
     subsets = client.get('subsets/stats')
 
     docs = []
@@ -704,6 +707,7 @@ def main():
         description='Export data to Tableau compatible CSV files.'
     )
     parser.add_argument('project_url', help="The URL of the Daylight project to export from")
+    parser.add_argument('-u', '--username', default=None, help="Enter your Daylight username")
     parser.add_argument('-t', '--term_count', default=100, help="The number of top terms to pull from the project")
     parser.add_argument('-a', '--assoc_threshold', default=.5, help="The minimum association threshold to display")
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
@@ -728,7 +732,10 @@ def main():
     api_url = args.project_url.split('/app')[0] + '/api/v4'
     #api_url = '/'.join(args.project_url.strip('/').split('/')[:-4]).strip('/') + '/api/v4'
     
-    client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(acct, proj, api_url, skt_limit=int(args.skt_limit), term_count=int(args.term_count), rebuild=args.rebuild)
+    if args.username:
+        client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(acct, proj, api_url, skt_limit=int(args.skt_limit), term_count=int(args.term_count), rebuild=args.rebuild, username=args.username)
+    else:
+        client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(acct, proj, api_url, skt_limit=int(args.skt_limit), term_count=int(args.term_count), rebuild=args.rebuild)
     subsets = reorder_subsets(subsets)
 
     if not args.doc:
