@@ -12,7 +12,7 @@ def delete_docs(client, ids):
     offset = 0
     bad_batch = batch(ids,600)
     for bad_ids in bad_batch:
-        client.delete('docs',doc_ids=bad_ids)
+        client.post('docs/delete',doc_ids=bad_ids)
         
 def get_all_docs(client, batch_size=20000):
     docs = []
@@ -34,19 +34,20 @@ def remove_foreign_lang(client,lang_code,threshold=0):
         try:
             isReliable, textBytesFound, details = cld2.detect(doc['text'])
         except ValueError:
-            bad_doc_ids.append(doc['_id'])
+            bad_doc_ids.append(doc['doc_id'])
             continue
         if not details[0][1] == lang_code and isReliable or details[0][2] < threshold:
-                bad_doc_ids.append(doc['_id'])
+                bad_doc_ids.append(doc['doc_id'])
     delete_docs(client,bad_doc_ids)
     client.post('build')
     print('{} documents not identified as "{}" removed from project.'.format(len(bad_doc_ids),lang_code))
     
-def main(args):
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('project_url', help="The URL of the project to analyze")
     parser.add_argument('lang_code', default='en', help="The 2 character language code to retain ex. en, fr")
     parser.add_argument('-t', '--threshold', default=0, type=float, help="Minimum threahold for desired language (ex .95 for 95%%)")
+    args = parser.parse_args()
     
     api_url = args.project_url.split('/app')[0]
     project_id = args.project_url.strip('/ ').split('/')[-1]
@@ -55,10 +56,4 @@ def main(args):
     remove_foreign_lang(client,args.lang_code,args.threshold)
     
 if __name__ == '__main__':
-    print("Remove Foreign Language Tool:"
-          "\nRemoves documents from a project if they cannot be positively identified as the target language.")
-    print("\nScript can be run with arguments or interactively. Run with -h to see help.\n")   
-    print("\nBy default this script retains only documents in English ('en')")
-
-    parser = argparse.ArgumentParser()
     main()
