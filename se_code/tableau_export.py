@@ -86,7 +86,18 @@ def pull_lumi_data(account, project, api_url, skt_limit, term_count=100, interva
     topics = client.get('topics')
     themes = client.get('/terms/clusters/', num_clusters=themes, num_cluster_terms=theme_terms)
     terms = client.get('terms', limit=term_count)
-    skt = subset_key_terms(client, skt_limit)
+    
+    subset_counts = {}
+    for d in docs:
+        for m in d['metadata']:
+            if m['type'] != 'date':
+                if m['name'] not in subset_counts:
+                    subset_counts[m['name']] = {}
+                if m['value'] not in subset_counts[m['name']]:
+                    subset_counts[m['name']][m['value']] = 0
+                subset_counts[m['name']][m['value']] += 1
+    
+    skt = subset_key_terms(client, subset_counts, len(docs), skt_limit)
 
     drivers = list(set([key for d in docs for key in d['predict'].keys()]))
     exist_flag = True
@@ -711,15 +722,15 @@ def main():
     parser.add_argument('-t', '--term_count', default=100, help="The number of top terms to pull from the project")
     parser.add_argument('-a', '--assoc_threshold', default=.5, help="The minimum association threshold to display")
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
-    parser.add_argument('-d', '--doc', default=False, action='store_true', help="If you really do not want doc_table")
+    parser.add_argument('-d', '--doc', default=False, action='store_true', help="If you really do not want to generate doc_table")
     parser.add_argument('-terms', '--terms', default=False, action='store_true', help="Do not generate terms_table")
-    parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Generate doc_term_table")
-    parser.add_argument('-tterm', '--term_topic', default=False, action='store_true', help="Generate term_topic_table")
-    parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Generate doc_topic_table")
-    parser.add_argument('-ttopic', '--topic_topic', default=False, action='store_true', help="Generate topic_topic_table")
+    parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Do not generate doc_term_table")
+    parser.add_argument('-tterm', '--term_topic', default=False, action='store_true', help="Do not generate term_topic_table")
+    parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Do not generate doc_topic_table")
+    parser.add_argument('-ttopic', '--topic_topic', default=False, action='store_true', help="Do not generate topic_topic_table")
     parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Do not generate doc_subset_table")
     parser.add_argument('-themes', '--themes', default=False, action='store_true', help="Do not generate themes")
-    parser.add_argument('-trends', '--trend_tables', default=False, action='store_true', help="Generate trends_table and trendingterms_table")
+    parser.add_argument('-trends', '--trend_tables', default=False, action='store_true', help="Do not generate trends_table and trendingterms_table")
     parser.add_argument('-sktt', '--skt_table', default=False, action='store_true',help="Do not generate skt_tables")
     parser.add_argument('-drive', '--drive', default=False, action='store_true',help="Do not generate driver_table")
     parser.add_argument('-rebuild', '--rebuild', default=False, action='store_true',help="Rebuild drivers even if previous drivers exist")
@@ -747,19 +758,19 @@ def main():
         terms_table = create_terms_table(client, terms)
         write_table_to_csv(terms_table, 'terms_table.csv')
         
-    if args.doc_term:
+    if not args.doc_term:
         doc_term_table = create_doc_term_table(docs, terms, float(args.assoc_threshold))
         write_table_to_csv(doc_term_table, 'doc_term_table.csv')
     
-    if args.doc_topic:
+    if not args.doc_topic:
         doc_topic_table = create_doc_topic_table(docs, topics)
         write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
         
-    if args.topic_topic:
+    if not args.topic_topic:
         topic_topic_table = create_topic_topic_table(topics)
         write_table_to_csv(topic_topic_table, 'topic_topic_table.csv')
         
-    if args.term_topic:
+    if not args.term_topic:
         term_topic_table = create_term_topic_table(terms, topics)
         write_table_to_csv(term_topic_table, 'term_topic_table.csv')
         
@@ -779,7 +790,7 @@ def main():
         driver_table = create_drivers_table(client, drivers, args.topic_drive, args.average_score)
         write_table_to_csv(driver_table, 'drivers_table.csv')
     
-    if args.trend_tables:
+    if not args.trend_tables:
         trends_table, trendingterms_table = create_trends_table(terms, docs)
         write_table_to_csv(trends_table, 'trends_table.csv')
         write_table_to_csv(trendingterms_table, 'trendingterms_table.csv')

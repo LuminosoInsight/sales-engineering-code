@@ -162,7 +162,7 @@ def main():
     subset_counts = {}
     for d in docs:
         for m in d['metadata']:
-            if m['type'] == 'string':
+            if m['type'] != 'date':
                 if m['name'] not in subset_counts:
                     subset_counts[m['name']] = {}
                 if m['value'] not in subset_counts[m['name']]:
