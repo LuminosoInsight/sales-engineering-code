@@ -27,7 +27,7 @@ def main():
                 reader = csv.DictReader(f)
                 data = [row for row in reader]
             for d in data:
-                if 'text' or 'texts' not in [k.lower() for k in list(d.keys())]:
+                if 'text' not in [k.lower() for k in list(d.keys())] and 'texts' not in [k.lower() for k in list(d.keys())]:
                     print('ERROR: File must contain a "text" column.')
                     return
                 row = {}
