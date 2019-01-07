@@ -29,5 +29,5 @@ def parse_url(url):
         acct = re.search("\?account=(.*)&", url).group(1)
         proj = re.search("&projectId=(.*)", url).group(1)
     else:
-        acct, proj = url.split('app/#/projects/')[1].split('/')
+        acct, proj = url.split('app/projects/')[1].split('/')
     return (api_url, acct, proj)
