@@ -36,9 +36,11 @@ def main():
         print("Files must be of CSV format and filenames must include '.csv' extension")
         return
     
-    root_1 = '/'.join(args.project_url_1.strip('/').split('/')[:-5]).strip('/')
+    #root_1 = '/'.join(args.project_url_1.strip('/').split('/')[:-4]).strip('/')
+    root_1 = args.project_url_1.split('/app')[0]
     project_1_id = args.project_url_1.strip('/').split('/')[-1]
-    root_2 = '/'.join(args.project_url_2.strip('/').split('/')[:-5]).strip('/')
+    #root_2 = '/'.join(args.project_url_2.strip('/').split('/')[:-4]).strip('/')
+    root_2 = args.project_url_2.split('/app')[0]
     project_2_id = args.project_url_2.strip('/').split('/')[-1]
     
     count = 0

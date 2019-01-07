@@ -127,11 +127,14 @@ def run(account_id, project_id, username, out_filename):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('account_id', help="The ID of the account that owns the project, such as 'demo'")
-    parser.add_argument('project_id', help="The ID of the project to analyze, such as '2jsnm'")
+    parser.add_argument('project_url', help="The URL of the project")
+    
     parser.add_argument('username', help="A Luminoso username with access to the project")
     parser.add_argument('output', help="The filename to write CSV output to")
 
     args = parser.parse_args()
-    run(args.account_id, args.project_id, args.username, args.output)
+    
+    account_id = args.project_url.split('/')[-2]
+    project_id = args.project_url.split('/')[-1]
+    run(account_id, project_id, args.username, args.output)
 

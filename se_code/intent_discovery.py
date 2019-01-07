@@ -247,9 +247,13 @@ def save_doc_search_results(docs, intent_list, threshold=.5):
 
 def main(args):
 
-    client = LuminosoClient.connect(url=args.api_url, username=args.username)
-    client = client.change_path('/projects/{}/{}'.format(args.account_id,
-                                                         args.project_id))
+    
+    root_url = '/'.join(args.project_url.split('/')[:-4]) + '/api/v4'
+    account_id = args.project_url.split('/')[-2]
+    project_id = args.project_url.split('/')[-1]
+    client = LuminosoClient.connect(url=root_url, username=args.username)
+    client = client.change_path('/projects/{}/{}'.format(account_id,
+                                                         project_id))
 
     print('Finding terms...')
     dispersion_list, term_list = top_term_stats(client, args.num_terms)
@@ -278,20 +282,12 @@ if __name__ == '__main__':
         'associated documents for the purposes of bootstrapping a classifier'
     )
     parser.add_argument(
-        'account_id',
-        help="The ID of the account that owns the project, such as 'demo'"
-        )
-    parser.add_argument(
-        'project_id',
-        help="The ID of the project"
+        'project_url',
+        help="The URL of the project to run Intent Discovery on"
         )
     parser.add_argument(
         '-u', '--username',
         help='Username (email) of Luminoso account'
-        )
-    parser.add_argument(
-        '-a', '--api_url',
-        help='Luminoso API endpoint (https://eu-analytics.luminoso.com/api/v4)'
         )
     parser.add_argument(
         '-n', '--num_terms', default=1000,

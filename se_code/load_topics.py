@@ -11,7 +11,7 @@ def main():
     parser.add_argument('-t', '--token', default=None, help="If Daylight token has not been saved to your machine, enter it here.")
     args = parser.parse_args()
     
-    root_url = '/'.join(args.project_url.split('/')[:-5])
+    root_url = '/'.join(args.project_url.split('/')[:-4])
     project_id = args.project_url.strip('/').split('/')[-1]
     if args.token:
         client = LuminosoClient.connect(url=root_url + '/api/v5/projects/' + project_id, token=args.token)

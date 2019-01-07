@@ -725,7 +725,8 @@ def main():
     
     acct = args.project_url.strip('/').split('/')[-2]
     proj = args.project_url.strip('/').split('/')[-1]
-    api_url = '/'.join(args.project_url.strip('/').split('/')[:-5]).strip('/') + '/api/v4'
+    api_url = args.project_url.split('/app')[0] + '/api/v4'
+    #api_url = '/'.join(args.project_url.strip('/').split('/')[:-4]).strip('/') + '/api/v4'
     
     client, docs, topics, terms, subsets, drivers, skt, themes = pull_lumi_data(acct, proj, api_url, skt_limit=int(args.skt_limit), term_count=int(args.term_count), rebuild=args.rebuild)
     subsets = reorder_subsets(subsets)

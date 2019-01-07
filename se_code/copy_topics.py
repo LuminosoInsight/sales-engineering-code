@@ -30,9 +30,11 @@ def main():
     
     args = parser.parse_args()
     from_proj = args.from_url.strip('/ ').split('/')[-1]
-    from_root = '/'.join(args.from_url.strip('/ ').split('/')[:-5])
+    from_root = args.from_url.split('/app')[0]
+    #from_root = '/'.join(args.from_url.strip('/ ').split('/')[:-4])
     to_proj = args.to_url.strip('/ ').split('/')[-1]
-    to_root = '/'.join(args.to_url.strip('/ ').split('/')[:-5])
+    to_root = args.to_url.split('/app')[0]
+    #to_root = '/'.join(args.to_url.strip('/ ').split('/')[:-4])
     count = 0
     while count < 3:
         token = input('Token: ')

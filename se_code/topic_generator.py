@@ -60,16 +60,18 @@ def main():
     parser = argparse.ArgumentParser(
         description='Automatically find representative topics for a Luminoso project.'
     )
-    parser.add_argument('account_id', help="The ID of the account that owns the project, such as 'demo'")
-    parser.add_argument('project_id', help="The ID of the project to analyze, such as '2jsnm'")
+    parser.add_argument('project_url', help="The URL of the project to analyze")
     parser.add_argument('username', help="A Luminoso username with access to the project")
     parser.add_argument('-n', '--num-colors', type=int, default=7, help="Number of topic colors to generate (max 7)")
     parser.add_argument('-t', '--topics-per-color', type=int, default=4, help="Number of topics of each color to generate")
-    parser.add_argument('-a', '--api-url', default='https://analytics.luminoso.com/api/v4', help="The base URL for the Luminoso API (defaults to the production API, https://analytics.luminoso.com/api/v4)")
     parser.add_argument('-c', '--create', action='store_true', help="Actually create the topics, marking them as (auto) and deleting previous auto-topics")
     args = parser.parse_args()
-    run(args.account_id, args.project_id, args.username, args.num_colors,
-        args.topics_per_color, args.api_url, args.create)
+    
+    root_url = args.project_url.split('/app')[0] + '/api/v4'
+    account_id = args.project_url.split('/')[-2]
+    project_id = args.project_url.split('/')[-1]
+    run(account_id, project_id, args.username, args.num_colors,
+        args.topics_per_color, root_url, args.create)
 
 
 if __name__ == '__main__':

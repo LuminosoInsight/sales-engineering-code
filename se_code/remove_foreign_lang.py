@@ -42,15 +42,14 @@ def remove_foreign_lang(client,lang_code,threshold=0):
     print('{} documents not identified as "{}" removed from project.'.format(len(bad_doc_ids),lang_code))
     
 def main(args):
-    if not args.account_id:
-        args.account_id = input('Enter the account id: ')
-    if not args.project_id:
-        args.project_id = input('Enter the project id: ')
+    root_url = project_url.split('/app')[0] + '/api/v4'
+    account_id = project_url.split('/')[-2]
+    project_id = project_url.split('/')[-1]
     if not args.lang_code or args.lang_code not in [b.decode('utf-8') for a,b in cld2.LANGUAGES]:
         args.lang_code = input('Enter the 2 letter language code to be retained: ')
         
-    client = LuminosoClient.connect(args.url,username=args.username)
-    client = client.change_path('/projects/{}/{}/'.format(args.account_id,args.project_id))
+    client = LuminosoClient.connect(url=root_url,username=args.username)
+    client = client.change_path('/projects/{}/{}/'.format(account_id,project_id))
     remove_foreign_lang(client,args.lang_code,args.threshold)
     
 if __name__ == '__main__':
@@ -60,13 +59,10 @@ if __name__ == '__main__':
     print("\nBy default this script retains only documents in English ('en')")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-a','--account_id', help="The ID of the account that owns the project, such as 'demo'")
-    parser.add_argument('-p','--project_id', help="The ID of the project to analyze, such as '2jsnm'")
+    parser.add_argument('project_url', help="The URL of the Daylight project to remove foreign language from")
     parser.add_argument('-l','--lang_code', help="The 2 character language code to retain ex. en, fr", default='en')
     parser.add_argument('-t','--threshold', help="Add a minimum threshold for the desired language (ex. 95 for 95%%)",
                         default=0,type=int)
-    parser.add_argument('-url','--url', help="API end-point (https://eu-analytics.luminoso.com/api/v4/)",
-                        default='https://analytics.luminoso.com/api/v4/')
     parser.add_argument('-username','--username', help="Luminoso username")
     args = parser.parse_args()
     main(args)
