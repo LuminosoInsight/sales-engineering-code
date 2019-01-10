@@ -126,7 +126,7 @@ def reddit_by_time():
     write_to_csv('%s docs.csv' % subreddit_name, docs, fields)
     SEARCH_TYPES = ['top', 'controversial', 'new']
     SEARCH_PERIODS = ['week', 'hour', 'day', 'month', 'year', 'all']
-    return render_template('reddit_by_name.html', 
+    return render_template('reddit_by_timeframe.html', 
                            urls=session['apps_to_show'],
                            types=SEARCH_TYPES,
                            periods=SEARCH_PERIODS)
