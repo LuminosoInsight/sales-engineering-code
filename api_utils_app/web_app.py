@@ -2,7 +2,7 @@ from flask import Flask, jsonify, render_template, request, session, url_for, Re
 from luminoso_api import LuminosoClient
 from pack64 import unpack64
 from topic_utilities import copy_topics, del_topics, parse_url
-from se_code.run_voting_classifier import return_label, train_classifier, get_docs_labels, split_train_test
+#from se_code.run_voting_classifier import return_label, train_classifier, get_docs_labels, split_train_test
 from term_utilities import get_terms, ignore_terms, merge_terms
 from rd_utilities import search_subsets
 from deduper_utilities import dedupe
@@ -45,7 +45,7 @@ def login():
         ('CSV Exports',('Compass Messages Export',url_for('compass_export_page')),('Analytics Docs Export',url_for('compass_export_page'))),
         ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
         ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj')),('Conceptual Subset Search',url_for('subset_search'))),
-        ('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo')), ('Compass Demo',url_for('compass_demo'))),
+        #('Classification',('Setup Voting Classifier Demo',url_for('classifier_demo')), ('Compass Demo',url_for('compass_demo'))),
         ('Modify', ('Text Filter', url_for('text_filter_page')), ('Auto Emotions', url_for('plutchik_page')), ('Subset Filter', url_for('subset_filter_page'))),
         ('Dashboards', ('Tableau Export',url_for('tableau_export_page')))]
     print(session['apps_to_show'])
@@ -62,10 +62,10 @@ def login():
 def index():
     return render_template('index.html', urls=session['apps_to_show'])
 
-@app.route('/compass_demo', methods=['GET'])
-def compass_demo():
-    return render_template('compass_demo.html', urls=session['apps_to_show'])
-
+#@app.route('/compass_demo', methods=['GET'])
+#def compass_demo():
+#    return render_template('compass_demo.html', urls=session['apps_to_show'])
+'''
 @app.route('/compass_stream', methods=['POST'])
 def compass_stream():
     url = request.form['url'].strip()
@@ -97,7 +97,7 @@ def compass_stream():
         total_time += max(interval, 1)
     print('Done posting')
     return render_template('compass_demo.html', urls=session['apps_to_show'])
-    
+'''    
 @app.route('/tableau_export_page', methods=['GET'])
 def tableau_export_page():
     return render_template('tableau_export.html', urls=session['apps_to_show'])
@@ -173,7 +173,7 @@ def tableau_export():
         write_table_to_csv(trendingterms_table, foldername, 'trendingterms_table.csv')
     
     return render_template('tableau_export.html', urls=session['apps_to_show'])
-
+'''
 @app.route('/classifier_demo', methods=['GET'])
 def classifier_demo():
     return render_template('setup_classifier.html', urls=session['apps_to_show'])
@@ -238,7 +238,7 @@ def live_classifier():
         results.append(result)
 
     return render_template('classifier.html', urls=session['apps_to_show'], results=results[::-1])
-
+'''
 @app.route('/plutchik', methods=['POST'])
 def plutchik():
     url = request.form['url'].strip()
