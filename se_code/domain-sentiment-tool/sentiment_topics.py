@@ -40,7 +40,7 @@ class SentimentTopics:
         terms = self.client.get('terms', limit=n_terms)
         terms = [term for term in terms if term['vector']]
         for term in terms:
-            term['vector'] = unpack64(term['vector'])
+            term['vector'] = [float(v) for v in unpack64(term['vector'])]
             term['orig-sentiment-score'] = sentiment_scorer.term_sentiment(term['term'])
         return terms
 
@@ -92,7 +92,7 @@ class SentimentTopics:
         sentiment_terms = []
         for term, matching_strength in terms:
             term['new-sentiment-score'] = matching_strength
-            term['vector'] = unpack64(term['vector'])
+            term['vector'] = [float(v) for v in unpack64(term['vector'])]
             term['sentiment-label'] = sentiment
             sentiment_terms.append(term)
 
