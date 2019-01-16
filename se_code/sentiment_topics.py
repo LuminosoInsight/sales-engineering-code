@@ -1,7 +1,7 @@
 """
 Example uses:
-python sentiment_informed_topics.py zoo rjcfz --sentiment pos --terms --verbose
-python sentiment_informed_topics.py zoo rjcfz --clusters --n-terms=1000
+python sentiment_topics.py zoo rjcfz --sentiment pos --terms --verbose
+python sentiment_topics.py zoo rjcfz --clusters --n-terms=1000
 
 Approach:
 Get top terms in the project equal to n_terms. Average the vectors for the terms which have a
@@ -10,9 +10,6 @@ the term's relevance. Use a sentiment axis created in this way to query the proj
 terms. Sort the terms using their new sentiment score (how well they match the sentiment axis)
 and their relevance. Return the number of top domain-specific terms equal to n_results.
 """
-
-import json
-
 import click
 from lumi_science.sentiment import SentimentScorer
 from lumi_science.tree_clustering import ClusterTree
@@ -90,7 +87,7 @@ class SentimentTopics:
 
         axis = self._get_sent_axis(sentiment)
         terms = self.client.get(
-            'terms/search', vectors=json.dumps([pack64(axis)]),
+            'terms/search', vector=pack64(axis),
             limit=n_results if n_results > 100 else 100)['search_results']
 
         sentiment_terms = []
