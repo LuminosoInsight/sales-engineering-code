@@ -37,7 +37,7 @@ class LuminosoClientHolder:
     def from_root_url(cls, url="http://localhost:8000/api/v5", **kwargs):
         """
         Create and save an initialized LuminosoClient for interacting with a
-        (local) Daylight stack.  (Depends on the existence of an access token
+        Daylight stack.  (Depends on the existence of an access token
         in ~/.luminoso/tokens.json, unless you specify a token with the
         argument token=<your-token-here>.)
         """

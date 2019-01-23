@@ -69,8 +69,8 @@ def subset_study(
 
     docs0 = project_holder.get_docs(**docs0_args)
     docs1 = project_holder.get_docs(**docs1_args)
-    project0_name = "Tmp project from {}, filter 0".format(project_holder.project_name)
-    project1_name = "Tmp project from {}, filter 1".format(project_holder.project_name)
+    project0_name = "Tmp project from {}, subset 0".format(project_holder.project_name)
+    project1_name = "Tmp project from {}, subset 1".format(project_holder.project_name)
     project0 = project_holder.new_project_from_docs(project0_name, docs=docs0)
     project1 = project_holder.new_project_from_docs(project1_name, docs=docs1)
 
@@ -79,20 +79,15 @@ def subset_study(
     project_holder.delete_project(project0.project_id)
     project_holder.delete_project(project1.project_id)
 
-    # TO DO: print the filters and selectors to stdout and the output file.
-    data0.print_summary()
-    data1.print_summary()
-    data0.print_summary(output_file=output_file, append=False)
-    data1.print_summary(output_file=output_file, append=True)
-
-    result = [data0, data1]
     caption = (
-        "Subset comparison for {} ({})\n"
+        "Subset comparison of {} for driver(s) of {}, project: {} ({})\n"
         "Filter for subset zero: {}\n"
         "Search for subset zero: {}\n"
         "Filter for subset one: {}\n"
         "Search for subset one: {}\n"
     ).format(
+        project_data.score_driver_metric,
+        project_data.score_field,
         project_holder.project_name,
         project_holder.project_id,
         filter0,
@@ -100,7 +95,32 @@ def subset_study(
         filter1,
         search1,
     )
-    plot_project_data_list(result, score_drivers, caption=caption)
+
+    msg = (
+        caption
+        + "Requested (whole project) score drivers:\n"
+        + "\n".join(["  {}".format(sd) for sd in score_drivers])
+    )
+    msg += "\n(from concept selector {})".format(project_data.concept_selector)
+
+    if output_file is not None:
+        with open(output_file, "wt", encoding="utf-8") as fp:
+            fp.write(msg + "\n")
+            data0.print_summary(output_file=fp)
+            data1.print_summary(output_file=fp)
+
+    print(msg)
+    data0.print_summary()
+    data1.print_summary()
+
+    result = [data0, data1]
+    plot_project_data_list(
+        result,
+        score_drivers,
+        caption=caption,
+        x_label="Subset",
+        y_label=project_data.score_driver_metric,
+    )
     return result
 
 
@@ -116,9 +136,7 @@ def get_project_time_windows(
     document in the project and having duration equal to the given window
     length.  Return a sequence of dicts, one for each window, with two
     values:  the pair of endpoints of the window, and a list of the documents
-    from the project having dates within that time span.  The time step and
-    window length arguments are np.timedelta64's and default to one week and
-    30 days.
+    from the project having dates within that time span.
     """
     if time_step <= np.timedelta64(0, dtype=time_step.dtype):
         raise ValueError("Time step {} is not positive.".format(time_step))
@@ -220,9 +238,13 @@ def longitudinal_study(
     subproject_data_kwargs.update(score_driver_metric=project_data.score_driver_metric)
 
     msg = "{} (id {})".format(project_name, project_id)
-    msg += "\n time step {}, window length {}".format(
+    msg += "\nTime step {}, window length {}\n".format(
         str(time_step), str(window_length)
     )  # format chokes on np.timedelta64
+    msg += "Requested (whole project) score drivers:\n" + "\n".join(
+        ["  {}".format(sd) for sd in score_drivers]
+    )
+    msg += "\n(from concept selector {})".format(project_data.concept_selector)
 
     print(msg)
     if output_file is not None:
@@ -264,15 +286,25 @@ def longitudinal_study(
         if verbose:
             data.print_summary()
 
-    caption = "Time vs {} for {} ({})\nTime step {}\nTime window length {}\n".format(
-        whole_project_data_kwargs.get("score_driver_metric"),
+    caption = (
+        "Time vs {} of driver(s) on {}, project: {} ({})\n"
+        "Time step {}\n"
+        "Time window length {}\n"
+    ).format(
+        project_data.score_driver_metric,
+        project_data.score_field,
         project_name,
         project_id,
         str(time_step),
         str(window_length),
     )
     plot_project_data_list(
-        subproject_data_list, score_drivers, caption=caption, time_plot=True
+        subproject_data_list,
+        score_drivers,
+        caption=caption,
+        x_label="Date of final document in window",
+        y_label=project_data.score_driver_metric,
+        time_plot=True,
     )
     return subproject_data_list
 
@@ -308,7 +340,7 @@ class ProjectData:
         elif concept_selector is not None:
             self.concept_selector = concept_selector
         else:
-            self.concept_selector = dict(type="top", limit=10)
+            self.concept_selector = dict(type="top", limit=5)
 
         all_score_driver_concepts = project_holder.client.get(
             "concepts/score_drivers",
@@ -359,6 +391,7 @@ class ProjectData:
             output_file.write(
                 "Selector used for concepts: {}\n".format(self.concept_selector)
             )
+            output_file.write("Tag is {}.\n".format(self.tag))
             for driver, value in zip(self.score_drivers, self.score_driver_values):
                 output_file.write(
                     "Score driver {} for {} has {} {:.3f}.\n".format(
@@ -368,7 +401,12 @@ class ProjectData:
 
 
 def plot_project_data_list(
-    project_data_list, score_drivers, caption=None, time_plot=False
+    project_data_list,
+    score_drivers,
+    caption=None,
+    x_label=None,
+    y_label=None,
+    time_plot=False,
 ):
     if len(project_data_list) < 1:
         print("Attempt to plot zero-length project data list, skipping.")
@@ -394,7 +432,7 @@ def plot_project_data_list(
         fig.autofmt_xdate()
         axs.xaxis_date()
         axs.fmt_xdata = plt_dates.DateFormatter("%Y-%m-%d")
-    markers = ["o", "+", "^"]
+    markers = ["o", "*", "^"]
     colors = ["red", "green", "blue", "cyan", "black", "magenta", "brown"]
     if time_plot:
         linestyle = "solid"
@@ -424,6 +462,10 @@ def plot_project_data_list(
         axs.set_xlim(left=x0, right=x1)
         axs.set_xticks([min_ordinate, max_ordinate])
     axs.legend()
+    if x_label is not None:
+        axs.set_xlabel(x_label)
+    if y_label is not None:
+        axs.set_ylabel(y_label)
     if caption is not None:
         fig.suptitle(caption)
     plt.show()
@@ -449,17 +491,12 @@ def main(args):
         concept_selector=eval(args.score_driver_selector),
     )
 
-    subproject_concept_selector = args.subproject_driver_selector
-    if subproject_concept_selector is None:
-        subproject_score_drivers = score_drivers
+    if args.subproject_driver_selector is None:
+        subproject_driver_selector = None
     else:
-        subproject_concept_selector = eval(subproject_concept_selector)
-        subproject_score_drivers = None
+        subproject_driver_selector = eval(args.subproject_driver_selector)
 
-    subproject_data_kwargs = dict(
-        score_drivers=subproject_score_drivers,
-        concept_selector=subproject_concept_selector,
-    )
+    subproject_data_kwargs = dict(concept_selector=subproject_driver_selector)
 
     filter0 = [eval(d) for d in args.filter] if args.filter is not None else None
     filter1 = [eval(d) for d in args.filter1] if args.filter1 is not None else None
@@ -604,11 +641,11 @@ if __name__ == "__main__":
     )
     argparser.add_argument(
         "--score-driver-selector",
-        default="{'type': 'top', 'limit': 10}",
+        default="{'type': 'top', 'limit': 5}",
         help=(
             "If no score driver arguments are given, this concept selector "
             "will be used to find the score driver concepts from the whole "
-            "project.  (Defaults to top 10 concepts.)"
+            "project.  (Defaults to top 5 concepts.)"
         ),
     )
     argparser.add_argument(
