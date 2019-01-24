@@ -126,17 +126,23 @@ def subset_study(
 
 def get_project_time_windows(
     project_holder,
+    start_date=None,
+    end_date=None,
     time_step=np.timedelta64(1, "W"),
     window_length=np.timedelta64(30, "D"),
 ):
     """
-    Given a project client holder, a time step and window length (numpy
-    timedelta64's, defaults are one week and 30 days), generate a sequence of
-    time windows, the i-th starting i time steps after the first date of any
-    document in the project and having duration equal to the given window
-    length.  Return a sequence of dicts, one for each window, with two
-    values:  the pair of endpoints of the window, and a list of the documents
-    from the project having dates within that time span.
+    Given a project client holder, a start and end date (numpy datetime64's,
+    default values are None, which implies the date of the first document of
+    the project, and the day after the date of the last), a time step and a
+    window length (numpy timedelta64's, defaults are one week and 30 days),
+    generate a sequence of time windows, the i-th starting i time steps after
+    the start date and having duration equal to the given window length.  The
+    The last window will start on or before the end date (if given).
+
+    Return a sequence of dicts, one for each window, with two values:  the
+    pair of endpoints of the window, and a list of the documents from the
+    project having dates within that time span.
     """
     if time_step <= np.timedelta64(0, dtype=time_step.dtype):
         raise ValueError("Time step {} is not positive.".format(time_step))
@@ -161,8 +167,15 @@ def get_project_time_windows(
     # the window size is more than one interval).  This is complicated by
     # the existence of intervals (e.g. months) that are not of constant
     # duration (e.g. 28-31 days).
-    start_time = get_date_from_document(docs[0])
-    grand_end_time = get_date_from_document(docs[-1])
+    if start_date is None:
+        start_time = get_date_from_document(docs[0])
+    else:
+        start_time = start_date
+    if end_date is None:
+        grand_end_time = get_date_from_document(docs[-1])
+    else:
+        grand_end_time = end_date
+
     time_windows = []
     while True:
         end_time = start_time + window_length
@@ -191,6 +204,8 @@ def get_project_time_windows(
 
 def longitudinal_study(
     project_holder,
+    start_date=None,
+    end_date=None,
     time_step=np.timedelta64(1, "W"),
     window_length=np.timedelta64(30, "D"),
     verbose=True,
@@ -254,7 +269,11 @@ def longitudinal_study(
     data_dicts = (
         window_to_data(window)
         for window in get_project_time_windows(
-            project_holder, time_step=time_step, window_length=window_length
+            project_holder,
+            start_date=start_date,
+            end_date=end_date,
+            time_step=time_step,
+            window_length=window_length,
         )
     )
     good_data_dicts = (d for d in data_dicts if d is not None)
@@ -503,6 +522,15 @@ def main(args):
     search0 = eval(args.search) if args.search is not None else None
     search1 = eval(args.search1) if args.search1 is not None else None
 
+    if args.start_date is not None:
+        start_date = np.datetime64(args.start_date)
+    else:
+        start_date = None
+    if args.end_date is not None:
+        end_date = np.datetime64(args.end_date)
+    else:
+        end_date = None
+
     if args.study_kind == "subset":
         subset_study(
             project,
@@ -517,6 +545,8 @@ def main(args):
     else:
         longitudinal_study(
             project,
+            start_date=start_date,
+            end_date=end_date,
             time_step=np.timedelta64(args.time_step, "D"),
             window_length=np.timedelta64(args.window_length, "D"),
             verbose=args.verbose,
@@ -594,6 +624,25 @@ if __name__ == "__main__":
         help=(
             "A second JSON-encoded concept, used to select the second subset of "
             "a subset study. (Optional.)"
+        ),
+    )
+    argparser.add_argument(
+        "--start-date",
+        default=None,
+        help=(
+            "Date (YYYY-MM-DD) on which to start document windows for "
+            "longintudinal studies.  (Defaults to the earliest document "
+            "date in the project.)"
+        ),
+    )
+    argparser.add_argument(
+        "--end-date",
+        default=None,
+        help=(
+            "Date (YYYY-MM-DD) on which to end document windows for "
+            "longintudinal studies.  (The final window may extend past "
+            "this date but will start on or before it.  Defaults to "
+            "the last date of a document in the project.)"
         ),
     )
     argparser.add_argument(
