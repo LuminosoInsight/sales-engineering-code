@@ -1,5 +1,6 @@
 from luminoso_api import LuminosoClient
-import argparse, cld2, json
+import pycld2 as cld2
+import argparse, json
 
 def batch(iterable, n=1):
     l = len(iterable)
@@ -42,10 +43,10 @@ def remove_foreign_lang(client,lang_code,threshold=0):
     print('{} documents not identified as "{}" removed from project.'.format(len(bad_doc_ids),lang_code))
     
 def main(args):
-    root_url = project_url.split('/app')[0] + '/api/v4'
-    account_id = project_url.split('/')[-2]
-    project_id = project_url.split('/')[-1]
-    if not args.lang_code or args.lang_code not in [b.decode('utf-8') for a,b in cld2.LANGUAGES]:
+    root_url = args.project_url.split('/app')[0] + '/api/v4'
+    account_id = args.project_url.split('/')[-2]
+    project_id = args.project_url.split('/')[-1]
+    if not args.lang_code or args.lang_code not in [b for a,b in cld2.LANGUAGES]:
         args.lang_code = input('Enter the 2 letter language code to be retained: ')
         
     client = LuminosoClient.connect(url=root_url,username=args.username)
