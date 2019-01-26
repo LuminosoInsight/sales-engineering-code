@@ -15,6 +15,11 @@ import sys
 from api_utils_app.luminoso_client_holder import LuminosoClientHolder
 
 
+SCORE_DRIVER_METRICS = {"impact", "confidence", "importance"}
+DERIVED_METRICS = {"impact_CI_lower_bound", "impact_CI_upper_bound"}
+ALL_METRICS = sorted(SCORE_DRIVER_METRICS | DERIVED_METRICS)
+
+
 def get_date_from_document(doc):
     """
     Pulls the (or a) date from the metadata of the given document, and
@@ -53,7 +58,6 @@ def subset_study(
     ):
         subproject_data_kwargs.update(score_drivers=score_drivers)
     subproject_data_kwargs.update(score_field=project_data.score_field)
-    subproject_data_kwargs.update(score_driver_metric=project_data.score_driver_metric)
 
     docs0_args = {}
     if filter0 is not None:
@@ -80,13 +84,12 @@ def subset_study(
     project_holder.delete_project(project1.project_id)
 
     caption = (
-        "Subset comparison of {} for driver(s) of {}, project: {} ({})\n"
+        "Subset comparison of impact for driver(s) of {}, project: {} ({})\n"
         "Filter for subset zero: {}\n"
         "Search for subset zero: {}\n"
         "Filter for subset one: {}\n"
         "Search for subset one: {}\n"
     ).format(
-        project_data.score_driver_metric,
         project_data.score_field,
         project_holder.project_name,
         project_holder.project_id,
@@ -115,11 +118,7 @@ def subset_study(
 
     result = [data0, data1]
     plot_project_data_list(
-        result,
-        score_drivers,
-        caption=caption,
-        x_label="Subset",
-        y_label=project_data.score_driver_metric,
+        result, score_drivers, caption=caption, x_label="Subset", y_label="impact"
     )
     return result
 
@@ -250,7 +249,6 @@ def longitudinal_study(
     ):
         subproject_data_kwargs.update(score_drivers=score_drivers)
     subproject_data_kwargs.update(score_field=project_data.score_field)
-    subproject_data_kwargs.update(score_driver_metric=project_data.score_driver_metric)
 
     msg = "{} (id {})".format(project_name, project_id)
     msg += "\nTime step {}, window length {}\n".format(
@@ -306,11 +304,10 @@ def longitudinal_study(
             data.print_summary()
 
     caption = (
-        "Time vs {} of driver(s) on {}, project: {} ({})\n"
+        "Time vs impact of driver(s) on {}, project: {} ({})\n"
         "Time step {}\n"
         "Time window length {}\n"
     ).format(
-        project_data.score_driver_metric,
         project_data.score_field,
         project_name,
         project_id,
@@ -322,7 +319,7 @@ def longitudinal_study(
         score_drivers,
         caption=caption,
         x_label="Date of final document in window",
-        y_label=project_data.score_driver_metric,
+        y_label="impact",
         time_plot=True,
     )
     return subproject_data_list
@@ -338,7 +335,6 @@ class ProjectData:
         self,
         project_holder,
         score_drivers=None,
-        score_driver_metric="impact",
         score_field="score",
         concept_selector=None,
         tag=None,
@@ -349,7 +345,6 @@ class ProjectData:
         self.tag = tag
         self.project_id = project_holder.project_id
         self.project_name = project_holder.project_name
-        self.score_driver_metric = score_driver_metric
         self.score_field = score_field
 
         if score_drivers is not None and len(score_drivers) > 0:
@@ -373,7 +368,11 @@ class ProjectData:
             self.score_drivers = [c["texts"] for c in all_score_driver_concepts]
         self.score_drivers.sort()
 
-        self.score_driver_values = np.full((len(self.score_drivers),), np.nan)
+        self.score_driver_values = {}
+        for metric in ALL_METRICS:
+            self.score_driver_values[metric] = np.full(
+                (len(self.score_drivers),), np.nan
+            )
 
         for i_driver, score_driver in enumerate(self.score_drivers):
             score_driver_concepts = [
@@ -388,8 +387,20 @@ class ProjectData:
                 )
 
             if len(score_driver_concepts) > 0:
-                value = score_driver_concepts[0].get(score_driver_metric, np.nan)
-                self.score_driver_values[i_driver] = float(value)
+                for metric in SCORE_DRIVER_METRICS:
+                    value = score_driver_concepts[0].get(metric, np.nan)
+                    self.score_driver_values[metric][i_driver] = float(value)
+                # also save the lower and upper bounds of a 95% confidence
+                # interval for the impact, using the normal 1.96 formula
+                impact = self.score_driver_values["impact"][i_driver]
+                confidence = self.score_driver_values["confidence"][i_driver]
+                estimated_stdev = impact / confidence  # stdev of impact
+                self.score_driver_values["impact_CI_lower_bound"][i_driver] = (
+                    impact - 1.96 * estimated_stdev
+                )
+                self.score_driver_values["impact_CI_upper_bound"][i_driver] = (
+                    impact + 1.96 * estimated_stdev
+                )
 
     def print_summary(self, output_file=None, append=False):
         """
@@ -411,12 +422,15 @@ class ProjectData:
                 "Selector used for concepts: {}\n".format(self.concept_selector)
             )
             output_file.write("Tag is {}.\n".format(self.tag))
-            for driver, value in zip(self.score_drivers, self.score_driver_values):
-                output_file.write(
-                    "Score driver {} for {} has {} {:.3f}.\n".format(
-                        driver, self.score_field, self.score_driver_metric, value
+            for metric in ALL_METRICS:
+                for driver, value in zip(
+                    self.score_drivers, self.score_driver_values[metric]
+                ):
+                    output_file.write(
+                        "Score driver {} for {} has {} {:.3f}.\n".format(
+                            driver, self.score_field, metric, value
+                        )
                     )
-                )
 
 
 def plot_project_data_list(
@@ -431,18 +445,23 @@ def plot_project_data_list(
         print("Attempt to plot zero-length project data list, skipping.")
         return
     score_driver_strings = [str(driver) for driver in score_drivers]
-    score_driver_frame = pd.DataFrame(
-        index=score_driver_strings, data=np.empty((len(score_drivers), 0))
-    )
-    for project_data in project_data_list:
-        score_driver_strings = [str(driver) for driver in project_data.score_drivers]
-        frame = pd.DataFrame(
-            index=score_driver_strings, data=project_data.score_driver_values
+    score_driver_values = {}
+    for metric in ALL_METRICS:
+        score_driver_frame = pd.DataFrame(
+            index=score_driver_strings, data=np.empty((len(score_drivers), 0))
         )
-        score_driver_frame.insert(
-            len(score_driver_frame.columns), len(score_driver_frame.columns), frame
-        )
-    score_driver_values = score_driver_frame.values
+        for project_data in project_data_list:
+            score_driver_strings = [
+                str(driver) for driver in project_data.score_drivers
+            ]
+            frame = pd.DataFrame(
+                index=score_driver_strings,
+                data=project_data.score_driver_values[metric],
+            )
+            score_driver_frame.insert(
+                len(score_driver_frame.columns), len(score_driver_frame.columns), frame
+            )
+        score_driver_values[metric] = score_driver_frame.values
 
     ordinates = np.array([data.tag for data in project_data_list])
     fig, axs = plt.subplots()
@@ -451,23 +470,41 @@ def plot_project_data_list(
         fig.autofmt_xdate()
         axs.xaxis_date()
         axs.fmt_xdata = plt_dates.DateFormatter("%Y-%m-%d")
-    markers = ["o", "*", "^"]
+    markers = ["o", "v", "^", "s", "D"]
     colors = ["red", "green", "blue", "cyan", "black", "magenta", "brown"]
     if time_plot:
         linestyle = "solid"
+        offsets = [np.timedelta64(0, "D").astype("O")]
     else:
         linestyle = ""  # no lines between markers
+        max_offset = 0.25 / (len(score_drivers) + 1)
+        offsets = np.linspace(-max_offset, max_offset, num=len(score_drivers))
     for i_driver, driver in enumerate(score_drivers):
-        values = score_driver_values[i_driver]
+        marker = markers[i_driver % len(markers)]
+        color = colors[i_driver % len(colors)]
+        offset = offsets[i_driver % len(offsets)]
+        values = score_driver_values["impact"][i_driver]
+        ci_lower_bounds = score_driver_values["impact_CI_lower_bound"][i_driver]
+        ci_upper_bounds = score_driver_values["impact_CI_upper_bound"][i_driver]
         line = plt_lines.Line2D(
-            ordinates,
+            ordinates + offset,
             values,
-            marker=markers[i_driver % len(markers)],
-            color=colors[i_driver % len(colors)],
+            marker=marker,
+            color=color,
             label=str(driver),
             linestyle=linestyle,
         )
         axs.add_line(line)
+        for ordinate, lower, upper in zip(ordinates, ci_lower_bounds, ci_upper_bounds):
+            error_bar = plt_lines.Line2D(
+                [ordinate + offset, ordinate + offset],
+                [lower, upper],
+                marker="_",
+                color=color,
+                linestyle="solid",
+            )
+            axs.add_line(error_bar)
+
     axs.autoscale(axis="y", tight=False)
     min_ordinate = np.min(ordinates)
     max_ordinate = np.max(ordinates)
@@ -506,7 +543,6 @@ def main(args):
     whole_project_data_kwargs = dict(
         score_field=args.score_field,
         score_drivers=score_drivers,
-        score_driver_metric=args.score_driver_metric,
         concept_selector=eval(args.score_driver_selector),
     )
 
@@ -583,11 +619,11 @@ if __name__ == "__main__":
     argparser.add_argument(
         "-k",
         "--study-kind",
-        default="subset",
+        default="longitudinal",
         choices=["subset", "longitudinal"],
         help=(
             "The kind of study to perform (subset or longitudinal). "
-            "(Default is subset.)"
+            "(Default is longitudinal.)"
         ),
     )
     argparser.add_argument(
@@ -670,12 +706,6 @@ if __name__ == "__main__":
             "Document metadata field to be used to compute score drivers. "
             "(Defaults to 'score'.)"
         ),
-    )
-    argparser.add_argument(
-        "--score-driver-metric",
-        default="impact",
-        choices=["impact", "confidence", "importance"],
-        help="The metric to be compared for the given drivers. (Default is 'impact'.)",
     )
     argparser.add_argument(
         "--score-driver",
