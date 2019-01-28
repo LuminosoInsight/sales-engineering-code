@@ -5,6 +5,7 @@ a command-line interface exposing most of the functionality is also provided.
 """
 
 import argparse
+import csv
 import matplotlib.pyplot as plt
 import matplotlib.dates as plt_dates
 import matplotlib.lines as plt_lines
@@ -41,7 +42,7 @@ def subset_study(
     search1=None,
     whole_project_data_kwargs=None,
     subproject_data_kwargs=None,
-    output_file=None,
+    report_file=None,
 ):
     """
     Compare score drivers from two projects built from
@@ -106,8 +107,8 @@ def subset_study(
     )
     msg += "\n(from concept selector {})".format(project_data.concept_selector)
 
-    if output_file is not None:
-        with open(output_file, "wt", encoding="utf-8") as fp:
+    if report_file is not None:
+        with open(report_file, "wt", encoding="utf-8") as fp:
             fp.write(msg + "\n")
             data0.print_summary(output_file=fp)
             data1.print_summary(output_file=fp)
@@ -116,10 +117,10 @@ def subset_study(
     data0.print_summary()
     data1.print_summary()
 
-    result = [data0, data1]
-    plot_project_data_list(
-        result, score_drivers, caption=caption, x_label="Subset", y_label="impact"
-    )
+    result = ProjectDataSequence(score_drivers=score_drivers, is_time_series=False)
+    result.append(data0)
+    result.append(data1)
+    result.plot(caption=caption, x_label="Subset", y_label="impact")
     return result
 
 
@@ -210,7 +211,7 @@ def longitudinal_study(
     verbose=True,
     whole_project_data_kwargs=None,
     subproject_data_kwargs=None,
-    output_file=None,
+    report_file=None,
 ):
     """
     Compute and plot changes over time in the score drivers of
@@ -260,8 +261,8 @@ def longitudinal_study(
     msg += "\n(from concept selector {})".format(project_data.concept_selector)
 
     print(msg)
-    if output_file is not None:
-        with open(output_file, "wt", encoding="utf-8") as fp:
+    if report_file is not None:
+        with open(report_file, "wt", encoding="utf-8") as fp:
             fp.write(msg + "\n\n")
 
     data_dicts = (
@@ -276,7 +277,7 @@ def longitudinal_study(
     )
     good_data_dicts = (d for d in data_dicts if d is not None)
 
-    subproject_data_list = []
+    subproject_data_sequence = ProjectDataSequence(score_drivers=score_drivers)
 
     for raw_data in good_data_dicts:
         collection_time = raw_data["end_date"]
@@ -296,10 +297,10 @@ def longitudinal_study(
         )
         data = ProjectData(subproject, tag=collection_time, **subproject_data_kwargs)
         project_holder.delete_project(subproject.project_id)
-        subproject_data_list.append(data)
+        subproject_data_sequence.append(data)
 
-        if output_file is not None:
-            data.print_summary(output_file=output_file, append=True)
+        if report_file is not None:
+            data.print_summary(output_file=report_file, append=True)
         if verbose:
             data.print_summary()
 
@@ -314,15 +315,10 @@ def longitudinal_study(
         str(time_step),
         str(window_length),
     )
-    plot_project_data_list(
-        subproject_data_list,
-        score_drivers,
-        caption=caption,
-        x_label="Date of final document in window",
-        y_label="impact",
-        time_plot=True,
+    subproject_data_sequence.plot(
+        caption=caption, x_label="Date of final document in window", y_label="impact"
     )
-    return subproject_data_list
+    return subproject_data_sequence
 
 
 class ProjectData:
@@ -433,98 +429,140 @@ class ProjectData:
                     )
 
 
-def plot_project_data_list(
-    project_data_list,
-    score_drivers,
-    caption=None,
-    x_label=None,
-    y_label=None,
-    time_plot=False,
-):
-    if len(project_data_list) < 1:
-        print("Attempt to plot zero-length project data list, skipping.")
-        return
-    score_driver_strings = [str(driver) for driver in score_drivers]
-    score_driver_values = {}
-    for metric in ALL_METRICS:
-        score_driver_frame = pd.DataFrame(
-            index=score_driver_strings, data=np.empty((len(score_drivers), 0))
-        )
-        for project_data in project_data_list:
-            score_driver_strings = [
-                str(driver) for driver in project_data.score_drivers
+class ProjectDataSequence:
+    def __init__(self, score_drivers, is_time_series=True):
+        self.project_data_list = []
+        self.score_drivers = score_drivers
+        self.is_time_series = is_time_series
+        self._score_driver_values = None
+
+    def append(self, project_data):
+        self.project_data_list.append(project_data)
+        self._score_driver_values = None  # force recalculation
+
+    @property
+    def score_driver_values(self):
+        if self._score_driver_values is None:
+            score_driver_strings = [str(driver) for driver in self.score_drivers]
+            self._score_driver_values = {}
+            for metric in ALL_METRICS:
+                score_driver_frame = pd.DataFrame(
+                    index=score_driver_strings,
+                    data=np.empty((len(self.score_drivers), 0)),
+                )
+                for project_data in self.project_data_list:
+                    project_score_driver_strings = [
+                        str(driver) for driver in project_data.score_drivers
+                    ]
+                    frame = pd.DataFrame(
+                        index=project_score_driver_strings,
+                        data=project_data.score_driver_values[metric],
+                    )
+                    score_driver_frame.insert(
+                        len(score_driver_frame.columns),
+                        len(score_driver_frame.columns),
+                        frame,
+                    )
+                for driver_string in score_driver_strings:
+                    self._score_driver_values[
+                        (driver_string, metric)
+                    ] = score_driver_frame.loc[driver_string].values
+        return self._score_driver_values
+
+    def plot(self, caption=None, x_label=None, y_label=None):
+        if len(self.project_data_list) < 1:
+            print("Attempt to plot zero-length project data sequence, skipping.")
+            return
+
+        ordinates = np.array([data.tag for data in self.project_data_list])
+        fig, axs = plt.subplots()
+        if self.is_time_series:  # if the x axis is time data, treat it specially
+            ordinates = ordinates.astype("O")  # convert to datetime.datetimes
+            fig.autofmt_xdate()
+            axs.xaxis_date()
+            axs.fmt_xdata = plt_dates.DateFormatter("%Y-%m-%d")
+        markers = ["o", "v", "^", "s", "D"]
+        colors = ["red", "green", "blue", "cyan", "black", "magenta", "brown"]
+        if self.is_time_series:
+            linestyle = "solid"
+            offsets = [np.timedelta64(0, "D").astype("O")]
+        else:
+            linestyle = ""  # no lines between markers
+            max_offset = 0.25 / (len(self.score_drivers) + 1)
+            offsets = np.linspace(-max_offset, max_offset, num=len(self.score_drivers))
+        for i_driver, driver in enumerate(self.score_drivers):
+            marker = markers[i_driver % len(markers)]
+            color = colors[i_driver % len(colors)]
+            offset = offsets[i_driver % len(offsets)]
+            values = self.score_driver_values[(str(driver), "impact")]
+            ci_lower_bounds = self.score_driver_values[
+                (str(driver), "impact_CI_lower_bound")
             ]
-            frame = pd.DataFrame(
-                index=score_driver_strings,
-                data=project_data.score_driver_values[metric],
-            )
-            score_driver_frame.insert(
-                len(score_driver_frame.columns), len(score_driver_frame.columns), frame
-            )
-        score_driver_values[metric] = score_driver_frame.values
-
-    ordinates = np.array([data.tag for data in project_data_list])
-    fig, axs = plt.subplots()
-    if time_plot:  # if the x axis is time data, treat it specially
-        ordinates = ordinates.astype("O")  # convert to datetime.datetimes
-        fig.autofmt_xdate()
-        axs.xaxis_date()
-        axs.fmt_xdata = plt_dates.DateFormatter("%Y-%m-%d")
-    markers = ["o", "v", "^", "s", "D"]
-    colors = ["red", "green", "blue", "cyan", "black", "magenta", "brown"]
-    if time_plot:
-        linestyle = "solid"
-        offsets = [np.timedelta64(0, "D").astype("O")]
-    else:
-        linestyle = ""  # no lines between markers
-        max_offset = 0.25 / (len(score_drivers) + 1)
-        offsets = np.linspace(-max_offset, max_offset, num=len(score_drivers))
-    for i_driver, driver in enumerate(score_drivers):
-        marker = markers[i_driver % len(markers)]
-        color = colors[i_driver % len(colors)]
-        offset = offsets[i_driver % len(offsets)]
-        values = score_driver_values["impact"][i_driver]
-        ci_lower_bounds = score_driver_values["impact_CI_lower_bound"][i_driver]
-        ci_upper_bounds = score_driver_values["impact_CI_upper_bound"][i_driver]
-        line = plt_lines.Line2D(
-            ordinates + offset,
-            values,
-            marker=marker,
-            color=color,
-            label=str(driver),
-            linestyle=linestyle,
-        )
-        axs.add_line(line)
-        for ordinate, lower, upper in zip(ordinates, ci_lower_bounds, ci_upper_bounds):
-            error_bar = plt_lines.Line2D(
-                [ordinate + offset, ordinate + offset],
-                [lower, upper],
-                marker="_",
+            ci_upper_bounds = self.score_driver_values[
+                (str(driver), "impact_CI_upper_bound")
+            ]
+            line = plt_lines.Line2D(
+                ordinates + offset,
+                values,
+                marker=marker,
                 color=color,
-                linestyle="solid",
+                label=str(driver),
+                linestyle=linestyle,
             )
-            axs.add_line(error_bar)
+            axs.add_line(line)
+            for ordinate, lower, upper in zip(
+                ordinates, ci_lower_bounds, ci_upper_bounds
+            ):
+                error_bar = plt_lines.Line2D(
+                    [ordinate + offset, ordinate + offset],
+                    [lower, upper],
+                    marker="_",
+                    color=color,
+                    linestyle="solid",
+                )
+                axs.add_line(error_bar)
 
-    axs.autoscale(axis="y", tight=False)
-    min_ordinate = np.min(ordinates)
-    max_ordinate = np.max(ordinates)
-    if time_plot:
-        x0 = min_ordinate - 0.05 * (max_ordinate - min_ordinate)
-        x1 = max_ordinate + 0.05 * (max_ordinate - min_ordinate)
-        axs.set_xlim(left=x0, right=x1)
-    else:
-        x0 = min_ordinate - 0.25 * (max_ordinate - min_ordinate)
-        x1 = max_ordinate + 0.25 * (max_ordinate - min_ordinate)
-        axs.set_xlim(left=x0, right=x1)
-        axs.set_xticks([min_ordinate, max_ordinate])
-    axs.legend()
-    if x_label is not None:
-        axs.set_xlabel(x_label)
-    if y_label is not None:
-        axs.set_ylabel(y_label)
-    if caption is not None:
-        fig.suptitle(caption)
-    plt.show()
+        axs.autoscale(axis="y", tight=False)
+        min_ordinate = np.min(ordinates)
+        max_ordinate = np.max(ordinates)
+        if self.is_time_series:
+            x0 = min_ordinate - 0.05 * (max_ordinate - min_ordinate)
+            x1 = max_ordinate + 0.05 * (max_ordinate - min_ordinate)
+            axs.set_xlim(left=x0, right=x1)
+        else:
+            x0 = min_ordinate - 0.25 * (max_ordinate - min_ordinate)
+            x1 = max_ordinate + 0.25 * (max_ordinate - min_ordinate)
+            axs.set_xlim(left=x0, right=x1)
+            axs.set_xticks([min_ordinate, max_ordinate])
+        axs.legend()
+        if x_label is not None:
+            axs.set_xlabel(x_label)
+        if y_label is not None:
+            axs.set_ylabel(y_label)
+        if caption is not None:
+            fig.suptitle(caption)
+        plt.show()
+
+    def write_csv(self, path):
+        trans_table = str.maketrans(",", "/")  # can't have "," in csv
+        fieldnames = ["tag"] + [
+            "{}/{}".format(str(score_driver).translate(trans_table), metric)
+            for score_driver in self.score_drivers
+            for metric in ALL_METRICS
+        ]
+        with open(path, "wt", encoding="utf-8") as fp:
+            writer = csv.DictWriter(fp, fieldnames=fieldnames)
+            writer.writeheader()
+            for i_row, project_data in enumerate(self.project_data_list):
+                row = dict(tag=str(project_data.tag))
+                for score_driver in self.score_drivers:
+                    for metric in ALL_METRICS:
+                        fieldname = "{}/{}".format(score_driver, metric)
+                        value = self.score_driver_values[(str(score_driver), metric)][
+                            i_row
+                        ]
+                        row.update({fieldname: value})
+                writer.writerow(row)
 
 
 def main(args):
@@ -568,7 +606,7 @@ def main(args):
         end_date = None
 
     if args.study_kind == "subset":
-        subset_study(
+        sequence = subset_study(
             project,
             filter0=filter0,
             search0=search0,
@@ -576,10 +614,10 @@ def main(args):
             search1=search1,
             whole_project_data_kwargs=whole_project_data_kwargs,
             subproject_data_kwargs=subproject_data_kwargs,
-            output_file=args.output_file,
+            report_file=args.report_file,
         )
     else:
-        longitudinal_study(
+        sequence = longitudinal_study(
             project,
             start_date=start_date,
             end_date=end_date,
@@ -588,8 +626,10 @@ def main(args):
             verbose=args.verbose,
             whole_project_data_kwargs=whole_project_data_kwargs,
             subproject_data_kwargs=subproject_data_kwargs,
-            output_file=args.output_file,
+            report_file=args.report_file,
         )
+    if args.csv_file is not None:
+        sequence.write_csv(args.csv_file)
 
 
 if __name__ == "__main__":
@@ -743,9 +783,18 @@ if __name__ == "__main__":
     )
     argparser.add_argument(
         "-f",
-        "--output-file",
+        "--report-file",
         default=None,
-        help="Path to a file to which to write output (optional).",
+        help="Path to a file to which to write a summary report (optional).",
+    )
+    argparser.add_argument(
+        "-c",
+        "--csv-file",
+        default=None,
+        help=(
+            "Path to which to write a .csv file containing score driver "
+            "metrics (optional)."
+        ),
     )
     args = argparser.parse_args()
     main(args)
