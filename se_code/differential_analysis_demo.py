@@ -11,6 +11,7 @@ import matplotlib.dates as plt_dates
 import matplotlib.lines as plt_lines
 import numpy as np
 import pandas as pd
+import re
 import sys
 
 from api_utils_app.luminoso_client_holder import LuminosoClientHolder
@@ -544,10 +545,13 @@ class ProjectDataSequence:
         plt.show()
 
     def write_csv(self, path):
-        trans_table = str.maketrans(",", "/")  # can't have "," in csv
+        # Since this is CSV, we keep commas out of the fieldnames.
+        sanitized_score_drivers = [
+            re.sub(",", "", str(score_driver)) for score_driver in self.score_drivers
+        ]
         fieldnames = ["tag"] + [
-            "{}/{}".format(str(score_driver).translate(trans_table), metric)
-            for score_driver in self.score_drivers
+            "{}/{}".format(sanitized, metric)
+            for sanitized in sanitized_score_drivers
             for metric in ALL_METRICS
         ]
         with open(path, "wt", encoding="utf-8") as fp:
@@ -555,7 +559,9 @@ class ProjectDataSequence:
             writer.writeheader()
             for i_row, project_data in enumerate(self.project_data_list):
                 row = dict(tag=str(project_data.tag))
-                for score_driver in self.score_drivers:
+                for sanitzed, score_driver in zip(
+                    sanitized_score_drivers, self.score_drivers
+                ):
                     for metric in ALL_METRICS:
                         fieldname = "{}/{}".format(score_driver, metric)
                         value = self.score_driver_values[(str(score_driver), metric)][
