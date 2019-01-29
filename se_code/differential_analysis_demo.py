@@ -61,29 +61,25 @@ def subset_study(
         subproject_data_kwargs.update(score_drivers=score_drivers)
     subproject_data_kwargs.update(score_field=project_data.score_field)
 
-    docs0_args = {}
-    if filter0 is not None:
-        docs0_args["filter"] = filter0
-    if search0 is not None:
-        docs0_args["search"] = search0
-
-    docs1_args = {}
-    if filter1 is not None:
-        docs1_args["filter"] = filter1
-    if search1 is not None:
-        docs1_args["search"] = search1
-
-    docs0 = project_holder.get_docs(**docs0_args)
-    docs1 = project_holder.get_docs(**docs1_args)
     project0_name = "Tmp project from {}, subset 0".format(project_holder.project_name)
     project1_name = "Tmp project from {}, subset 1".format(project_holder.project_name)
-    project0 = project_holder.new_project_from_docs(project0_name, docs=docs0)
-    project1 = project_holder.new_project_from_docs(project1_name, docs=docs1)
 
-    data0 = ProjectData(project0, tag=0, **subproject_data_kwargs)
-    data1 = ProjectData(project1, tag=1, **subproject_data_kwargs)
-    project_holder.delete_project(project0.project_id)
-    project_holder.delete_project(project1.project_id)
+    data0 = ProjectData.from_filter_and_search(
+        project_holder,
+        filter=filter0,
+        search=search0,
+        project_name=project0_name,
+        tag=0,
+        **subproject_data_kwargs
+    )
+    data1 = ProjectData.from_filter_and_search(
+        project_holder,
+        filter=filter1,
+        search=search1,
+        project_name=project1_name,
+        tag=1,
+        **subproject_data_kwargs
+    )
 
     caption = (
         "Subset comparison of impact for driver(s) of {}, project: {} ({})\n"
@@ -225,17 +221,8 @@ def longitudinal_study(
         t0, t1 = window["interval"]
         docs = window["documents"]
         if len(docs) < 1:
-            print("Time window {} to {} had no data; skipping.".format(t0, t1))
-            return None
-        start_date = get_date_from_document(docs[0])
-        end_date = get_date_from_document(docs[-1])
-        data = dict(
-            nominal_start_date=t0,
-            nominal_end_date=t1,
-            start_date=start_date,
-            end_date=end_date,
-            docs=docs,
-        )
+            print("Warning: time window {} to {} had no data.".format(t0, t1))
+        data = dict(nominal_start_date=t0, nominal_end_date=t1, docs=docs)
         return data
 
     project_name = project_holder.project_name
@@ -266,38 +253,33 @@ def longitudinal_study(
         with open(report_file, "wt", encoding="utf-8") as fp:
             fp.write(msg + "\n\n")
 
-    data_dicts = (
-        window_to_data(window)
-        for window in get_project_time_windows(
-            project_holder,
-            start_date=start_date,
-            end_date=end_date,
-            time_step=time_step,
-            window_length=window_length,
-        )
-    )
-    good_data_dicts = (d for d in data_dicts if d is not None)
-
     subproject_data_sequence = ProjectDataSequence(score_drivers=score_drivers)
 
-    for raw_data in good_data_dicts:
-        collection_time = raw_data["end_date"]
+    for window in get_project_time_windows(
+        project_holder,
+        start_date=start_date,
+        end_date=end_date,
+        time_step=time_step,
+        window_length=window_length,
+    ):
+        start_date, end_date = window["interval"]
         msg = "{} ({})".format(project_name, project_id)
-        msg += "\nNominal {} to {}".format(
-            raw_data["nominal_start_date"], raw_data["nominal_end_date"]
+        msg += "\nTime from {} to {}, {} documents".format(
+            start_date, end_date, len(window["documents"])
         )
-        msg += "\n{} to {}.".format(raw_data["start_date"], raw_data["end_date"])
         print(msg)
 
         subproject_name = "Tmp project from {}, {} to {}".format(
-            project_id, raw_data["start_date"], raw_data["end_date"]
+            project_id, start_date, end_date
         )
 
-        subproject = project_holder.new_project_from_docs(
-            subproject_name, docs=raw_data["docs"]
+        data = ProjectData.from_docs(
+            project_holder,
+            docs=window["documents"],
+            tag=end_date,
+            project_name=subproject_name,
+            **subproject_data_kwargs
         )
-        data = ProjectData(subproject, tag=collection_time, **subproject_data_kwargs)
-        project_holder.delete_project(subproject.project_id)
         subproject_data_sequence.append(data)
 
         if report_file is not None:
@@ -317,7 +299,7 @@ def longitudinal_study(
         str(window_length),
     )
     subproject_data_sequence.plot(
-        caption=caption, x_label="Date of final document in window", y_label="impact"
+        caption=caption, x_label="Final date of window", y_label="impact"
     )
     return subproject_data_sequence
 
@@ -340,8 +322,16 @@ class ProjectData:
         Extract and save data from the project (holder).
         """
         self.tag = tag
-        self.project_id = project_holder.project_id
-        self.project_name = project_holder.project_name
+        if project_holder is None:
+            self.project_id = None
+            self.project_name = None
+            self.document_count = 0
+        else:
+            self.project_id = project_holder.project_id
+            self.project_name = project_holder.project_name
+            self.document_count = project_holder.get_project_info(
+                project_id=self.project_id
+            )[0]["document_count"]
         self.score_field = score_field
 
         if score_drivers is not None and len(score_drivers) > 0:
@@ -353,11 +343,14 @@ class ProjectData:
         else:
             self.concept_selector = dict(type="top", limit=5)
 
-        all_score_driver_concepts = project_holder.client.get(
-            "concepts/score_drivers",
-            score_field=self.score_field,
-            concept_selector=self.concept_selector,
-        )
+        if project_holder is None:
+            all_score_driver_concepts = []
+        else:
+            all_score_driver_concepts = project_holder.client.get(
+                "concepts/score_drivers",
+                score_field=self.score_field,
+                concept_selector=self.concept_selector,
+            )
 
         if score_drivers is not None and len(score_drivers) > 0:
             self.score_drivers = score_drivers
@@ -399,6 +392,63 @@ class ProjectData:
                     impact + 1.96 * estimated_stdev
                 )
 
+    @classmethod
+    def from_docs(cls, project_holder, docs, project_name=None, **kwargs):
+        """
+        Make a ProjectData instance from an iterable of documents.
+        """
+        if project_name is None:
+            project_name = "Tmp project from {}".format(project_holder.project_name)
+
+        # We could just try to make a new project from the given docs and
+        # catch the error if no docs were given, but that is a pain through
+        # the web API as it leaves an empty project on the server.  So we
+        # explicitly check for that condition, even though that is tricky
+        # too as we want to accomodate the case in which docs is a generator.
+        try:
+            doc0 = next(doc for doc in docs)
+        except StopIteration:
+            no_docs = True
+        else:
+            no_docs = False
+
+            def true_docs():
+                yield doc0
+                yield from docs
+
+        if no_docs:
+            return cls(None, **kwargs)
+        else:
+            new_project = project_holder.new_project_from_docs(
+                project_name=project_name, docs=true_docs()
+            )
+            result = cls(project_holder=new_project, **kwargs)
+            project_holder.delete_project(new_project.project_id)
+            return result
+
+    @classmethod
+    def from_filter_and_search(
+        cls, project_holder, filter=None, search=None, project_name=None, **kwargs
+    ):
+        """
+        Make a ProjectData instance from the subproject of the given project
+        (holder) defined by the given filter and search.
+        """
+        if project_name is None:
+            project_name = "Tmp project from {}".format(project_holder.project_id)
+
+        docs_args = {}
+        if filter is not None:
+            docs_args["filter"] = filter
+        if search is not None:
+            docs_args["search"] = search
+
+        docs = project_holder.get_docs(**docs_args)
+        project_data = ProjectData.from_docs(
+            project_holder, docs=docs, project_name=project_name, **kwargs
+        )
+        return project_data
+
     def print_summary(self, output_file=None, append=False):
         """
         Write a summary of the data to a file (defaults to stdout).  The
@@ -419,6 +469,7 @@ class ProjectData:
                 "Selector used for concepts: {}\n".format(self.concept_selector)
             )
             output_file.write("Tag is {}.\n".format(self.tag))
+            output_file.write("Document count is {}.\n".format(self.document_count))
             for metric in ALL_METRICS:
                 for driver, value in zip(
                     self.score_drivers, self.score_driver_values[metric]
@@ -483,12 +534,14 @@ class ProjectDataSequence:
             axs.xaxis_date()
             axs.fmt_xdata = plt_dates.DateFormatter("%Y-%m-%d")
         markers = ["o", "v", "^", "s", "D"]
-        colors = ["red", "green", "blue", "cyan", "black", "magenta", "brown"]
+        colors = ["red", "green", "blue", "cyan", "magenta", "brown"]
         if self.is_time_series:
             linestyle = "solid"
+            count_linestyle = "dotted"
             offsets = [np.timedelta64(0, "D").astype("O")]
         else:
             linestyle = ""  # no lines between markers
+            count_linestyle = ""
             max_offset = 0.25 / (len(self.score_drivers) + 1)
             offsets = np.linspace(-max_offset, max_offset, num=len(self.score_drivers))
         for i_driver, driver in enumerate(self.score_drivers):
@@ -542,6 +595,18 @@ class ProjectDataSequence:
             axs.set_ylabel(y_label)
         if caption is not None:
             fig.suptitle(caption)
+
+        axs_counts = axs.twinx()  # overlay plot of document counts
+        counts = [data.document_count for data in self.project_data_list]
+        axs_counts.plot(
+            ordinates,
+            counts,
+            color="black",
+            marker="x",
+            linestyle=count_linestyle,
+            label="document count",
+        )
+        axs_counts.legend()
         plt.show()
 
     def write_csv(self, path):
@@ -549,7 +614,7 @@ class ProjectDataSequence:
         sanitized_score_drivers = [
             re.sub(",", "", str(score_driver)) for score_driver in self.score_drivers
         ]
-        fieldnames = ["tag"] + [
+        fieldnames = ["tag", "document_count"] + [
             "{}/{}".format(sanitized, metric)
             for sanitized in sanitized_score_drivers
             for metric in ALL_METRICS
@@ -558,7 +623,10 @@ class ProjectDataSequence:
             writer = csv.DictWriter(fp, fieldnames=fieldnames)
             writer.writeheader()
             for i_row, project_data in enumerate(self.project_data_list):
-                row = dict(tag=str(project_data.tag))
+                row = dict(
+                    tag=str(project_data.tag),
+                    document_count=str(project_data.document_count),
+                )
                 for sanitzed, score_driver in zip(
                     sanitized_score_drivers, self.score_drivers
                 ):
