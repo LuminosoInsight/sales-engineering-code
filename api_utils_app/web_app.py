@@ -141,7 +141,7 @@ def reddit_by_name():
     fields = ['text', 'title', 'date_Post Date', 'string_Author Name', 'string_Comment Type', 'string_Thread', 'string_Reddit Post', ]
     subreddit_name = request.form['subreddit'].strip()
     post_names = request.form['post_list'].strip()
-    post_names = post_names.split(',')
+    post_names = post_names.split(';')
     reddit = get_reddit_api()
     posts = get_posts_by_name(reddit, subreddit_name, post_names)
     docs = get_docs_from_comments(posts, reddit)
