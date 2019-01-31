@@ -606,7 +606,7 @@ class ProjectDataSequence:
             linestyle=count_linestyle,
             label="document count",
         )
-        axs_counts.legend()
+        axs_counts.set_ylabel("document count")
         plt.show()
 
     def write_csv(self, path):
@@ -627,11 +627,11 @@ class ProjectDataSequence:
                     tag=str(project_data.tag),
                     document_count=str(project_data.document_count),
                 )
-                for sanitzed, score_driver in zip(
+                for sanitized, score_driver in zip(
                     sanitized_score_drivers, self.score_drivers
                 ):
                     for metric in ALL_METRICS:
-                        fieldname = "{}/{}".format(score_driver, metric)
+                        fieldname = "{}/{}".format(sanitized, metric)
                         value = self.score_driver_values[(str(score_driver), metric)][
                             i_row
                         ]
