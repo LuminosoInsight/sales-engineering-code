@@ -527,27 +527,47 @@ class ProjectDataSequence:
             return
 
         ordinates = np.array([data.tag for data in self.project_data_list])
+
         fig, axs = plt.subplots()
+
         if self.is_time_series:  # if the x axis is time data, treat it specially
             ordinates = ordinates.astype("O")  # convert to datetime.datetimes
             fig.autofmt_xdate()
             axs.xaxis_date()
             axs.fmt_xdata = plt_dates.DateFormatter("%Y-%m-%d")
+
         markers = ["o", "v", "^", "s", "D"]
         colors = ["red", "green", "blue", "cyan", "magenta", "brown"]
         if self.is_time_series:
             linestyle = "solid"
             count_linestyle = "dotted"
             offsets = [np.timedelta64(0, "D").astype("O")]
+            if len(self.score_drivers) > 1:
+                error_bar_offset_factors = np.linspace(
+                    -0.1, 0.1, num=len(self.score_drivers)
+                )
+            else:
+                error_bar_offset_factors = [0.0]
+            error_bar_offsets = [
+                f * np.min(np.diff(ordinates)) for f in error_bar_offset_factors
+            ]
         else:
             linestyle = ""  # no lines between markers
             count_linestyle = ""
             max_offset = 0.25 / (len(self.score_drivers) + 1)
-            offsets = np.linspace(-max_offset, max_offset, num=len(self.score_drivers))
+            if len(self.score_drivers) > 1:
+                offsets = np.linspace(
+                    -max_offset, max_offset, num=len(self.score_drivers)
+                )
+            else:
+                offsets = [0.0]
+            error_bar_offsets = offsets
+
         for i_driver, driver in enumerate(self.score_drivers):
             marker = markers[i_driver % len(markers)]
             color = colors[i_driver % len(colors)]
             offset = offsets[i_driver % len(offsets)]
+            error_bar_offset = error_bar_offsets[i_driver % len(error_bar_offsets)]
             values = self.score_driver_values[(str(driver), "impact")]
             ci_lower_bounds = self.score_driver_values[
                 (str(driver), "impact_CI_lower_bound")
@@ -568,7 +588,7 @@ class ProjectDataSequence:
                 ordinates, ci_lower_bounds, ci_upper_bounds
             ):
                 error_bar = plt_lines.Line2D(
-                    [ordinate + offset, ordinate + offset],
+                    [ordinate + error_bar_offset, ordinate + error_bar_offset],
                     [lower, upper],
                     marker="_",
                     color=color,
@@ -588,6 +608,7 @@ class ProjectDataSequence:
             x1 = max_ordinate + 0.25 * (max_ordinate - min_ordinate)
             axs.set_xlim(left=x0, right=x1)
             axs.set_xticks([min_ordinate, max_ordinate])
+
         axs.legend()
         if x_label is not None:
             axs.set_xlabel(x_label)
@@ -596,7 +617,13 @@ class ProjectDataSequence:
         if caption is not None:
             fig.suptitle(caption)
 
-        axs_counts = axs.twinx()  # overlay plot of document counts
+        axs_counts = axs.twinx()  # for plotting document counts
+        axs_dummy = axs.twiny()  # hack to force the nav bar not to show axs_counts
+        axs_dummy.set_xlim(axs.get_xlim())
+        axs_dummy.set_xticks([])
+        if self.is_time_series:
+            axs_dummy.xaxis_date()
+            axs_dummy.fmt_xdata = plt_dates.DateFormatter("%Y-%m-%d")
         counts = [data.document_count for data in self.project_data_list]
         axs_counts.plot(
             ordinates,
