@@ -217,14 +217,6 @@ def longitudinal_study(
     window length (as in get_project_time_windows).
     """
 
-    def window_to_data(window):
-        t0, t1 = window["interval"]
-        docs = window["documents"]
-        if len(docs) < 1:
-            print("Warning: time window {} to {} had no data.".format(t0, t1))
-        data = dict(nominal_start_date=t0, nominal_end_date=t1, docs=docs)
-        return data
-
     project_name = project_holder.project_name
     project_id = project_holder.project_id
     whole_project_data_kwargs = whole_project_data_kwargs or {}
@@ -617,8 +609,14 @@ class ProjectDataSequence:
         if caption is not None:
             fig.suptitle(caption)
 
-        axs_counts = axs.twinx()  # for plotting document counts
-        axs_dummy = axs.twiny()  # hack to force the nav bar not to show axs_counts
+        # Setup a second axes sharing the original x-axis, to plot document
+        # counts.  Sadly, the last axes' cursor coords are shown at the bottom
+        # of the plot, but we want the first axes'.  The easiest fix is a
+        # little hack: make a third axes (sharing the y-axis we want to show)
+        # and set its x-axis up to match the first axes'.
+
+        axs_counts = axs.twinx()
+        axs_dummy = axs.twiny()
         axs_dummy.set_xlim(axs.get_xlim())
         axs_dummy.set_xticks([])
         if self.is_time_series:
