@@ -11,7 +11,6 @@ import matplotlib.dates as plt_dates
 import matplotlib.lines as plt_lines
 import numpy as np
 import pandas as pd
-import re
 import sys
 
 from api_utils_app.luminoso_client_holder import LuminosoClientHolder
@@ -20,6 +19,34 @@ from api_utils_app.luminoso_client_holder import LuminosoClientHolder
 SCORE_DRIVER_METRICS = {"impact", "confidence", "importance"}
 DERIVED_METRICS = {"impact_CI_lower_bound", "impact_CI_upper_bound"}
 ALL_METRICS = sorted(SCORE_DRIVER_METRICS | DERIVED_METRICS)
+
+
+def parse_score_driver_text(score_driver_text):
+    """
+    Convert a command-line-friendly representation of a score driver's
+    texts into the canonical form (as expected by concept specifiers).
+
+    In the command-line representation, multiple texts (if present) are
+    separated by forward slashes, and spaces in individual texts may be
+    replaced by underscores.  E.g. 'kindle_fire/kindle' is a command-line
+    representation of ['kindle fire', 'kindle'] (but so is
+    'kindle fire/kindle').
+    """
+    parsed = [text.replace("_", " ") for text in score_driver_text.split("/")]
+    return parsed
+
+
+def unparse_score_driver(parsed):
+    """
+    Convert the canonical (list) representation of score driver texts
+    (as expected by concept specifiers) into a form for display, in which
+    multiple texts are separated by slashes.
+
+    This is almost inverse to parse_score_driver_text, but parsing then
+    unparsing might replace some underscores by spaces.
+    """
+    unparsed = "/".join(text for text in parsed)
+    return unparsed
 
 
 def get_date_from_document(doc):
@@ -100,7 +127,7 @@ def subset_study(
     msg = (
         caption
         + "Requested (whole project) score drivers:\n"
-        + "\n".join(["  {}".format(sd) for sd in score_drivers])
+        + "\n".join(["  {}".format(unparse_score_driver(sd)) for sd in score_drivers])
     )
     msg += "\n(from concept selector {})".format(project_data.concept_selector)
 
@@ -236,7 +263,7 @@ def longitudinal_study(
         str(time_step), str(window_length)
     )  # format chokes on np.timedelta64
     msg += "Requested (whole project) score drivers:\n" + "\n".join(
-        ["  {}".format(sd) for sd in score_drivers]
+        ["  {}".format(unparse_score_driver(sd)) for sd in score_drivers]
     )
     msg += "\n(from concept selector {})".format(project_data.concept_selector)
 
@@ -364,7 +391,9 @@ class ProjectData:
             if len(score_driver_concepts) > 1:
                 print(
                     "Warning:  driver {} for {} was found multiple times in {}.".format(
-                        score_driver, self.score_field, self.project_id
+                        unparse_score_driver(score_driver),
+                        self.score_field,
+                        self.project_id,
                     )
                 )
 
@@ -376,7 +405,7 @@ class ProjectData:
                 # interval for the impact, using the normal 1.96 formula
                 impact = self.score_driver_values["impact"][i_driver]
                 confidence = self.score_driver_values["confidence"][i_driver]
-                estimated_stdev = impact / confidence  # stdev of impact
+                estimated_stdev = np.abs(impact / confidence)  # stdev of impact
                 self.score_driver_values["impact_CI_lower_bound"][i_driver] = (
                     impact - 1.96 * estimated_stdev
                 )
@@ -468,7 +497,10 @@ class ProjectData:
                 ):
                     output_file.write(
                         "Score driver {} for {} has {} {:.3f}.\n".format(
-                            driver, self.score_field, metric, value
+                            unparse_score_driver(driver),
+                            self.score_field,
+                            metric,
+                            value,
                         )
                     )
 
@@ -540,8 +572,14 @@ class ProjectDataSequence:
                 )
             else:
                 error_bar_offset_factors = [0.0]
+            if len(ordinates) > 1:
+                min_ordinate_diff = np.min(np.diff(ordinates))
+            else:
+                min_ordinate_diff = np.timedelta64(
+                    10 * len(error_bar_offset_factors), "D"
+                ).astype("O")
             error_bar_offsets = [
-                f * np.min(np.diff(ordinates)) for f in error_bar_offset_factors
+                f * min_ordinate_diff for f in error_bar_offset_factors
             ]
         else:
             linestyle = ""  # no lines between markers
@@ -572,7 +610,7 @@ class ProjectDataSequence:
                 values,
                 marker=marker,
                 color=color,
-                label=str(driver),
+                label=unparse_score_driver(driver),
                 linestyle=linestyle,
             )
             axs.add_line(line)
@@ -592,8 +630,12 @@ class ProjectDataSequence:
         min_ordinate = np.min(ordinates)
         max_ordinate = np.max(ordinates)
         if self.is_time_series:
-            x0 = min_ordinate - 0.05 * (max_ordinate - min_ordinate)
-            x1 = max_ordinate + 0.05 * (max_ordinate - min_ordinate)
+            if min_ordinate == max_ordinate:
+                x0 = min_ordinate - 2.0 * min_ordinate_diff
+                x1 = max_ordinate + 2.0 * min_ordinate_diff
+            else:
+                x0 = min_ordinate - 0.05 * (max_ordinate - min_ordinate)
+                x1 = max_ordinate + 0.05 * (max_ordinate - min_ordinate)
             axs.set_xlim(left=x0, right=x1)
         else:
             x0 = min_ordinate - 0.25 * (max_ordinate - min_ordinate)
@@ -636,11 +678,15 @@ class ProjectDataSequence:
 
     def write_csv(self, path):
         # Since this is CSV, we keep commas out of the fieldnames.
+        # Mainly that means multiple texts are separated by slashes.
+        # But we also replace any remaining commas by semicolons (even
+        # though we don't expect there to be any).
         sanitized_score_drivers = [
-            re.sub(",", "", str(score_driver)) for score_driver in self.score_drivers
+            unparse_score_driver(score_driver).replace(",", ";")
+            for score_driver in self.score_drivers
         ]
         fieldnames = ["tag", "document_count"] + [
-            "{}/{}".format(sanitized, metric)
+            "{}:{}".format(sanitized, metric)
             for sanitized in sanitized_score_drivers
             for metric in ALL_METRICS
         ]
@@ -656,7 +702,7 @@ class ProjectDataSequence:
                     sanitized_score_drivers, self.score_drivers
                 ):
                     for metric in ALL_METRICS:
-                        fieldname = "{}/{}".format(sanitized, metric)
+                        fieldname = "{}:{}".format(sanitized, metric)
                         value = self.score_driver_values[(str(score_driver), metric)][
                             i_row
                         ]
@@ -675,7 +721,7 @@ def main(args):
     if args.score_driver is None:
         score_drivers = None
     else:
-        score_drivers = [eval(sd) for sd in args.score_driver]
+        score_drivers = [parse_score_driver_text(sd) for sd in args.score_driver]
 
     whole_project_data_kwargs = dict(
         score_field=args.score_field,
@@ -850,8 +896,11 @@ if __name__ == "__main__":
         "--score-driver",
         action="append",
         help=(
-            'Concept texts (e.g. ["red", "pink"]) of a score driver to '
-            "compare.  This argument may be repeated to specify multiple "
+            "Concept texts of a score driver to compare.  (Use underscores"
+            "to join multiple words, and forward slashes to separate multiple"
+            "texts.  E.g. kindle_fire/dot represents a single score driver"
+            "concept whose texts are ['kindle fire', 'dot'].)  This argument"
+            "may be repeated to specify multiple "
             "drivers.  If none are given, the selector given as the "
             "score-driver-selector argument will be applied to the whole "
             "project to find score drivers."
