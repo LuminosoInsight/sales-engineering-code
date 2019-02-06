@@ -70,6 +70,7 @@ def subset_study(
     search1=None,
     whole_project_data_kwargs=None,
     subproject_data_kwargs=None,
+    new_project_kwargs=None,
     report_file=None,
 ):
     """
@@ -97,6 +98,7 @@ def subset_study(
         search=search0,
         project_name=project0_name,
         tag=0,
+        new_project_kwargs=new_project_kwargs,
         **subproject_data_kwargs
     )
     data1 = ProjectData.from_filter_and_search(
@@ -105,6 +107,7 @@ def subset_study(
         search=search1,
         project_name=project1_name,
         tag=1,
+        new_project_kwargs=new_project_kwargs,
         **subproject_data_kwargs
     )
 
@@ -235,6 +238,7 @@ def longitudinal_study(
     verbose=True,
     whole_project_data_kwargs=None,
     subproject_data_kwargs=None,
+    new_project_kwargs=None,
     report_file=None,
 ):
     """
@@ -297,6 +301,7 @@ def longitudinal_study(
             docs=window["documents"],
             tag=end_date,
             project_name=subproject_name,
+            new_project_kwargs=new_project_kwargs,
             **subproject_data_kwargs
         )
         subproject_data_sequence.append(data)
@@ -414,7 +419,9 @@ class ProjectData:
                 )
 
     @classmethod
-    def from_docs(cls, project_holder, docs, project_name=None, **kwargs):
+    def from_docs(
+        cls, project_holder, docs, project_name=None, new_project_kwargs=None, **kwargs
+    ):
         """
         Make a ProjectData instance from an iterable of documents.
         """
@@ -440,8 +447,9 @@ class ProjectData:
         if no_docs:
             return cls(None, **kwargs)
         else:
+            new_project_kwargs = new_project_kwargs or {}
             new_project = project_holder.new_project_from_docs(
-                project_name=project_name, docs=true_docs()
+                project_name=project_name, docs=true_docs(), **new_project_kwargs
             )
             result = cls(project_holder=new_project, **kwargs)
             project_holder.delete_project(new_project.project_id)
@@ -449,7 +457,13 @@ class ProjectData:
 
     @classmethod
     def from_filter_and_search(
-        cls, project_holder, filter=None, search=None, project_name=None, **kwargs
+        cls,
+        project_holder,
+        filter=None,
+        search=None,
+        project_name=None,
+        new_project_kwargs=None,
+        **kwargs
     ):
         """
         Make a ProjectData instance from the subproject of the given project
@@ -466,7 +480,11 @@ class ProjectData:
 
         docs = project_holder.get_docs(**docs_args)
         project_data = ProjectData.from_docs(
-            project_holder, docs=docs, project_name=project_name, **kwargs
+            project_holder,
+            docs=docs,
+            project_name=project_name,
+            new_project_kwargs=new_project_kwargs,
+            **kwargs
         )
         return project_data
 
@@ -718,6 +736,11 @@ def main(args):
     client = LuminosoClientHolder.from_root_url(url=args.root_url)
     project = client.get_project(args.project_id)
 
+    if args.account_id is None:
+        new_project_kwargs = None
+    else:
+        new_project_kwargs = dict(account_id=args.account_id)
+
     if args.score_driver is None:
         score_drivers = None
     else:
@@ -759,6 +782,7 @@ def main(args):
             search1=search1,
             whole_project_data_kwargs=whole_project_data_kwargs,
             subproject_data_kwargs=subproject_data_kwargs,
+            new_project_kwargs=new_project_kwargs,
             report_file=args.report_file,
         )
     else:
@@ -771,6 +795,7 @@ def main(args):
             verbose=args.verbose,
             whole_project_data_kwargs=whole_project_data_kwargs,
             subproject_data_kwargs=subproject_data_kwargs,
+            new_project_kwargs=new_project_kwargs,
             report_file=args.report_file,
         )
     if args.csv_file is not None:
@@ -799,6 +824,17 @@ if __name__ == "__main__":
             "up authentication tokens in the standard location to read "
             "projects, and that you will need permission to create projects "
             "as well to use this tool.  Defaults to luminoso analytics.)"
+        ),
+    )
+    argparser.add_argument(
+        "-a",
+        "--account-id",
+        default=None,
+        help=(
+            "The account id used to create (temporary) projects for analysis. "
+            "This account should be associated with the authentication token "
+            "for the root URL chosen.  If not specified, a default account "
+            "must be associated with the token, and will be used."
         ),
     )
     argparser.add_argument(

@@ -115,14 +115,14 @@ class LuminosoClientHolder:
         result = LuminosoClientHolder(project_client, parent=self.root)
         return result
 
-    def new_project_from_docs(self, project_name, lang="en", docs=[]):
+    def new_project_from_docs(self, project_name, lang="en", docs=[], **kwargs):
         """
         Creates a project with the given name from the given list of docs.
         Returns a wrapper object for the project created.
         """
         print("Starting build of {}.".format(project_name))
         project_id = self.root.client.post(
-            "/projects/", name=project_name, language=lang
+            "/projects/", name=project_name, language=lang, **kwargs
         )["project_id"]
         project = self.get_project(project_id)
         buffer = []
