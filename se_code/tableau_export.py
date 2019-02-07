@@ -11,6 +11,12 @@ import sys
 import datetime
 import argparse
 import numpy as np
+import cProfile
+
+import logging
+
+# logging.basicConfig(level=logging.DEBUG)
+
 
 
 def get_as(vector1, vector2):
@@ -83,7 +89,7 @@ def pull_lumi_data(account, project, api_url, skt_limit, term_count=100, interva
     topics = client.get('topics')
     themes = client.get('/terms/clusters/', num_clusters=themes, num_cluster_terms=theme_terms)
     terms = client.get('terms', limit=term_count)
-    skt = subset_key_terms(client, skt_limit)
+    skt = subset_key_terms(client, api_url, account, project, terms_per_subset=skt_limit)
 
     drivers = list(set([key for d in docs for key in d['predict'].keys()]))
     exist_flag = True
@@ -778,4 +784,4 @@ def main():
         write_table_to_csv(trendingterms_table, 'trendingterms_table.csv')
 
 if __name__ == '__main__':
-    main()
+    cProfile.run('main()', '/tmp/profile.log')
