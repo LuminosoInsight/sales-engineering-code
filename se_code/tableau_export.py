@@ -11,12 +11,6 @@ import sys
 import datetime
 import argparse
 import numpy as np
-import cProfile
-
-import logging
-
-# logging.basicConfig(level=logging.DEBUG)
-
 
 
 def get_as(vector1, vector2):
@@ -784,4 +778,4 @@ def main():
         write_table_to_csv(trendingterms_table, 'trendingterms_table.csv')
 
 if __name__ == '__main__':
-    cProfile.run('main()', '/tmp/profile.log')
+    main()

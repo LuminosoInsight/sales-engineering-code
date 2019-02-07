@@ -40,6 +40,7 @@ def subset_key_terms(client, api_url, account, project, terms_per_subset=10, sca
 
     return results
 
+
 def skt(subset, scan_terms, subset_counts, pvalue_cutoff, api_url, account, project):
     client = LuminosoClient.connect(url='{}/projects/{}/{}'.format(api_url, account, project))
     subset_terms = client.get('terms', subset=subset, limit=scan_terms)
