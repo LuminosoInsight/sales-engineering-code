@@ -11,6 +11,8 @@ import sys
 import datetime
 import argparse
 import numpy as np
+import concurrent.futures
+import threading
 
 
 def get_as(vector1, vector2):
@@ -380,24 +382,45 @@ def add_score_drivers_to_project(client, docs, drivers):
     print('Done training.')
 
 
-def create_terms_table(client, terms):
+session_local = threading.local()
+
+
+def get_client(api_url=None, account=None, project=None):
+    if not hasattr(session_local, "client"):
+        session_local.client = LuminosoClient.connect(url='{}/projects/{}/{}'.format(api_url, account, project))
+    return session_local.client
+
+
+def create_terms_table(terms, api_url, account, project):
     '''
     Create a tabulation of top terms and their exact/total match counts
-    :param client: LuminosoClient object pointed to a project path
     :param terms: List of term dictionaries
+    :param api_url: base URL of API endpoint
+    :param account: Luminoso Daylight account id
+    :param project: Luminoso Daylight project id
     :return: List of terms, and match counts
     '''
 
     print('Creating terms table...')
     table = []
-    for t in terms:
-        row = {}
-        row['Term'] = t['text']
-        search_result = client.get('docs/search', terms=[t['term']])
-        row['Exact Matches'] = search_result['num_exact_matches']
-        row['Related Matches'] = search_result['num_related_matches']
-        table.append(row)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(docs_search_with_term, term, api_url, account, project) for term in terms]
+
+        for future in concurrent.futures.as_completed(futures):
+            row = future.result()
+            table.append(row)
+
     return table
+
+
+def docs_search_with_term(term, api_url, account, project):
+    client = get_client(api_url, account, project)
+    row = {'Term': term['text']}
+    search_result = client.get('docs/search', terms=[term['term']])
+    row['Exact Matches'] = search_result['num_exact_matches']
+    row['Related Matches'] = search_result['num_related_matches']
+    return row
 
 
 def create_themes_table(themes):
@@ -737,7 +760,7 @@ def main():
         write_table_to_csv(xref_table, 'xref_table.csv')
     
     if not args.terms:
-        terms_table = create_terms_table(client, terms)
+        terms_table = create_terms_table(terms, api_url, acct, proj)
         write_table_to_csv(terms_table, 'terms_table.csv')
         
     if args.doc_term:
