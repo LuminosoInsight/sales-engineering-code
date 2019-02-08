@@ -345,11 +345,17 @@ def wait_for_jobs(client, text):
     :return: None
     '''
 
+    check_interval = 1
     time_waiting = 0
+
     while len(client.get()['running_jobs']) != 0:
         sys.stderr.write('\r\tWaiting for {} ({}sec)'.format(text, time_waiting))
-        time.sleep(30)
-        time_waiting += 30
+        sys.stderr.flush()
+        time.sleep(check_interval)
+        time_waiting += check_interval
+
+    if time_waiting > 0:
+        sys.stderr.write('\n')
 
 
 def add_score_drivers_to_project(client, docs, drivers):
