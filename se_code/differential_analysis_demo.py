@@ -160,16 +160,24 @@ def get_project_time_windows(
 ):
     """
     Given a project client holder, a start and end date (numpy datetime64's,
-    default values are None, which implies the date of the first document of
-    the project, and the day after the date of the last), a time step and a
-    window length (numpy timedelta64's, defaults are one week and 30 days),
-    generate a sequence of time windows, the i-th starting i time steps after
-    the start date and having duration equal to the given window length.  The
-    The last window will start on or before the end date (if given).
+    default values are None, which implies the date of the first document
+    of the project, and the date of the last), a time step and a window
+    length (numpy timedelta64's, defaults are one week and 30 days), generate
+    a sequence of time windows, each having duration equal to the given window
+    length (though the earliest and latest documents in a window may come
+    after the nominal start of the window and before the nominal end).
+
+    The last window of the sequence will end on the given end date, and each
+    window will start one time step before the next in the sequence (and so
+    end one time step before the next ends, as well).  The first window will
+    end on or after the start date.
 
     Return a sequence of dicts, one for each window, with two values:  the
     pair of endpoints of the window, and a list of the documents from the
-    project having dates within that time span.
+    project having dates within that time span.  Note that the time interval
+    defined by a window is half-open; the dates of the documents in a window
+    with a start date of d0 and an end date of d1 will have dates after d0 but
+    on or before d1.
     """
     if time_step <= np.timedelta64(0, dtype=time_step.dtype):
         raise ValueError("Time step {} is not positive.".format(time_step))
@@ -189,39 +197,37 @@ def get_project_time_windows(
         return  # No docs with dates means nothing to generate.
 
     # Make a list of start and end times for time windows of the specified
-    # length (the given window size times the given interval duration),
-    # starting on times separated by the given interval (so overlapping if
-    # the window size is more than one interval).  This is complicated by
-    # the existence of intervals (e.g. months) that are not of constant
-    # duration (e.g. 28-31 days).
+    # length), starting on times separated by the given interval (so
+    # overlapping if the window size is more than one interval).  This is
+    # complicated by the existence of intervals (e.g. months) that are not
+    # of constant duration (e.g. 28-31 days).
     if start_date is None:
-        start_time = get_date_from_document(docs[0])
+        grand_start_time = get_date_from_document(docs[0])
     else:
-        start_time = start_date
+        grand_start_time = start_date
     if end_date is None:
-        grand_end_time = get_date_from_document(docs[-1])
+        end_time = get_date_from_document(docs[-1])
     else:
-        grand_end_time = end_date
+        end_time = end_date
 
     time_windows = []
-    while True:
-        end_time = start_time + window_length
+    while end_time >= grand_start_time:
+        start_time = end_time - window_length
         time_windows.append((start_time, end_time))
-        if end_time > grand_end_time:
-            break
-        start_time = start_time + time_step
+        end_time -= time_step
+    time_windows.reverse()
 
     # Generate the sequence of lists of documents whose dates lie in those
     # time windows.  Each window is treated as a half-open interval, i.e.
-    # (t0, t1) corresponds to documents whose date t satisfies t0 <= t < t1.
+    # (t0, t1) corresponds to documents whose date t satisfies t0 < t <= t1.
     dates = [get_date_from_document(doc) for doc in docs]
     i0 = 0  # Used to avoid repeatedly searching the front of the list of docs.
     for t0, t1 in time_windows:
         this_window_docs = []
         for date, doc in zip(dates[i0:], docs[i0:]):
-            if date < t0:
+            if date <= t0:
                 i0 += 1  # this doc can be skipped in the succeeding windows
-            elif date < t1:
+            elif date <= t1:
                 this_window_docs.append(doc)
             else:
                 break
