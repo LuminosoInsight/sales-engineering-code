@@ -12,70 +12,74 @@ from collections import defaultdict
 import click
 import numpy as np
 
-from luminoso_api import LuminosoClient
+from luminoso_api import V5LuminosoClient as LuminosoClient
 
 from se_code.fuzzy_logic import clamp, fuzzy_and, fuzzy_or, fuzzy_not, tanh_clamp
 
 
-def connect(account_id, project_id):
+def connect(project_url):
+    api_root = project_url.split('/app')[0]
+    project_id = project_url.strip('/ ').split('/')[-1]
     client = LuminosoClient.connect(
-        'https://analytics.luminoso.com/api/v4/projects/{}/{}'.format(account_id, project_id))
+        '{}/api/v5/projects/{}'.format(api_root, project_id))
     return client
 
 
-def get_current_results(client, search_terms, neg_terms, zero, unit, n, hide_exact):
+def get_current_results(client, search_terms, unit, n):
     """
     Given a list of search terms, return the n documents or terms (unit) that our current
-    solution would return when supplied with these terms. It has an option to hide the documents
-    containing exact matches of the search terms (hide_exact=True).
+    solution would return when supplied with these terms.
     """
-    neg_terms = {'text': neg_term for neg_term in neg_terms}
     search_terms = ' '.join(search_terms)
-
-    if zero:
-        search_results = client.get(unit + '/search', text=search_terms, zero=neg_terms,
-                                    limit=10000)['search_results']
+    
+    if unit == 'docs':
+        search_results = client.get(unit, search={'texts':search_terms}. limit=10000)['result']
     else:
-        search_results = client.get(unit + '/search', text=search_terms, negative=neg_terms,
-                                    limit=10000)['search_results']
-    if hide_exact:
-        start_idx = len([result for result, score in search_results if result['exact_indices']])
-    else:
-        start_idx = 0
+        search_results = search_results = client_v5.get('concepts', concept_selector={'type':'related', 
+                                                             'search_concept':{'texts':search_terms},
+                                                             'limit':10000})['result']
+    start_idx = 0
 
     # Save results
     results = []
-    for result, score in search_results[start_idx:start_idx+n]:
-        results.append({'text': result['document']['text'],
-                        'doc_id': result['document']['_id'],
-                        'score': score})
+    for result in search_results[start_idx:start_idx+n]:
+        if unit == 'docs':
+            results.append({'text': result['text'],
+                            'doc_id': result['doc_id'],
+                            'score': result['match_score']})
+        else:
+            results.append({'text': result['texts'][0],
+                            'score': result['match_score']})
 
     return results
 
 
-def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_exact):
+def get_new_results(client, search_terms, unit, n, operation):
     """
     Given a list of search terms, return the n documents or terms (unit) that the new solution
-    would return when supplied with these terms. It has an option to hide the documents
-    containing exact matches of the search terms (hide_exact=True).
+    would return when supplied with these terms.
     """
-    scores = defaultdict(lambda: len(search_terms + neg_terms) * [0])
-    exact_matches = defaultdict(lambda: False)
+    scores = defaultdict(lambda: len(search_terms) * [0])
     display_texts = {}
 
     # Get matching scores for top term, document pairs
-    for i, term in enumerate(search_terms + neg_terms):
-        search_results = client.get(unit + '/search', text=term, limit=10000)['search_results']
-
-        for result, matching_strength in search_results:
+    for i, term in enumerate(search_terms):
+        if unit == 'docs':
+            search_results = client.get(unit, search={'texts':search_terms}. limit=10000)['result']
+        else:
+            search_results = search_results = client_v5.get('concepts', concept_selector={'type':'related', 
+                                                                 'search_concept':{'texts':search_terms},
+                                                                 'limit':10000})['result']
+            
+        for result in search_results:
             if unit == 'docs':
-                if hide_exact and result['exact_indices']:
-                    continue
-                _id = result['document']['_id']
-                display_texts[_id] = result['document']['text']
+                _id = result['doc_id']
+                display_texts[_id] = result['text']
             else:
-                _id = result['text']
+                _id = result['texts'][0]
                 display_texts[_id] = _id
+                
+            matching_strength = result['match_score']
 
             if i >= len(search_terms):
                 scores[_id][i] = fuzzy_not(normalize_score(matching_strength, unit))
@@ -129,34 +133,25 @@ def normalize_score(score, unit):
 
 
 @click.command()
-@click.argument('account_id')
-@click.argument('project_id')
+@click.argument('project_url')
 @click.argument('search_terms', nargs=-1)
-@click.option('--neg-terms', multiple=True, help='Specify terms that should be negated.')
-@click.option('--zero/--negative', default=True, help='Negative means the opposite of the topic '
-                                                      'and zero means irrelevant to the topic. '
-                                                      'Default: zero.')
 @click.option('--current/--new', default=False, help='Get current or new results. Default: new')
 @click.option('--conjunction/--disjunction', default=True, help='Get conjunctions or disjunctions. '
                                                                 'Default: conjunction')
 @click.option('--docs', 'unit', flag_value='docs', default=True, help='Get documents')
-@click.option('--terms', 'unit', flag_value='terms', help='Get terms')
+@click.option('--concepts', 'unit', flag_value='concepts', help='Get concepts')
 @click.option('--n', default=10, help='Number of results to show. Default: 10.')
-@click.option('--hide-exact', is_flag=True, help='Hide the documents including exact matches of '
-                                                 'either one of the search terms. Default: False.')
-def main(account_id, project_id, search_terms, neg_terms, zero, current, conjunction, unit, n,
-         hide_exact):
-    client = connect(account_id, project_id)
+def main(project_url, search_terms, current, conjunction, unit, n):
+    client = connect(project_url)
 
     if current and conjunction:
-        results = get_current_results(client, search_terms, neg_terms, zero, unit, n, hide_exact)
+        results = get_current_results(client, search_terms, unit, n)
     elif not current and conjunction:
-        results = get_new_results(client, search_terms, neg_terms, unit, n, 'conjunction', hide_exact)
+        results = get_new_results(client, search_terms, unit, n, 'conjunction')
     elif current and not conjunction:
-        results = get_current_results(client, search_terms, neg_terms, zero, unit, n, hide_exact)
+        results = get_current_results(client, search_terms, unit, n)
     elif not current and not conjunction:
-        results = get_new_results(client, search_terms, neg_terms, unit, n, 'disjunction',
-                        hide_exact)
+        results = get_new_results(client, search_terms, unit, n, 'disjunction')
 
     display_count = 1
     for result in results:

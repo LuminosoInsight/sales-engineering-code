@@ -1,4 +1,4 @@
-from luminoso_api import LuminosoClient
+from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 from conjunctions_disjunctions import get_new_results
 from subset_key_terms import subset_key_terms
