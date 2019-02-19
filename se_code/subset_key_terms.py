@@ -40,15 +40,19 @@ def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10, sc
             termlist = []
             all_terms = []
             for term in subset_terms:
-                if length + len(term['exact_term_ids'][0]) > 1000:
-                    all_terms.extend(client.get('terms', term_ids=termlist))
+                if length + len(term['texts'][0]) > 1000:
+                    all_terms.extend(client.get('concepts/match_counts',
+                                                concept_selector={"type": "specified",
+                                                                  "concepts": [{"texts": termlist}]}))
                     termlist = []
                     length = 0
-                termlist.append(term['exact_term_ids'][0])
-                length += len(term['exact_term_ids'][0])
+                termlist.append(term['texts'][0])
+                length += len(term['texts'][0])
             if len(termlist) > 0:
-                all_terms.extend(client.get('terms', term_ids=termlist))
-            all_term_dict = {term['term_id']: term['total_doc_count'] for term in all_terms}
+                all_terms.extend(client.get('concepts/match_counts',
+                                            concept_selector={"type": "specified",
+                                                              "concepts": [{"texts": termlist}]}))
+            all_term_dict = {term['exact_term_ids'][0]: term['exact_match_count'] for term in all_terms}
 
             subset_scores = []
             for term in subset_terms:
