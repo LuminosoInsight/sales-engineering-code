@@ -311,41 +311,56 @@ def create_skt_table(client, skt):
 
     print('Creating subset key terms table...')
     terms = []
-    for s, t, o, p in skt:
-        terms.extend(client.get('terms/doc_counts', terms=[t['term']], subsets=[s], format='json'))
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(get_term_document_counts, client, t, s) for s, t, o, p in skt]
+
+        for future in concurrent.futures.as_completed(futures):
+            terms.extend(future.result())
     
     terms = {t['text']: t for t in terms}
     skt_table = []
-    index = 0
-    for s, t, o, p in skt:   
-        docs = client.get('docs/search', limit=3, text=t['text'], subset=s)
-        doc_texts = [ids[0]['document']['text'] for ids in docs['search_results']]
-        text_length = len(doc_texts)
-        text_1 = ''
-        text_2 = ''
-        text_3 = ''
-        if text_length == 1:
-            text_1 = doc_texts[0]
-        elif text_length == 2:
-            text_1 = doc_texts[0]
-            text_2 = doc_texts[1]
-        elif text_length > 2:
-            text_1 = doc_texts[0]
-            text_2 = doc_texts[1]
-            text_3 = doc_texts[2]
-        skt_table.append({'term': t['text'],
-                          'subset': s.partition(':')[0],
-                          'value': s.partition(':')[2],
-                          'odds_ratio': o,
-                          'p_value': p,
-                          'exact_matches': terms[t['text']]['num_exact_matches'],
-                          'conceptual_matches': terms[t['text']]['num_related_matches'],
-                          'Text 1': text_1,
-                          'Text 2': text_2,
-                          'Text 3': text_3,
-                          'total_matches': terms[t['text']]['num_exact_matches'] + terms[t['text']]['num_related_matches']})
-        index += 1
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(get_skt_row, client, terms, s, t, o, p) for s, t, o, p in skt]
+
+        for future in concurrent.futures.as_completed(futures):
+            skt_table.append(future.result())
+
     return skt_table
+
+
+def get_term_document_counts(client, t, s):
+    return client.get('terms/doc_counts', terms=[t['term']], subsets=[s], format='json')
+
+
+def get_skt_row(client, terms, s, t, o, p):
+    docs = client.get('docs/search', limit=3, text=t['text'], subset=s)
+    doc_texts = [ids[0]['document']['text'] for ids in docs['search_results']]
+    text_length = len(doc_texts)
+    text_1 = ''
+    text_2 = ''
+    text_3 = ''
+    if text_length == 1:
+        text_1 = doc_texts[0]
+    elif text_length == 2:
+        text_1 = doc_texts[0]
+        text_2 = doc_texts[1]
+    elif text_length > 2:
+        text_1 = doc_texts[0]
+        text_2 = doc_texts[1]
+        text_3 = doc_texts[2]
+    return {'term': t['text'],
+            'subset': s.partition(':')[0],
+            'value': s.partition(':')[2],
+            'odds_ratio': o,
+            'p_value': p,
+            'exact_matches': terms[t['text']]['num_exact_matches'],
+            'conceptual_matches': terms[t['text']]['num_related_matches'],
+            'Text 1': text_1,
+            'Text 2': text_2,
+            'Text 3': text_3,
+            'total_matches': terms[t['text']]['num_exact_matches'] + terms[t['text']]['num_related_matches']}
 
 
 def wait_for_jobs(client, text):
