@@ -54,7 +54,7 @@ def get_current_results(client, search_terms, neg_terms, zero, unit, n, hide_exa
     return results
 
 
-def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_exact, api_url, account, project):
+def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_exact):
     """
     Given a list of search terms, return the n documents or terms (unit) that the new solution
     would return when supplied with these terms. It has an option to hide the documents
@@ -66,7 +66,7 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
 
     # Get matching scores for top term, document pairs
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        futures = [executor.submit(search_docs, unit, term, i, api_url, account, project)
+        futures = [executor.submit(search_docs, client, unit, term, i)
                    for i, term in enumerate(search_terms + neg_terms)]
 
         for future in concurrent.futures.as_completed(futures):
@@ -106,8 +106,7 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
     return results
 
 
-def search_docs(unit, term, i, api_url, account, project):
-    client = LuminosoClient.connect(url='{}/projects/{}/{}'.format(api_url, account, project))
+def search_docs(client, unit, term, i):
     return i, client.get(unit + '/search', text=term, limit=10000)['search_results']
 
 
