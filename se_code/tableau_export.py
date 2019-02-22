@@ -239,7 +239,7 @@ def create_doc_subset_table(docs, subsets):
     return doc_subset_table
 
 
-def create_doc_table(client, docs, subsets, themes):
+def create_doc_table(client, docs, subsets, themes, api_url, account, project):
     '''
     Create a tabulation of documents and their related subsets & themes
     :param client: LuminosoClient object set to project path
@@ -758,7 +758,7 @@ def main():
     subsets = reorder_subsets(subsets)
 
     if not args.doc:
-        doc_table, xref_table = create_doc_table(client, docs, subsets, themes)
+        doc_table, xref_table = create_doc_table(client, docs, subsets, themes, api_url, acct, proj)
         write_table_to_csv(doc_table, 'doc_table.csv')
         write_table_to_csv(xref_table, 'xref_table.csv')
     
