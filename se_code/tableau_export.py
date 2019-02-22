@@ -496,17 +496,11 @@ def get_row_for_topic_score_driver(client, driver, subset, average_score, row):
 
     # ADDED RELATED TERMS
     related_terms = driver['terms']
+
     list_terms = client.get('terms', terms=related_terms)
-    doc_count_terms_list = [related_terms[0]]
-    related_text = []
-    for term in list_terms:
-        related_text.append(term['text'])
-    row['related_terms'] = related_text
-    doc_count = client.get('terms/doc_counts', terms=doc_count_terms_list, use_json=True)
-    count_sum = 0
-    for doc_dict in doc_count:
-        count_sum += (doc_dict['num_exact_matches'] + doc_dict['num_related_matches'])
-    row['doc_count'] = count_sum
+    row['related_terms'] = get_related_text(list_terms)
+
+    row['doc_count'] = get_doc_count_sum(client, related_terms)
 
     # Use the driver term to find related documents
     search_docs = client.get('docs/search', terms=driver['terms'], limit=500, exact_only=True)
@@ -548,17 +542,11 @@ def get_row_for_negative_score_driver(client, driver, subset, average_score, sco
 
     # ADDED RELATED TERMS
     related_terms = driver['similar_terms']
+
     list_terms = client.get('terms', terms=related_terms)
-    doc_count_terms_list = [related_terms[0]]
-    related_text = []
-    for term in list_terms:
-        related_text.append(term['text'])
-    row['related_terms'] = related_text
-    doc_count = client.get('terms/doc_counts', terms=doc_count_terms_list, use_json=True)
-    count_sum = 0
-    for doc_dict in doc_count:
-        count_sum += (doc_dict['num_exact_matches'] + doc_dict['num_related_matches'])
-    row['doc_count'] = count_sum
+    row['related_terms'] = get_related_text(list_terms)
+
+    row['doc_count'] = get_doc_count_sum(client, related_terms)
 
     # Use the driver term to find related documents
     search_docs = client.get('docs/search', terms=[driver['term']], limit=500, exact_only=True)
@@ -598,18 +586,13 @@ def get_row_for_negative_score_driver(client, driver, subset, average_score, sco
 def get_row_for_positive_score_driver(client, driver, subset, average_score, score_drivers, row):
     row['type'] = 'auto_found'
 
+    # ADDED RELATED TERMS
     related_terms = driver['similar_terms']
+
     list_terms = client.get('terms', terms=related_terms)
-    doc_count_terms_list = [related_terms[0]]
-    related_text = []
-    for term in list_terms:
-        related_text.append(term['text'])
-    row['related_terms'] = related_text
-    doc_count = client.get('terms/doc_counts', terms=doc_count_terms_list, use_json=True)
-    count_sum = 0
-    for doc_dict in doc_count:
-        count_sum += (doc_dict['num_exact_matches'] + doc_dict['num_related_matches'])
-    row['doc_count'] = count_sum
+    row['related_terms'] = get_related_text(list_terms)
+
+    row['doc_count'] = get_doc_count_sum(client, related_terms)
 
     # Use the driver term to find related documents
     search_docs = client.get('docs/search', terms=[driver['term']], limit=500, exact_only=True)
@@ -644,6 +627,24 @@ def get_row_for_positive_score_driver(client, driver, subset, average_score, sco
     if len(docs) >= 3:
         row['example_doc3'] = docs[2][0]['document']['text']
     return row
+
+
+def get_related_text(list_terms):
+    related_text = []
+    for term in list_terms:
+        related_text.append(term['text'])
+
+    return related_text
+
+
+def get_doc_count_sum(client, related_terms):
+    doc_count_terms_list = [related_terms[0]]
+    doc_count = client.get('terms/doc_counts', terms=doc_count_terms_list, use_json=True)
+
+    count_sum = 0
+    for doc_dict in doc_count:
+        count_sum += (doc_dict['num_exact_matches'] + doc_dict['num_related_matches'])
+    return count_sum
 
 
 def create_trends_table(terms, docs):
