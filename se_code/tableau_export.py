@@ -511,29 +511,13 @@ def get_row_for_topic_score_driver(client, driver, subset, average_score, row):
         document['driver_as'] = get_as(driver['vector'], document['vector'])
 
     docs = sorted(search_docs['search_results'], key=lambda k: k[0]['document']['driver_as'])
-    # EXPERIMENTAL
+
+    # average score is EXPERIMENTAL
     if average_score:
-        avg_score = 0
-        for score_doc in docs:
-            for category in score_doc[0]['document']['subsets']:
-                if subset in category:
-                    avg_score += int(category.split(':')[-1])
-                    break
-        try:
-            avg_score = float(avg_score / len(docs))
-        except ZeroDivisionError as e:
-            avg_score = 0
-        row['average_score'] = avg_score
-        #
-    row['example_doc'] = ''
-    row['example_doc2'] = ''
-    row['example_doc3'] = ''
-    if len(docs) >= 1:
-        row['example_doc'] = docs[0][0]['document']['text']
-    if len(docs) >= 2:
-        row['example_doc2'] = docs[1][0]['document']['text']
-    if len(docs) >= 3:
-        row['example_doc3'] = docs[2][0]['document']['text']
+        row['average_score'] = get_avg_score(docs, subset)
+
+    row.update(get_example_docs(docs))
+
     return row
 
 
@@ -557,29 +541,13 @@ def get_row_for_negative_score_driver(client, driver, subset, average_score, sco
         document['driver_as'] = get_as(score_drivers['coefficient_vector'], document['vector'])
 
     docs = sorted(search_docs['search_results'], key=lambda k: k[0]['document']['driver_as'])
-    # EXPERIMENTAL
+
+    # average score is EXPERIMENTAL
     if average_score:
-        avg_score = 0
-        for score_doc in docs:
-            for category in score_doc[0]['document']['subsets']:
-                if subset in category:
-                    avg_score += int(category.split(':')[-1])
-                    break
-        try:
-            avg_score = float(avg_score / len(docs))
-        except ZeroDivisionError as e:
-            avg_score = 0
-        row['average_score'] = avg_score
-    #
-    row['example_doc'] = ''
-    row['example_doc2'] = ''
-    row['example_doc3'] = ''
-    if len(docs) >= 1:
-        row['example_doc'] = docs[0][0]['document']['text']
-    if len(docs) >= 2:
-        row['example_doc2'] = docs[1][0]['document']['text']
-    if len(docs) >= 3:
-        row['example_doc3'] = docs[2][0]['document']['text']
+        row['average_score'] = get_avg_score(docs, subset)
+
+    row.update(get_example_docs(docs))
+
     return row
 
 
@@ -603,29 +571,12 @@ def get_row_for_positive_score_driver(client, driver, subset, average_score, sco
         document['driver_as'] = get_as(score_drivers['coefficient_vector'], document['vector'])
 
     docs = sorted(search_docs['search_results'], key=lambda k: -k[0]['document']['driver_as'])
-    # EXPERIMENTAL
+    # average score is EXPERIMENTAL
     if average_score:
-        avg_score = 0
-        for score_doc in docs:
-            for category in score_doc[0]['document']['subsets']:
-                if subset in category:
-                    avg_score += int(category.split(':')[-1])
-                    break
-        try:
-            avg_score = float(avg_score / len(docs))
-        except ZeroDivisionError as e:
-            avg_score = 0
-        row['average_score'] = avg_score
-    #
-    row['example_doc'] = ''
-    row['example_doc2'] = ''
-    row['example_doc3'] = ''
-    if len(docs) >= 1:
-        row['example_doc'] = docs[0][0]['document']['text']
-    if len(docs) >= 2:
-        row['example_doc2'] = docs[1][0]['document']['text']
-    if len(docs) >= 3:
-        row['example_doc3'] = docs[2][0]['document']['text']
+        row['average_score'] = get_avg_score(docs, subset)
+
+    row.update(get_example_docs(docs))
+
     return row
 
 
@@ -645,6 +596,37 @@ def get_doc_count_sum(client, related_terms):
     for doc_dict in doc_count:
         count_sum += (doc_dict['num_exact_matches'] + doc_dict['num_related_matches'])
     return count_sum
+
+
+def get_avg_score(docs, subset):
+    avg_score = 0
+    for score_doc in docs:
+        for category in score_doc[0]['document']['subsets']:
+            if subset in category:
+                avg_score += int(category.split(':')[-1])
+                break
+    try:
+        avg_score = float(avg_score / len(docs))
+    except ZeroDivisionError as e:
+        avg_score = 0
+
+    return avg_score
+
+
+def get_example_docs(docs):
+    example_docs = dict()
+
+    example_docs['example_doc'] = ''
+    example_docs['example_doc2'] = ''
+    example_docs['example_doc3'] = ''
+    if len(docs) >= 1:
+        example_docs['example_doc'] = docs[0][0]['document']['text']
+    if len(docs) >= 2:
+        example_docs['example_doc2'] = docs[1][0]['document']['text']
+    if len(docs) >= 3:
+        example_docs['example_doc3'] = docs[2][0]['document']['text']
+
+    return example_docs
 
 
 def create_trends_table(terms, docs):
