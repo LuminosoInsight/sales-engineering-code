@@ -21,13 +21,13 @@ def dict_to_file(table, file_name):
     fields = []
     for key in table[0]:
         fields.append(key)
-    with open(file_name, 'w') as f:
+    with open(file_name, 'w', newline='') as f:
         writer = csv.DictWriter(f, fields)
         writer.writeheader()
         writer.writerows(table)
         
 def list_to_file(table, file_name):
-    with open(file_name, 'w') as f:
+    with open(file_name, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerows(table)
         

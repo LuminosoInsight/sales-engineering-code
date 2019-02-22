@@ -222,7 +222,7 @@ def save_doc_search_results(docs, intent_list, threshold=.5):
     intents = []
     auto_intents = []
 
-    with open('results.csv', 'w') as file:
+    with open('results.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         headers = ['_id', 'text', 'intent', 'score', 'subsets']
         headers.extend(labels)
