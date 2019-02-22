@@ -125,7 +125,7 @@ def write_table_to_csv(table, filename):
     if len(table) == 0:
         print('Warning: No data to write to {}.'.format(filename))
         return
-    with open(filename, 'w') as file:
+    with open(filename, 'w', newline='') as file:
         writer = csv.DictWriter(file, fieldnames=table[0].keys())
         writer.writeheader()
         writer.writerows(table)
