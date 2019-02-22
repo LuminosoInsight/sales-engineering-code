@@ -3,6 +3,7 @@ from luminoso_api import LuminosoClient
 import numpy as np
 from scipy.stats import fisher_exact
 import argparse, csv, sys, getpass
+import concurrent.futures
 
 
 def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
@@ -29,43 +30,51 @@ def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
     subset_counts = client.get()['counts']
     pvalue_cutoff = 1 / scan_terms / 20
     results = []
-    index = 0
-    for subset in sorted(subset_counts):
-        index += 1
-        subset_terms = client.get('terms', subset=subset, limit=scan_terms)
-        length = 0
-        termlist = []
-        all_terms = []
-        for term in subset_terms:
-            if length + len(term['term']) > 100:
-                all_terms.extend(client.get('terms', terms=termlist))
-                termlist = []
-                length = 0
-            termlist.append(term['term'])
-            length += len(term['term'])
-        if len(termlist) > 0:
-            all_terms.extend(client.get('terms', terms=termlist))
-        all_term_dict = {term['term']: term['distinct_doc_count'] for term in all_terms}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
 
-        subset_scores = []
-        for term in subset_terms:
-            term_in_subset = term['distinct_doc_count']
-            term_outside_subset = all_term_dict[term['term']] - term_in_subset + 1
-            docs_in_subset = subset_counts[subset]
-            docs_outside_subset = subset_counts['__all__'] - subset_counts[subset] + 1
-            table = np.array([
-                [term_in_subset, term_outside_subset],
-                [docs_in_subset, docs_outside_subset]
-            ])
-            odds_ratio, pvalue = fisher_exact(table, alternative='greater')
-            if pvalue < pvalue_cutoff:
-                subset_scores.append((subset, term, odds_ratio, pvalue))
+        futures = {executor.submit(skt, client, subset, scan_terms, subset_counts, pvalue_cutoff): subset for subset in sorted(subset_counts)}
+        for future in concurrent.futures.as_completed(futures):
+            subset_scores = future.result()
 
-        if len(subset_scores) > 0:
-            subset_scores.sort(key=lambda x: (x[0], -x[2]))
-        results.extend(subset_scores[:terms_per_subset])
+            results.extend(subset_scores[:terms_per_subset])
 
     return results
+
+
+def skt(client, subset, scan_terms, subset_counts, pvalue_cutoff):
+    subset_terms = client.get('terms', subset=subset, limit=scan_terms)
+    length = 0
+    termlist = []
+    all_terms = []
+    for term in subset_terms:
+        if length + len(term['term']) > 100:
+            all_terms.extend(client.get('terms', terms=termlist))
+            termlist = []
+            length = 0
+        termlist.append(term['term'])
+        length += len(term['term'])
+    if len(termlist) > 0:
+        all_terms.extend(client.get('terms', terms=termlist))
+    all_term_dict = {term['term']: term['distinct_doc_count'] for term in all_terms}
+
+    subset_scores = []
+    for term in subset_terms:
+        term_in_subset = term['distinct_doc_count']
+        term_outside_subset = all_term_dict[term['term']] - term_in_subset + 1
+        docs_in_subset = subset_counts[subset]
+        docs_outside_subset = subset_counts['__all__'] - subset_counts[subset] + 1
+        table = np.array([
+            [term_in_subset, term_outside_subset],
+            [docs_in_subset, docs_outside_subset]
+        ])
+        odds_ratio, pvalue = fisher_exact(table, alternative='greater')
+        if pvalue < pvalue_cutoff:
+            subset_scores.append((subset, term, odds_ratio, pvalue))
+
+    if len(subset_scores) > 0:
+        subset_scores.sort(key=lambda x: (x[0], -x[2]))
+
+    return subset_scores
 
 def create_skt_table(client, skt):
     '''

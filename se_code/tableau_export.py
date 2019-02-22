@@ -56,6 +56,15 @@ def reorder_subsets(subsets):
     return new_subsets
 
 
+session_local = threading.local()
+
+
+def get_client(api_url=None, account=None, project=None):
+    if not hasattr(session_local, "client"):
+        session_local.client = LuminosoClient.connect(url='{}/projects/{}/{}'.format(api_url, account, project))
+    return session_local.client
+
+
 def pull_lumi_data(account, project, api_url, skt_limit, term_count=100, interval='day', themes=7, theme_terms=4, rebuild=False):
     '''
     Extract relevant data from Luminoso project
@@ -71,7 +80,7 @@ def pull_lumi_data(account, project, api_url, skt_limit, term_count=100, interva
     '''
 
     print('Extracting Lumi data...')
-    client = LuminosoClient.connect(url='{}/projects/{}/{}'.format(api_url, account, project))
+    client = get_client(api_url, account, project)
     subsets = client.get('subsets/stats')
 
     docs = []
@@ -85,7 +94,7 @@ def pull_lumi_data(account, project, api_url, skt_limit, term_count=100, interva
     topics = client.get('topics')
     themes = client.get('/terms/clusters/', num_clusters=themes, num_cluster_terms=theme_terms)
     terms = client.get('terms', limit=term_count)
-    skt = subset_key_terms(client, skt_limit)
+    skt = subset_key_terms(client, terms_per_subset=skt_limit)
 
     drivers = list(set([key for d in docs for key in d['predict'].keys()]))
     exist_flag = True
@@ -388,22 +397,11 @@ def add_score_drivers_to_project(client, docs, drivers):
     print('Done training.')
 
 
-session_local = threading.local()
-
-
-def get_client(api_url=None, account=None, project=None):
-    if not hasattr(session_local, "client"):
-        session_local.client = LuminosoClient.connect(url='{}/projects/{}/{}'.format(api_url, account, project))
-    return session_local.client
-
-
-def create_terms_table(terms, api_url, account, project):
+def create_terms_table(client, terms):
     '''
     Create a tabulation of top terms and their exact/total match counts
+    :param client: LuminosoClient object pointed to a project path
     :param terms: List of term dictionaries
-    :param api_url: base URL of API endpoint
-    :param account: Luminoso Daylight account id
-    :param project: Luminoso Daylight project id
     :return: List of terms, and match counts
     '''
 
@@ -411,7 +409,7 @@ def create_terms_table(terms, api_url, account, project):
     table = []
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        futures = [executor.submit(docs_search_with_term, term, api_url, account, project) for term in terms]
+        futures = [executor.submit(docs_search_with_term, client, term) for term in terms]
 
         for future in concurrent.futures.as_completed(futures):
             row = future.result()
@@ -420,8 +418,7 @@ def create_terms_table(terms, api_url, account, project):
     return table
 
 
-def docs_search_with_term(term, api_url, account, project):
-    client = get_client(api_url, account, project)
+def docs_search_with_term(client, term):
     row = {'Term': term['text']}
     search_result = client.get('docs/search', terms=[term['term']])
     row['Exact Matches'] = search_result['num_exact_matches']
@@ -766,7 +763,7 @@ def main():
         write_table_to_csv(xref_table, 'xref_table.csv')
     
     if not args.terms:
-        terms_table = create_terms_table(terms, api_url, acct, proj)
+        terms_table = create_terms_table(client, terms)
         write_table_to_csv(terms_table, 'terms_table.csv')
         
     if args.doc_term:
