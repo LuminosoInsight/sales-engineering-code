@@ -6,7 +6,7 @@ import argparse, csv, sys, getpass
 import concurrent.futures
 
 
-def subset_key_terms(client, api_url, account, project, terms_per_subset=10, scan_terms=1000):
+def subset_key_terms(client, terms_per_subset=10, scan_terms=1000):
     """
     Find 'key terms' for a subset, those that appear disproportionately more
     inside a subset than outside of it. We determine this using Fisher's
@@ -32,7 +32,7 @@ def subset_key_terms(client, api_url, account, project, terms_per_subset=10, sca
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
 
-        futures = {executor.submit(skt, subset, scan_terms, subset_counts, pvalue_cutoff, api_url, account, project): subset for subset in sorted(subset_counts)}
+        futures = {executor.submit(skt, client, subset, scan_terms, subset_counts, pvalue_cutoff): subset for subset in sorted(subset_counts)}
         for future in concurrent.futures.as_completed(futures):
             subset_scores = future.result()
 
@@ -41,8 +41,7 @@ def subset_key_terms(client, api_url, account, project, terms_per_subset=10, sca
     return results
 
 
-def skt(subset, scan_terms, subset_counts, pvalue_cutoff, api_url, account, project):
-    client = LuminosoClient.connect(url='{}/projects/{}/{}'.format(api_url, account, project))
+def skt(client, subset, scan_terms, subset_counts, pvalue_cutoff):
     subset_terms = client.get('terms', subset=subset, limit=scan_terms)
     length = 0
     termlist = []
