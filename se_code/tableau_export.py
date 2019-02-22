@@ -264,7 +264,7 @@ def create_doc_table(client, docs, subsets, themes, api_url, account, project):
     for i, theme in enumerate(themes):
         search_terms = [t['text'] for t in theme['terms']]
         theme['name'] = ', '.join(search_terms)[:-2]
-        theme['docs'] = get_new_results(client, search_terms, [], 'docs', 20, 'conjunction', False, api_url, account, project)
+        theme['docs'] = get_new_results(client, search_terms, [], 'docs', 20, 'conjunction', False)
         header.append('Theme {}'.format(i))
         info.append(theme['name'])
         
