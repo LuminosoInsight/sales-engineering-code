@@ -441,7 +441,7 @@ def create_themes_table(themes):
         theme['docs'] = sum([t['distinct_doc_count'] for t in theme['terms']])
         del theme['terms']
     return themes
-                    
+
 
 def create_drivers_table(client, drivers, topic_drive, average_score):
     '''
@@ -454,23 +454,29 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
     '''
 
     driver_table = []
-    for subset in drivers:
-        if topic_drive:
-            topic_drivers = client.put('prediction/drivers', predictor_name=subset)
-            for driver in topic_drivers:
-                row = get_row_for_score_driver(client, driver, subset, average_score, driver_type='topic')
-                driver_table.append(row)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = []
+        for subset in drivers:
+            if topic_drive:
+                topic_drivers = client.put('prediction/drivers', predictor_name=subset)
+                for driver in topic_drivers:
+                    futures.append(executor.submit(get_row_for_score_driver, client, driver, subset, average_score,
+                                                   driver_type='topic'))
 
-        score_drivers = client.get('prediction/drivers', predictor_name=subset)
+            score_drivers = client.get('prediction/drivers', predictor_name=subset)
 
-        for driver in score_drivers['negative']:
-            row = get_row_for_score_driver(client, driver, subset, average_score, score_drivers, driver_type='negative')
+            for driver in score_drivers['negative']:
+                futures.append(executor.submit(get_row_for_score_driver, client, driver, subset, average_score,
+                                               score_drivers, driver_type='negative'))
+
+            for driver in score_drivers['positive']:
+                futures.append(executor.submit(get_row_for_score_driver, client, driver, subset, average_score,
+                                               score_drivers, driver_type='positive'))
+
+        for future in concurrent.futures.as_completed(futures):
+            row = future.result()
             driver_table.append(row)
 
-        for driver in score_drivers['positive']:
-            row = get_row_for_score_driver(client, driver, subset, average_score, score_drivers, driver_type='positive')
-            driver_table.append(row)
-    
     return driver_table
 
 
@@ -607,7 +613,7 @@ def get_avg_score(docs, subset):
                 break
     try:
         avg_score = float(avg_score / len(docs))
-    except ZeroDivisionError as e:
+    except ZeroDivisionError:
         avg_score = 0
 
     return avg_score
