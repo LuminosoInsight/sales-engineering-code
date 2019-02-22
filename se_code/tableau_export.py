@@ -460,62 +460,15 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
             for driver in topic_drivers:
                 row = get_row_for_score_driver(client, driver, subset, average_score)
                 driver_table.append(row)
+
         score_drivers = client.get('prediction/drivers', predictor_name=subset)
+
         for driver in score_drivers['negative']:
             row = get_row_for_negative_score_driver(client, driver, subset, average_score, score_drivers)
             driver_table.append(row)
+
         for driver in score_drivers['positive']:
-            row = {}
-            row['driver'] = driver['text']
-            row['type'] = 'auto_found'
-            row['subset'] = subset
-            row['impact'] = driver['regressor_dot']
-            row['score'] = driver['driver_score']
-            related_terms = driver['similar_terms']
-            list_terms = client.get('terms', terms=related_terms)
-            doc_count_terms_list = [related_terms[0]]
-            related_text = []
-            for term in list_terms:
-                related_text.append(term['text'])
-            row['related_terms'] = related_text
-            doc_count = client.get('terms/doc_counts', terms=doc_count_terms_list, use_json=True)
-            count_sum = 0
-            for doc_dict in doc_count:
-                count_sum += (doc_dict['num_exact_matches'] + doc_dict['num_related_matches'])
-            row['doc_count'] = count_sum
-
-                # Use the driver term to find related documents
-            search_docs = client.get('docs/search', terms=[driver['term']], limit=500, exact_only=True)
-
-                # Sort documents based on their association with the coefficient vector
-            for doc in search_docs['search_results']:
-                document = doc[0]['document']
-                document['driver_as'] = get_as(score_drivers['coefficient_vector'],document['vector'])
-
-            docs = sorted(search_docs['search_results'], key=lambda k: -k[0]['document']['driver_as'])
-            # EXPERIMENTAL
-            if average_score:
-                avg_score = 0
-                for score_doc in docs:
-                    for category in score_doc[0]['document']['subsets']:
-                        if subset in category:
-                            avg_score += int(category.split(':')[-1])
-                            break
-                try:
-                    avg_score = float(avg_score/len(docs))
-                except ZeroDivisionError as e:
-                    avg_score = 0
-                row['average_score'] = avg_score
-            #
-            row['example_doc'] = ''
-            row['example_doc2'] = ''
-            row['example_doc3'] = ''
-            if len(docs) >= 1:
-                row['example_doc'] = docs[0][0]['document']['text']
-            if len(docs) >= 2:
-                row['example_doc2'] = docs[1][0]['document']['text']
-            if len(docs) >= 3:
-                row['example_doc3'] = docs[2][0]['document']['text']
+            row = get_row_for_positive_score_driver(client, driver, subset, average_score, score_drivers)
             driver_table.append(row)
     
     return driver_table
@@ -607,6 +560,61 @@ def get_row_for_negative_score_driver(client, driver, subset, average_score, sco
         document['driver_as'] = get_as(score_drivers['coefficient_vector'], document['vector'])
 
     docs = sorted(search_docs['search_results'], key=lambda k: k[0]['document']['driver_as'])
+    # EXPERIMENTAL
+    if average_score:
+        avg_score = 0
+        for score_doc in docs:
+            for category in score_doc[0]['document']['subsets']:
+                if subset in category:
+                    avg_score += int(category.split(':')[-1])
+                    break
+        try:
+            avg_score = float(avg_score / len(docs))
+        except ZeroDivisionError as e:
+            avg_score = 0
+        row['average_score'] = avg_score
+    #
+    row['example_doc'] = ''
+    row['example_doc2'] = ''
+    row['example_doc3'] = ''
+    if len(docs) >= 1:
+        row['example_doc'] = docs[0][0]['document']['text']
+    if len(docs) >= 2:
+        row['example_doc2'] = docs[1][0]['document']['text']
+    if len(docs) >= 3:
+        row['example_doc3'] = docs[2][0]['document']['text']
+    return row
+
+
+def get_row_for_positive_score_driver(client, driver, subset, average_score, score_drivers):
+    row = {}
+    row['driver'] = driver['text']
+    row['type'] = 'auto_found'
+    row['subset'] = subset
+    row['impact'] = driver['regressor_dot']
+    row['score'] = driver['driver_score']
+    related_terms = driver['similar_terms']
+    list_terms = client.get('terms', terms=related_terms)
+    doc_count_terms_list = [related_terms[0]]
+    related_text = []
+    for term in list_terms:
+        related_text.append(term['text'])
+    row['related_terms'] = related_text
+    doc_count = client.get('terms/doc_counts', terms=doc_count_terms_list, use_json=True)
+    count_sum = 0
+    for doc_dict in doc_count:
+        count_sum += (doc_dict['num_exact_matches'] + doc_dict['num_related_matches'])
+    row['doc_count'] = count_sum
+
+    # Use the driver term to find related documents
+    search_docs = client.get('docs/search', terms=[driver['term']], limit=500, exact_only=True)
+
+    # Sort documents based on their association with the coefficient vector
+    for doc in search_docs['search_results']:
+        document = doc[0]['document']
+        document['driver_as'] = get_as(score_drivers['coefficient_vector'], document['vector'])
+
+    docs = sorted(search_docs['search_results'], key=lambda k: -k[0]['document']['driver_as'])
     # EXPERIMENTAL
     if average_score:
         avg_score = 0
