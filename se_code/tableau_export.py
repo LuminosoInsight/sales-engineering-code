@@ -311,8 +311,12 @@ def create_skt_table(client, skt):
 
     print('Creating subset key terms table...')
     terms = []
-    for s, t, o, p in skt:
-        terms.extend(client.get('terms/doc_counts', terms=[t['term']], subsets=[s], format='json'))
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(get_term_document_counts, client, t, s) for s, t, o, p in skt]
+
+        for future in concurrent.futures.as_completed(futures):
+            terms.extend(future.result())
     
     terms = {t['text']: t for t in terms}
     skt_table = []
@@ -346,6 +350,10 @@ def create_skt_table(client, skt):
                           'total_matches': terms[t['text']]['num_exact_matches'] + terms[t['text']]['num_related_matches']})
         index += 1
     return skt_table
+
+
+def get_term_document_counts(client, t, s):
+    return client.get('terms/doc_counts', terms=[t['term']], subsets=[s], format='json')
 
 
 def wait_for_jobs(client, text):
