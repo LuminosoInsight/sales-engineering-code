@@ -458,29 +458,42 @@ def create_drivers_table(client, drivers, topic_drive, average_score):
         if topic_drive:
             topic_drivers = client.put('prediction/drivers', predictor_name=subset)
             for driver in topic_drivers:
-                row = get_row_for_score_driver(client, driver, subset, average_score)
+                row = get_row_for_score_driver(client, driver, subset, average_score, driver_type='topic')
                 driver_table.append(row)
 
         score_drivers = client.get('prediction/drivers', predictor_name=subset)
 
         for driver in score_drivers['negative']:
-            row = get_row_for_negative_score_driver(client, driver, subset, average_score, score_drivers)
+            row = get_row_for_score_driver(client, driver, subset, average_score, score_drivers, driver_type='negative')
             driver_table.append(row)
 
         for driver in score_drivers['positive']:
-            row = get_row_for_positive_score_driver(client, driver, subset, average_score, score_drivers)
+            row = get_row_for_score_driver(client, driver, subset, average_score, score_drivers, driver_type='positive')
             driver_table.append(row)
     
     return driver_table
 
 
-def get_row_for_score_driver(client, driver, subset, average_score):
-    row = {}
+def get_row_for_score_driver(client, driver, subset, average_score, score_drivers=None, driver_type=None):
+    row = dict()
     row['driver'] = driver['text']
-    row['type'] = 'user_defined'
     row['subset'] = subset
     row['impact'] = driver['regressor_dot']
     row['score'] = driver['driver_score']
+
+    if driver_type == 'topic':
+        row = get_row_for_topic_score_driver(client, driver, subset, average_score, row)
+    elif driver_type == 'negative':
+        row = get_row_for_negative_score_driver(client, driver, subset, average_score, score_drivers, row)
+    elif driver_type == 'positive':
+        row = get_row_for_positive_score_driver(client, driver, subset, average_score, score_drivers, row)
+
+    return row
+
+
+def get_row_for_topic_score_driver(client, driver, subset, average_score, row):
+    row['type'] = 'user_defined'
+
     # ADDED RELATED TERMS
     related_terms = driver['terms']
     list_terms = client.get('terms', terms=related_terms)
@@ -530,13 +543,9 @@ def get_row_for_score_driver(client, driver, subset, average_score):
     return row
 
 
-def get_row_for_negative_score_driver(client, driver, subset, average_score, score_drivers):
-    row = {}
-    row['driver'] = driver['text']
+def get_row_for_negative_score_driver(client, driver, subset, average_score, score_drivers, row):
     row['type'] = 'auto_found'
-    row['subset'] = subset
-    row['impact'] = driver['regressor_dot']
-    row['score'] = driver['driver_score']
+
     # ADDED RELATED TERMS
     related_terms = driver['similar_terms']
     list_terms = client.get('terms', terms=related_terms)
@@ -586,13 +595,9 @@ def get_row_for_negative_score_driver(client, driver, subset, average_score, sco
     return row
 
 
-def get_row_for_positive_score_driver(client, driver, subset, average_score, score_drivers):
-    row = {}
-    row['driver'] = driver['text']
+def get_row_for_positive_score_driver(client, driver, subset, average_score, score_drivers, row):
     row['type'] = 'auto_found'
-    row['subset'] = subset
-    row['impact'] = driver['regressor_dot']
-    row['score'] = driver['driver_score']
+
     related_terms = driver['similar_terms']
     list_terms = client.get('terms', terms=related_terms)
     doc_count_terms_list = [related_terms[0]]
