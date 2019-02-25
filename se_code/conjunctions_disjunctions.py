@@ -33,7 +33,7 @@ def get_current_results(client, search_terms, unit, n):
     search_terms = ' '.join(search_terms)
     
     if unit == 'docs':
-        search_results = client.get(unit, search={'texts':search_terms}. limit=10000)['result']
+        search_results = client.get(unit, search={'texts':search_terms}, limit=10000)['result']
     else:
         search_results = search_results = client_v5.get('concepts', concept_selector={'type':'related', 
                                                              'search_concept':{'texts':search_terms},
@@ -65,7 +65,7 @@ def get_new_results(client, search_terms, unit, n, operation):
     # Get matching scores for top term, document pairs
     for i, term in enumerate(search_terms):
         if unit == 'docs':
-            search_results = client.get(unit, search={'texts':search_terms}. limit=10000)['result']
+            search_results = client.get(unit, search={'texts':search_terms}, limit=10000)['result']
         else:
             search_results = search_results = client_v5.get('concepts', concept_selector={'type':'related', 
                                                                  'search_concept':{'texts':search_terms},
