@@ -36,24 +36,32 @@ def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10, sc
                                       filter=[{'name':name,'values':[subset]}], 
                                       concept_selector={"type": "top",
                                                         "limit": scan_terms})['match_counts']
+            print(subset)
+            print([s['exact_term_ids'][0] for s in subset_terms])
+            print()
+            print()
             length = 0
             termlist = []
             all_terms = []
             for term in subset_terms:
                 if length + len(term['texts'][0]) > 1000:
+                    concepts = [{"texts": [t]} for t in termlist]
                     all_terms.extend(client.get('concepts/match_counts',
                                                 concept_selector={"type": "specified",
-                                                                  "concepts": [{"texts": termlist}]}))
+                                                                  "concepts": concepts})['match_counts'])
                     termlist = []
                     length = 0
                 termlist.append(term['texts'][0])
                 length += len(term['texts'][0])
             if len(termlist) > 0:
+                concepts = [{"texts": [t]} for t in termlist]
                 all_terms.extend(client.get('concepts/match_counts',
                                             concept_selector={"type": "specified",
-                                                              "concepts": [{"texts": termlist}]}))
+                                                              "concepts": concepts})['match_counts'])
             all_term_dict = {term['exact_term_ids'][0]: term['exact_match_count'] for term in all_terms}
-
+            print(all_term_dict)
+            print()
+            print()
             subset_scores = []
             for term in subset_terms:
                 term_in_subset = term['exact_match_count']

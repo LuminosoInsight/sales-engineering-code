@@ -12,18 +12,6 @@ def get_as(vector1, vector2):
     :return: Cosine similarity of two vectors
     '''
     return np.dot([float(v) for v in unpack64(vector1)], [float(v) for v in unpack64(vector2)])
-
-def is_number(s):
-    '''
-    Detect whether a string is a number
-    :param s: string to be tested
-    :return: True/False
-    '''
-    try:
-        float(s)
-        return True
-    except ValueError:
-        return False
     
 def get_driver_fields(client):
     '''
