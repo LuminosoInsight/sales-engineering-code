@@ -14,6 +14,7 @@ import pandas as pd
 import sys
 
 from api_utils_app.luminoso_client_holder import LuminosoClientHolder
+from luminoso_api import LuminosoClientError
 
 
 SCORE_DRIVER_METRICS = {"impact", "confidence", "importance"}
@@ -157,6 +158,8 @@ def get_project_time_windows(
     end_date=None,
     time_step=np.timedelta64(1, "W"),
     window_length=np.timedelta64(30, "D"),
+    new_project_kwargs=None,
+    **kwargs
 ):
     """
     Given a project client holder, a start and end date (numpy datetime64's,
@@ -173,27 +176,26 @@ def get_project_time_windows(
     end on or after the start date.
 
     Return a sequence of dicts, one for each window, with two values:  the
-    pair of endpoints of the window, and a list of the documents from the
-    project having dates within that time span.  Note that the time interval
-    defined by a window is half-open; the dates of the documents in a window
-    with a start date of d0 and an end date of d1 will have dates after d0 but
-    on or before d1.
+    pair of endpoints of the window, and a ProjectData object corresponding
+    to the documents dated in that time span.  Note that the time interval
+    defined by a window is closed; the dates of the documents in a window
+    with a start date of d0 and an end date of d1 will have dates between
+    d0 and d1 inclusive.
     """
     if time_step <= np.timedelta64(0, dtype=time_step.dtype):
         raise ValueError("Time step {} is not positive.".format(time_step))
     if window_length <= np.timedelta64(0, dtype=window_length.dtype):
         raise ValueError("Window length {} is not positive.".format(window_length))
 
-    # Get all the dated documents, in order by date.
-    docs = [
-        doc
-        for doc in project_holder.get_docs()
-        if get_date_from_document(doc) is not None
-    ]
-    docs.sort(key=get_date_from_document)
-    print("Making windows from a total of {} documents.".format(len(docs)))
+    # Get the number of dated documents, and the first and last date.
+    dates0 = (get_date_from_document(doc) for doc in project_holder.get_docs())
+    dates = [date for date in dates0 if date is not None]
+    min_date = np.min(dates)
+    max_date = np.max(dates)
+    n_dated_docs = len(dates)
+    print("Making windows from a total of {} documents.".format(n_dated_docs))
 
-    if len(docs) < 1:
+    if n_dated_docs < 1:
         return  # No docs with dates means nothing to generate.
 
     # Make a list of start and end times for time windows of the specified
@@ -202,36 +204,38 @@ def get_project_time_windows(
     # complicated by the existence of intervals (e.g. months) that are not
     # of constant duration (e.g. 28-31 days).
     if start_date is None:
-        grand_start_time = get_date_from_document(docs[0])
+        grand_start_time = min_date.astype("datetime64[D]")
     else:
-        grand_start_time = start_date
+        grand_start_time = start_date.astype("datetime64[D]")
     if end_date is None:
-        end_time = get_date_from_document(docs[-1])
+        end_time = max_date.astype("datetime64[D]")
     else:
-        end_time = end_date
+        end_time = end_date.astype("datetime64[D]")
+    truncated_window_length = window_length.astype("timedelta64[D]")
+    one_day = np.timedelta64(1, "D")
 
     time_windows = []
     while end_time >= grand_start_time:
-        start_time = end_time - window_length
+        start_time = end_time - truncated_window_length + one_day
         time_windows.append((start_time, end_time))
         end_time -= time_step
     time_windows.reverse()
 
-    # Generate the sequence of lists of documents whose dates lie in those
-    # time windows.  Each window is treated as a half-open interval, i.e.
-    # (t0, t1) corresponds to documents whose date t satisfies t0 < t <= t1.
-    dates = [get_date_from_document(doc) for doc in docs]
-    i0 = 0  # Used to avoid repeatedly searching the front of the list of docs.
+    # Generate the sequence of ProjectData items whose documents' dates lie in
+    # those time windows.  Each window is treated as a closed interval, i.e.
+    # (t0, t1) corresponds to documents whose date t satisfies t0 <= t <= t1.
     for t0, t1 in time_windows:
-        this_window_docs = []
-        for date, doc in zip(dates[i0:], docs[i0:]):
-            if date <= t0:
-                i0 += 1  # this doc can be skipped in the succeeding windows
-            elif date <= t1:
-                this_window_docs.append(doc)
-            else:
-                break
-        result = dict(interval=(t0, t1), documents=this_window_docs)
+        t_start = str(t0.astype("datetime64[s]")) + "Z"
+        t_end = str(t1.astype("datetime64[s]")) + "Z"
+        filter = [dict(name="date", minimum=t_start, maximum=t_end)]
+        project_data = ProjectData.from_filter_and_search(
+            project_holder,
+            filter=filter,
+            new_project_kwargs=new_project_kwargs,
+            tag=t1,
+            **kwargs
+        )
+        result = dict(interval=(t0, t1), project_data=project_data)
         yield result
 
 
@@ -290,26 +294,17 @@ def longitudinal_study(
         end_date=end_date,
         time_step=time_step,
         window_length=window_length,
+        new_project_kwargs=new_project_kwargs,
+        **subproject_data_kwargs
     ):
         start_date, end_date = window["interval"]
+        data = window["project_data"]
         msg = "{} ({})".format(project_name, project_id)
         msg += "\nTime from {} to {}, {} documents".format(
-            start_date, end_date, len(window["documents"])
+            start_date, end_date, data.document_count
         )
         print(msg)
 
-        subproject_name = "Tmp project from {}, {} to {}".format(
-            project_id, start_date, end_date
-        )
-
-        data = ProjectData.from_docs(
-            project_holder,
-            docs=window["documents"],
-            tag=end_date,
-            project_name=subproject_name,
-            new_project_kwargs=new_project_kwargs,
-            **subproject_data_kwargs
-        )
         subproject_data_sequence.append(data)
 
         if report_file is not None:
@@ -345,6 +340,7 @@ class ProjectData:
         project_holder,
         score_drivers=None,
         score_field="score",
+        filter=None,
         concept_selector=None,
         tag=None,
     ):
@@ -376,11 +372,28 @@ class ProjectData:
         if project_holder is None:
             all_score_driver_concepts = []
         else:
-            all_score_driver_concepts = project_holder.client.get(
-                "concepts/score_drivers",
-                score_field=self.score_field,
-                concept_selector=self.concept_selector,
-            )
+            if filter is None:
+                all_score_driver_concepts = project_holder.client.get(
+                    "concepts/score_drivers",
+                    score_field=self.score_field,
+                    concept_selector=self.concept_selector,
+                )
+            else:
+                all_score_driver_concepts = project_holder.client.get(
+                    "concepts/score_drivers",
+                    score_field=self.score_field,
+                    concept_selector=self.concept_selector,
+                    filter=filter,
+                )
+                # Reset the document count to include only those passing the filter.
+                self.document_count = 0
+                while True:
+                    documents = project_holder.client.get(
+                        "docs", filter=filter, limit=1000, offset=self.document_count
+                    )
+                    self.document_count += len(documents["result"])
+                    if len(documents["result"]) < 1:
+                        break
 
         if score_drivers is not None and len(score_drivers) > 0:
             self.score_drivers = score_drivers
@@ -475,6 +488,37 @@ class ProjectData:
         Make a ProjectData instance from the subproject of the given project
         (holder) defined by the given filter and search.
         """
+        if filter is None and search is None:
+            # Don't waste the effort of building a new project; just construct
+            # the ProjectData from all the documents.
+            project_data = ProjectData(project_holder, **kwargs)
+            return project_data
+
+        if filter is not None and search is None:
+            # Try to use the new API which permits a filter argument, but if
+            # that fails fall back to building a new project from the filtered
+            # documents.  This won't be necessary once the tne API is merged
+            # to master.
+            try:
+                project_data = ProjectData(project_holder, filter=filter, **kwargs)
+                return project_data
+            except LuminosoClientError as e:
+                e_arg = e.args[0]
+                if (
+                    isinstance(e_arg, dict)
+                    and e_arg.get("message")
+                    == "The listed request parameter(s) were unexpected."
+                    and e_arg.get("error") == "INVALID_PARAMS"
+                    and e_arg.get("parameters") == ["filter"]
+                ):
+                    print("New API failed; falling back to building a new project.")
+                else:  # We had some other error; don't hide it.
+                    raise
+
+        # Fallback code to build a new project.  To do:  remove this once the
+        # new API for score drivers for filters is merged to master.  Then we
+        # will also be able to remove the account_id command-line argument and
+        # the new_project_kwargs used to pass it around 'till it gets here!
         if project_name is None:
             project_name = "Tmp project from {}".format(project_holder.project_id)
 
