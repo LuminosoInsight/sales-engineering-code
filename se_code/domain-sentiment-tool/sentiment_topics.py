@@ -71,8 +71,6 @@ class SentimentTopics:
         axis_sum = sum(abs(term['orig-sentiment-score']) for term in sent_terms)
         for term in sent_terms:
             axis += term['vector'] * abs(term['orig-sentiment-score']) * term['score'] / axis_sum
-        print(str(axis))
-        print("dot="+str(axis.dot(axis)))
         axis /= (axis.dot(axis)) ** 0.5
 
         self.axes[sentiment] = axis
