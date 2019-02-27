@@ -1,7 +1,7 @@
 from luminoso_api import LuminosoClient
 from pack64 import unpack64
-from conjunctions_disjunctions import get_new_results
-from subset_key_terms import subset_key_terms
+from se_code.conjunctions_disjunctions import get_new_results
+from se_code.subset_key_terms import subset_key_terms
 from scipy.stats import linregress
 
 import csv
