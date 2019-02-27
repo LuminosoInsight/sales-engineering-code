@@ -73,6 +73,7 @@ class SentimentTopics:
         for term in sent_terms:
             axis += np.asarray(term['vector']) * abs(term['orig-sentiment-score']) * term['score'] / axis_sum
         axis /= (axis.dot(axis)) ** 0.5
+
         self.axes[sentiment] = axis
         return self.axes[sentiment]
 
