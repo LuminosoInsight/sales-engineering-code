@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, render_template, request, session, url_for, Response
-from luminoso_api import LuminosoClient
+from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 from topic_utilities import copy_topics, del_topics, parse_url
 from se_code.run_voting_classifier import return_label, train_classifier, get_docs_labels, split_train_test
@@ -10,13 +10,13 @@ import numpy as np
 from boilerplate_utilities import BPDetector, boilerplate_create_proj
 from qualtrics_utilities import *
 import redis
-from conjunction_disjunction import get_new_results, get_current_results
+from se_code.conjunction_disjunction import get_new_results, get_current_results
 from text_filter import filter_project
 from subset_filter import filter_subsets
 from auto_plutchik import get_all_topics, delete_all_topics, add_plutchik, copy_project
 from compass_utilities import post_messages, format_messages, get_all_docs
 from random import randint
-from tableau_export_web import reorder_subsets, pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, create_trends_table, write_table_to_csv, create_terms_table
+from se_code.tableau_export import reorder_subsets, pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, create_trends_table, write_table_to_csv, create_terms_table
 
 #Storage for live classifier demo
 classifiers = None
