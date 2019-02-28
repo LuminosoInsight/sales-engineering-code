@@ -11,6 +11,7 @@ from collections import defaultdict
 
 import click
 import numpy as np
+import concurrent.futures
 
 from luminoso_api import LuminosoClient
 
@@ -64,23 +65,27 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
     display_texts = {}
 
     # Get matching scores for top term, document pairs
-    for i, term in enumerate(search_terms + neg_terms):
-        search_results = client.get(unit + '/search', text=term, limit=10000)['search_results']
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(search_docs, client, unit, term, i)
+                   for i, term in enumerate(search_terms + neg_terms)]
 
-        for result, matching_strength in search_results:
-            if unit == 'docs':
-                if hide_exact and result['exact_indices']:
-                    continue
-                _id = result['document']['_id']
-                display_texts[_id] = result['document']['text']
-            else:
-                _id = result['text']
-                display_texts[_id] = _id
+        for future in concurrent.futures.as_completed(futures):
+            (i, search_results) = future.result()
 
-            if i >= len(search_terms):
-                scores[_id][i] = fuzzy_not(normalize_score(matching_strength, unit))
-            else:
-                scores[_id][i] = normalize_score(matching_strength, unit)
+            for result, matching_strength in search_results:
+                if unit == 'docs':
+                    if hide_exact and result['exact_indices']:
+                        continue
+                    _id = result['document']['_id']
+                    display_texts[_id] = result['document']['text']
+                else:
+                    _id = result['text']
+                    display_texts[_id] = _id
+
+                if i >= len(search_terms):
+                    scores[_id][i] = fuzzy_not(normalize_score(matching_strength, unit))
+                else:
+                    scores[_id][i] = normalize_score(matching_strength, unit)
 
     # Compute combined scores
     final_scores = []
@@ -99,6 +104,10 @@ def get_new_results(client, search_terms, neg_terms, unit, n, operation, hide_ex
                         'score': score})
 
     return results
+
+
+def search_docs(client, unit, term, i):
+    return i, client.get(unit + '/search', text=term, limit=10000)['search_results']
 
 
 def compute_score(doc_scores, operation, search_terms, neg_terms):

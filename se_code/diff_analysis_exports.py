@@ -15,7 +15,7 @@ def format_write_table(match_counts):
     return write_table
 
 def write_to_csv(write_table, filename, fields):
-    with open(filename, 'w') as f:
+    with open(filename, 'w', newline='') as f:
         writer = csv.DictWriter(f, fields)
         writer.writeheader()
         writer.writerows(write_table)

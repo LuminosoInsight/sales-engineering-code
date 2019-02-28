@@ -19,6 +19,7 @@ from pack64 import unpack64, pack64
 from scipy.stats import hmean
 from sentiment import SentimentScorer
 from tree_clustering import ClusterTree
+import numpy as np
 
 
 class SentimentTopics:
@@ -40,7 +41,7 @@ class SentimentTopics:
         terms = self.client.get('terms', limit=n_terms)
         terms = [term for term in terms if term['vector']]
         for term in terms:
-            term['vector'] = unpack64(term['vector'])
+            term['vector'] = [float(v) for v in unpack64(term['vector'])]
             term['orig-sentiment-score'] = sentiment_scorer.term_sentiment(term['term'])
         return terms
 
@@ -67,11 +68,12 @@ class SentimentTopics:
             return self.axes[sentiment]
 
         sent_terms = self._get_known_sentiment_terms(sentiment)
-        axis = sent_terms[0]['vector'] * 0
+        axis = np.zeros(len(sent_terms[0]['vector']))
         axis_sum = sum(abs(term['orig-sentiment-score']) for term in sent_terms)
         for term in sent_terms:
-            axis += term['vector'] * abs(term['orig-sentiment-score']) * term['score'] / axis_sum
+            axis += np.asarray(term['vector']) * abs(term['orig-sentiment-score']) * term['score'] / axis_sum
         axis /= (axis.dot(axis)) ** 0.5
+
         self.axes[sentiment] = axis
         return self.axes[sentiment]
 
@@ -85,6 +87,7 @@ class SentimentTopics:
             return self.domain_sentiment_terms[sentiment]
 
         axis = self._get_sent_axis(sentiment)
+        
         terms = self.client.get(
             'terms/search', vector=pack64(axis),
             limit=self.n_results if self.n_results > 200 else 200)['search_results']
@@ -92,7 +95,7 @@ class SentimentTopics:
         sentiment_terms = []
         for term, matching_strength in terms:
             term['new-sentiment-score'] = matching_strength
-            term['vector'] = unpack64(term['vector'])
+            term['vector'] = [float(v) for v in unpack64(term['vector'])]
             term['sentiment-label'] = sentiment
             sentiment_terms.append(term)
 
@@ -189,9 +192,13 @@ def print_sentiment_terms(terms, verbose=False):
 @click.option('--n-results', default=30, help='Number of results to show')
 @click.option('--n-clusters', default=7, help='Show clusters')
 @click.option('--verbose', '-v', is_flag=True, help='Show details about the results')
+@click.option('--username', '-u', help="Username for Analytics")
 def main(account_id, project_id, api, sentiment, terms, clusters, n_terms, n_results, n_clusters,
-         verbose):
-    client = LuminosoClient.connect('{}/{}/{}'.format(api, account_id, project_id))
+         verbose, username=None):
+    if not username:
+        client = LuminosoClient.connect('{}/{}/{}'.format(api, account_id, project_id))
+    else:
+        client = LuminosoClient.connect('{}/{}/{}'.format(api, account_id, project_id), username=username)
     sentiment_topics = SentimentTopics(client, n_terms, n_results)
 
     if terms:
