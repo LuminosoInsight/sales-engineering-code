@@ -1,6 +1,10 @@
 from luminoso_api import LuminosoClient
-import pycld2 as cld2
 import argparse, json
+
+try:
+    import pycld2 as cld2
+except:
+    import cld2
 
 def batch(iterable, n=1):
     l = len(iterable)
