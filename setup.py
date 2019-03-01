@@ -12,7 +12,7 @@ setup(
                    "will be given to customers"),
     packages=find_packages(),
     install_requires=[
-        'luminoso_api', 'click', 'scipy', 'pack64'
+        'luminoso_api', 'click', 'scipy', 'pack64', 'numpy', 'scikit-learn'
         ],
     entry_points={
         'console_scripts': [
