@@ -36,7 +36,7 @@ def remove_foreign_lang(client,lang_code,threshold=0):
     
     for doc in docs:
         try:
-            isReliable, textBytesFound, details = cld2.detect(doc['text'])
+            isReliable, textBytesFound, details = cld2.detect(doc['text'].encode('utf-8'))
         except ValueError:
             bad_doc_ids.append(doc['_id'])
             continue
