@@ -44,10 +44,7 @@ def create_drivers_table(client, driver_fields, topic_drive):
                 row['subset'] = field
                 row['impact'] = driver['impact']
                 row['related_terms'] = driver['texts']
-                doc_count = client.get('concepts/match_counts', 
-                                       concept_selector={"type":"specified",
-                                                         "concepts":[{'texts': driver['texts'][0]}]})['match_counts']
-                row['doc_count'] = doc_count['match_count']
+                row['doc_count'] = driver['exact_match_count']
 
                 # Use the driver term to find related documents
                 search_docs = client.get('docs', search={'texts': driver['texts']}, limit=500, exact_only=True)
@@ -76,10 +73,7 @@ def create_drivers_table(client, driver_fields, topic_drive):
             row['subset'] = field
             row['impact'] = driver['impact']
             row['related_terms'] = driver['texts']
-            doc_count = client.get('concepts/match_counts', 
-                                   concept_selector={"type":"specified",
-                                                     "concepts":[{'texts': [driver['texts'][0]]}]})['match_counts']
-            row['doc_count'] = doc_count[0]['match_count']
+            row['doc_count'] = driver['exact_match_count']
 
             # Use the driver term to find related documents
             search_docs = client.get('docs', search={'texts': driver['texts']}, limit=500, exact_only=True)
