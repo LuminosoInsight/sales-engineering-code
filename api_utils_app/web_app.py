@@ -145,7 +145,7 @@ def reddit_by_name():
     reddit = get_reddit_api()
     posts = get_posts_by_name(reddit, subreddit_name, post_names)
     docs = get_docs_from_comments(posts, reddit)
-    write_to_csv('%s docs.csv' % post_names, docs, fields)
+    write_to_csv('%s docs.csv' % subreddit_name, docs, fields)
     return render_template('reddit_by_name.html', 
                            urls=session['apps_to_show'])
     
