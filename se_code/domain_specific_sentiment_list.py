@@ -7,7 +7,7 @@ from lumi_science.sentiment import SentimentScorer
 from se_code.sentiment_topics import SentimentTopics
 
 
-def create_domain_sentiment_list(sentiment_topics, output_filename, n):
+def create_domain_sentiment_list(sentiment_topics, output_filename, n, encoding):
     """
     Create and save a list of at most n domain sentiment terms. The terms are sorted by
     total_doc_count to surface the terms that may have the most influence on the accuracy of the
@@ -42,7 +42,7 @@ def create_domain_sentiment_list(sentiment_topics, output_filename, n):
     # Sort novel terms by their document count for prioritizing
     sorted_sent_terms = sort_terms_by_doc_count(novel_terms)[:n]
 
-    save_terms(output_filename, sorted_sent_terms)
+    save_terms(output_filename, sorted_sent_terms, encoding=encoding)
 
     # ----- Identify conflicts with the general sentiment list -----
 
@@ -139,8 +139,8 @@ def get_most_changed(sent_terms):
     return sorted(sent_terms, key=lambda x: x['change'], reverse=True)[:50]
 
 
-def save_terms(output_filename, sent_terms):
-    with open(output_filename, 'w') as output_file:
+def save_terms(output_filename, sent_terms, encoding="utf-8"):
+    with open(output_filename, 'w', encoding=encoding) as output_file:
         for term in sent_terms:
             text = term['term'].replace('|en', '')
             output_file.write('{},{}\n'.format(text, term['classifier-score']))
@@ -151,10 +151,11 @@ def save_terms(output_filename, sent_terms):
 @click.argument('project_id')
 @click.argument('output-file-name')
 @click.option('--n-results', default=100)
-def main(account_id, project_id, output_file_name, n_results):
+@click.option('--encoding', default="utf-8")
+def main(account_id, project_id, output_file_name, n_results, encoding):
     sentiment_topics = SentimentTopics(account_id=account_id, project_id=project_id, language='en',
                                        n_terms=1000)
-    create_domain_sentiment_list(sentiment_topics, output_file_name, n_results)
+    create_domain_sentiment_list(sentiment_topics, output_file_name, n_results, encoding)
 
 
 if __name__ == '__main__':

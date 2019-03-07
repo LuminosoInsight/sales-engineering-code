@@ -36,7 +36,7 @@ def main(args):
         if any(key in arglist for key in ['account_id','email','permissions']):
             print("WARNING: Single user invite args -a,-e,-p ignored for csv read")
 
-        with open(input_data, encoding='utf-8-sig') as f:
+        with open(input_data, encoding=args.encoding) as f:
             reader = csv.DictReader(f)
             table = [row for row in reader]
 
@@ -94,6 +94,9 @@ if __name__ == '__main__':
         '-p', '--permissions',
         help='Permission(s) to give an individual user comma separated: "read,write,create"'
         )
-
+    parser.add_argument(
+        '--encoding', default="utf-8-sig",
+        help="Encoding type of the file to read from"
+    )
     args = parser.parse_args()
     main(args)

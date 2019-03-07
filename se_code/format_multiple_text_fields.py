@@ -1,33 +1,33 @@
 import csv
 import argparse
 
-def file_to_dict(file_name):
+def file_to_dict(file_name, encoding="utf-8"):
     table = []
-    with open(file_name) as f:
+    with open(file_name, encoding=encoding) as f:
         reader = csv.DictReader(f)
         for row in reader:
             table.append(row)
     return table
 
-def file_to_list(file_name):
+def file_to_list(file_name, encoding="utf-8"):
     table = []
-    with open(file_name) as f:
+    with open(file_name, encoding=encoding) as f:
         reader = csv.reader(f)
         for row in reader:
             table.append(row)
     return table
     
-def dict_to_file(table, file_name):
+def dict_to_file(table, file_name, encoding="utf-8"):
     fields = []
     for key in table[0]:
         fields.append(key)
-    with open(file_name, 'w', newline='') as f:
+    with open(file_name, 'w', newline='', encoding=encoding) as f:
         writer = csv.DictWriter(f, fields)
         writer.writeheader()
         writer.writerows(table)
         
-def list_to_file(table, file_name):
-    with open(file_name, 'w', newline='') as f:
+def list_to_file(table, file_name, encoding="utf-8"):
+    with open(file_name, 'w', newline='', encoding=encoding) as f:
         writer = csv.writer(f)
         writer.writerows(table)
         
@@ -53,10 +53,15 @@ def main():
         'column_dest',
         help="Name of the new column to use as metadata to determine which original column the text came from."
         )
+    parser.add_argument(
+        '--encoding',
+        default='utf-8',
+        help="Encoding type of the files to read from"
+    )
     args = parser.parse_args()
     
     write_table = []
-    table = file_to_dict(args.input_file)
+    table = file_to_dict(args.input_file, encoding=args.encoding)
     text_fields = [field for field in table[0] if 'text_' in field.lower() or 'text' == field.lower().strip()]
     for read_row in table:
         for key in read_row:
@@ -68,7 +73,7 @@ def main():
                 else:
                     write_row.update({'string_' + args.column_dest: 'Text'})
                 write_table.append(write_row)
-    dict_to_file(write_table, args.output_file)
+    dict_to_file(write_table, args.output_file, encoding=args.encoding)
     
 if __name__ == '__main__':
     main()

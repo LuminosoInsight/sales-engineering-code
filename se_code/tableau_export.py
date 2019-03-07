@@ -733,7 +733,7 @@ def create_trends_table(terms, docs):
     return trends_table, trendingterms_table
     
     
-def write_table_to_csv(table, filename):
+def write_table_to_csv(table, filename, encoding="utf-8"):
     '''
     Function for writing lists of dictionaries to a CSV file
     :param table: List of dictionaries to be written
@@ -745,7 +745,7 @@ def write_table_to_csv(table, filename):
     if len(table) == 0:
         print('Warning: No data to write to {}.'.format(filename))
         return
-    with open(filename, 'w', encoding="utf-8", newline='') as file:
+    with open(filename, 'w', encoding=encoding, newline='') as file:
         writer = csv.DictWriter(file, fieldnames=table[0].keys())
         writer.writeheader()
         writer.writerows(table)
@@ -773,6 +773,7 @@ def main():
     parser.add_argument('-rebuild', '--rebuild', default=False, action='store_true',help="Rebuild drivers even if previous drivers exist")
     parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="Generate drivers_table with topics instead of drivers")
     parser.add_argument('-avg', '--average_score', default=False, action='store_true', help="Add average scores to drivers_table")
+    parser.add_argument('-e', '--encoding', default="utf-8", help="Encoding type of the files to write to")
     args = parser.parse_args()
     
     acct = args.project_url.strip('/').split('/')[-2]
@@ -785,49 +786,49 @@ def main():
 
     if not args.doc:
         doc_table, xref_table = create_doc_table(client, docs, subsets, themes, api_url, acct, proj)
-        write_table_to_csv(doc_table, 'doc_table.csv')
-        write_table_to_csv(xref_table, 'xref_table.csv')
+        write_table_to_csv(doc_table, 'doc_table.csv', encoding=args.encoding)
+        write_table_to_csv(xref_table, 'xref_table.csv', encoding=args.encoding)
     
     if not args.terms:
         terms_table = create_terms_table(client, terms)
-        write_table_to_csv(terms_table, 'terms_table.csv')
+        write_table_to_csv(terms_table, 'terms_table.csv', encoding=args.encoding)
         
     if args.doc_term:
         doc_term_table = create_doc_term_table(docs, terms, float(args.assoc_threshold))
-        write_table_to_csv(doc_term_table, 'doc_term_table.csv')
+        write_table_to_csv(doc_term_table, 'doc_term_table.csv', encoding=args.encoding)
     
     if args.doc_topic:
         doc_topic_table = create_doc_topic_table(docs, topics)
-        write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
+        write_table_to_csv(doc_topic_table, 'doc_topic_table.csv', encoding=args.encoding)
         
     if args.topic_topic:
         topic_topic_table = create_topic_topic_table(topics)
-        write_table_to_csv(topic_topic_table, 'topic_topic_table.csv')
+        write_table_to_csv(topic_topic_table, 'topic_topic_table.csv', encoding=args.encoding)
         
     if args.term_topic:
         term_topic_table = create_term_topic_table(terms, topics)
-        write_table_to_csv(term_topic_table, 'term_topic_table.csv')
+        write_table_to_csv(term_topic_table, 'term_topic_table.csv', encoding=args.encoding)
         
     if not args.doc_subset:
         doc_subset_table = create_doc_subset_table(docs, subsets)
-        write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
+        write_table_to_csv(doc_subset_table, 'doc_subset_table.csv', encoding=args.encoding)
 
     if not args.themes:
         themes_table = create_themes_table(themes)
-        write_table_to_csv(themes_table, 'themes_table.csv')
+        write_table_to_csv(themes_table, 'themes_table.csv', encoding=args.encoding)
 
     if not args.skt_table:
         skt_table = create_skt_table(client, skt)
-        write_table_to_csv(skt_table, 'skt_table.csv')
+        write_table_to_csv(skt_table, 'skt_table.csv', encoding=args.encoding)
     
     if not args.drive:
         driver_table = create_drivers_table(client, drivers, args.topic_drive, args.average_score)
-        write_table_to_csv(driver_table, 'drivers_table.csv')
+        write_table_to_csv(driver_table, 'drivers_table.csv', encoding=args.encoding)
     
     if args.trend_tables:
         trends_table, trendingterms_table = create_trends_table(terms, docs)
-        write_table_to_csv(trends_table, 'trends_table.csv')
-        write_table_to_csv(trendingterms_table, 'trendingterms_table.csv')
+        write_table_to_csv(trends_table, 'trends_table.csv', encoding=args.encoding)
+        write_table_to_csv(trendingterms_table, 'trendingterms_table.csv', encoding=args.encoding)
 
 if __name__ == '__main__':
     main()

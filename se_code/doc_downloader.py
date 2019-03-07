@@ -27,8 +27,8 @@ def download_docs(project, batch_size=25000,
     return docs
 
 
-def write_csv(docs, filename):
-    with open(filename, 'w', encoding='utf-8') as f:
+def write_csv(docs, filename, encoding='utf-8'):
+    with open(filename, 'w', encoding=encoding) as f:
         doc_fields = ['text']
         writer = csv.DictWriter(f, fieldnames=doc_fields)
         writer.writeheader()
@@ -38,8 +38,8 @@ def write_csv(docs, filename):
             writer.writerow(doc)
 
 
-def write_jsons(docs, filename):
-    with open(filename, 'w', encoding='utf-8') as f:
+def write_jsons(docs, filename, encoding='utf-8'):
+    with open(filename, 'w', encoding=encoding) as f:
         for doc in docs:
             json.dump(doc, f)
             f.write('\n')
@@ -73,6 +73,9 @@ def main():
     parser.add_argument(
         '-n', '--name', help="Name of output file (defaults to project name)"
     )
+    parser.add_argument(
+        '-e', '--encoding', default='utf-8', help="Encoding type of the file to write to"
+    )
     args = parser.parse_args()
 
     url = '%s/projects/%s/%s' % (args.api_url, args.account_id, args.project_id)
@@ -87,8 +90,8 @@ def main():
 
     if args.format == 'csv':
         docs = download_docs(project, doc_fields=['text'])
-        write_csv(docs, filename)
+        write_csv(docs, filename, encoding=args.encoding)
     else:
         docs = download_docs(project)
-        write_jsons(docs, filename)
+        write_jsons(docs, filename, encoding=args.encoding)
     logger.info('Wrote docs to %s' % filename)

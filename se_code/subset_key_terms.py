@@ -122,7 +122,7 @@ def create_skt_table(client, skt):
         index += 1
     return skt_table
 
-def write_table_to_csv(table, filename):
+def write_table_to_csv(table, filename, encoding='utf-8'):
     '''
     Function for writing lists of dictionaries to a CSV file
     :param table: List of dictionaries to be written
@@ -134,7 +134,7 @@ def write_table_to_csv(table, filename):
     if len(table) == 0:
         print('Warning: No data to write to {}.'.format(filename))
         return
-    with open(filename, 'w', newline='') as file:
+    with open(filename, 'w', newline='', encoding=encoding) as file:
         writer = csv.DictWriter(file, fieldnames=table[0].keys())
         writer.writeheader()
         writer.writerows(table)
@@ -160,6 +160,7 @@ def main():
     )
     parser.add_argument('project_url', help="The complete URL of the Analytics project")
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset, default 20")
+    parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding type of the file to write to")
     args = parser.parse_args()
     
     project_url = args.project_url.strip('/')
@@ -184,7 +185,7 @@ def main():
     print('Retrieving Subset Key Terms...')
     skt = subset_key_terms(client, terms_per_subset=int(args.skt_limit))
     table = create_skt_table(client, skt)
-    write_table_to_csv(table, 'skt_table.csv')
+    write_table_to_csv(table, 'skt_table.csv', encoding=args.encoding)
     
 if __name__ == '__main__':
     main()

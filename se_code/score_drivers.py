@@ -230,7 +230,7 @@ def get_all_docs(client):
         else:
             return docs
 
-def write_table_to_csv(table, filename):
+def write_table_to_csv(table, filename, encoding='utf-8'):
     '''
     Function for writing lists of dictionaries to a CSV file
     :param table: List of dictionaries to be written
@@ -243,14 +243,14 @@ def write_table_to_csv(table, filename):
         print('Warning: No data to write to {}.'.format(filename))
         return
     try:
-        with open(filename, 'w', encoding='utf-8', newline='') as file:
+        with open(filename, 'w', encoding=encoding, newline='') as file:
             writer = csv.DictWriter(file, fieldnames=table[0].keys())
             writer.writeheader()
             writer.writerows(table)
     except UnicodeEncodeError as e:
         print('WARNING: Unicode Decode Error occurred, attempting to handle. Error was: %s' % e)
         write_table = [{k: v for k, v in t.items()} for t in table]
-        with open(filename, 'w', encoding='utf-8', newline='') as file:
+        with open(filename, 'w', encoding=encoding, newline='') as file:
             writer = csv.DictWriter(file, fieldnames=write_table[0].keys())
             writer.writeheader()
             writer.writerows(write_table)
@@ -277,6 +277,7 @@ def main():
     parser.add_argument('project_url', help="The complete URL of the Analytics project")
     parser.add_argument('--rebuild', default=False, action='store_true', help="If set, will always rebuild drivers based on numeric subsets, regardless of existing ones")
     parser.add_argument('--topic_drivers', default=False, action='store_true', help="If set, will calculate drivers based on user-defined topics as well")
+    parser.add_argument('--encoding', default='utf-8', help="Encoding type of the files to write to")
     args = parser.parse_args()
     
     project_url = args.project_url.strip('/')
@@ -319,7 +320,7 @@ def main():
         add_score_drivers_to_project(client, docs, drivers)
         
     driver_table = create_drivers_table(client, drivers, args.topic_drivers)
-    write_table_to_csv(driver_table, 'drivers_table.csv')
+    write_table_to_csv(driver_table, 'drivers_table.csv', encoding=args.encoding)
     
     
 if __name__ == '__main__':
