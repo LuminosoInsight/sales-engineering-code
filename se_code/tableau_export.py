@@ -56,7 +56,11 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day
     skt = subset_key_terms(client, subset_counts, len(docs), skt_limit)
     drivers = get_driver_fields(client)
     
-    return client, docs, saved_concepts, concepts, metadata, driver_fields, skt
+    themes = client.get('concepts', concept_selector={'type': 'suggested', 
+                                                      'num_clusters': themes,
+                                                      'num_cluster_concepts': theme_terms})
+    
+    return client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes
 
 
 def create_doc_term_table(docs, concepts):
@@ -224,6 +228,30 @@ def create_terms_table(concepts):
         row['Related Matches'] = c['match_count'] - c['exact_match_count']
         table.append(row)
     return table
+
+
+def create_themes_table(client, suggested_topics):
+    print('Creating themes table...')
+    cluster_labels = {}
+    themes = []
+    for r in suggested_topics['result']:
+        if r['cluster_label'] not in cluster_labels:
+            cluster_labels[r['cluster_label']] = {'id': 'Theme %d' % len(cluster_labels),
+                                                  'name': []}
+        cluster_labels[r['cluster_label']]['name'].append(r['name'])
+    for c in cluster_labels:
+        row = {}
+        row['cluster_label'] = c
+        row['name'] = ', '.join(cluster_labels[c]['name'])
+        row['id'] = cluster_labels[c]['id']
+        selector = [{'texts': [t]} for t in cluster_labels[c]['name']]
+        count = 0
+        match_counts = client.get('concepts/match_counts', concept_selector={'type': 'specified', 'concepts': selector})['match_counts']
+        for m in match_counts:
+            count += m['exact_match_count']
+        row['docs'] = count
+        themes.append(row)
+    return themes
                     
 """
 def create_trends_table(terms, docs):
@@ -337,6 +365,7 @@ def main():
     parser.add_argument('-sktl', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
     parser.add_argument('-docs', '--doc', default=False, action='store_true', help="Do not generate doc_table")
     parser.add_argument('-terms', '--terms', default=False, action='store_true', help="Do not generate terms_table")
+    parser.add_argument('-theme', '--themes', default=False, action='store_true', help="Do not generate themes_table")
     parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Do not generate doc_term_table")
     parser.add_argument('-tterm', '--term_topic', default=False, action='store_true', help="Do not generate term_topic_table")
     parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Do not generate doc_topic_table")
@@ -351,9 +380,9 @@ def main():
     api_url, proj = parse_url(args.project_url)
     
     if args.token:
-        client, docs, saved_concepts, concepts, metadata, drivers, skt = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count), token=args.token)
+        client, docs, saved_concepts, concepts, metadata, drivers, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count), token=args.token)
     else:
-        client, docs, saved_concepts, concepts, metadata, drivers, skt = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count))
+        client, docs, saved_concepts, concepts, metadata, drivers, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count))
 
     if not args.doc:
         doc_table, xref_table, metadata_map = create_doc_table(client, docs, subsets, themes)
@@ -363,6 +392,10 @@ def main():
     if not args.terms:
         terms_table = create_terms_table(concepts)
         write_table_to_csv(terms_table, 'terms_table.csv')
+        
+    if not args.themes:
+        themes_table = create_themes_table(client, themes)
+        write_table_to_csv(themes_table, 'themes_table.csv')
         
     if not args.doc_term:
         doc_term_table = create_doc_term_table(docs, concepts)
