@@ -30,6 +30,15 @@ app = Flask(__name__)
 app.secret_key = 'secret_key_that_we_need_to_have_to_use_sessions'
 red = redis.StrictRedis()
 
+def connect_to_client(url):
+    api_url, from_proj = parse_url(url)
+    
+    client = LuminosoClient.connect_with_username_and_password(url=api_url,
+                                                               username=session['usename'],
+                                                               password=session['password'])
+    client = client_for_path('projects/{}'.format(from_proj))
+    return client
+
 @app.route('/')
 def home():
     return render_template('login.html')
@@ -50,8 +59,8 @@ def login():
         ('Dashboards', ('Tableau Export',url_for('tableau_export_page')))]
     print(session['apps_to_show'])
     try:
-        LuminosoClient.connect('/projects/', username=session['username'],
-                                             password=session['password'])
+        LuminosoClient.connect_with_username_and_password('/projects', username=session['username'],
+                                                                       password=session['password'])
 
         return render_template('welcome.html', urls=session['apps_to_show'])
     except:
@@ -69,16 +78,9 @@ def compass_demo():
 @app.route('/compass_stream', methods=['POST'])
 def compass_stream():
     url = request.form['url'].strip()
-    api_url, from_acct, from_proj = parse_url(url)
-
-    client = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, from_acct, from_proj),
-                                    username = session['username'],
-                                    password = session['password']
-    )
+    client = connect_to_client(url)
     docs = get_all_docs(client)
     avg_doc_len = np.mean([len(d['text']) for d in docs[:100]])
-    if 'date' in docs[0]: #assumes all docs have a date if the first one does
-        docs = sorted(docs, key=lambda k: k['date'])
     compass_username = request.form['comp_name']
     compass_password = request.form['comp_pass']
     stream_time = request.form['stream_time']
@@ -105,10 +107,7 @@ def tableau_export_page():
 @app.route('/tableau_export', methods=['POST'])
 def tableau_export():
     url = request.form['url'].strip()
-    api_url, from_acct, from_proj = parse_url(url)
-    client = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, from_acct, from_proj),
-                                    username = session['username'],
-                                    password = session['password'])
+    client = connect_to_client(url)
     foldername = request.form['folder_name'].strip()
     term_count = request.form['term_count'].strip()
     if term_count == '':

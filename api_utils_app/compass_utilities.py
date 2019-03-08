@@ -1,5 +1,5 @@
 import re
-from luminoso_api import LuminosoClient
+from luminoso_api import V5LuminosoClient as LuminosoClient
 import datetime
 import requests
 import time
@@ -38,7 +38,7 @@ def get_messages(project, username, password, include_spam=False, staging=False)
 def get_all_docs(client):
     docs = []
     while True:
-        new_docs = client.get('docs', limit=20000, offset=len(docs))
+        new_docs = client.get('docs', limit=20000, offset=len(docs))['result']
         if new_docs:
             docs.extend(new_docs)
         else:
