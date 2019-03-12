@@ -1,9 +1,8 @@
 from luminoso_api import V5LuminosoClient as LuminosoClient
 import re
 
-def del_topics(cli, proj_id):
+def del_topics(cli):
     """ Delete all topics in a project """
-    cli = cli.client_for_path(proj_id)
     topics = cli.get('concepts/saved')
     topic_ids = [t['saved_concept_id'] for t in topics]
     cli.delete('concepts/saved', saved_concept_ids=topic_ids)

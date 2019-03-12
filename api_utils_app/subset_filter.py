@@ -1,18 +1,13 @@
-from luminoso_api import LuminosoClient
+from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 import sys, json, time
 import numpy as np
 import argparse
 
-def connect(account_id, project_id):
-    client = LuminosoClient.connect(
-        'https://analytics.luminoso.com/api/v4/projects/{}/{}'.format(account_id, project_id))
-    return client
-
 def get_all_docs(client):
     docs = []
     while True:
-        new_docs = client.get('docs', limit=25000, offset=len(docs))
+        new_docs = client.get('docs', limit=25000, offset=len(docs))['result']
         if new_docs:
             docs.extend(new_docs)
         else:
@@ -21,61 +16,63 @@ def get_all_docs(client):
 def subsets_to_remove(client, count, only, subset_name, more=False):   
     print(only)
     print(subset_name)
-    subsets = client.get('subsets/stats')
-    subsets_to_remove = []
-    if only:
-        for subset in subsets:
-            if not more:
-                if subset['count'] <= count and subset['subset'].partition(':')[0].lower() == subset_name.lower():
-                    subsets_to_remove.append(subset['subset'])
-            else:
-                if subset['count'] >= count and subset['subset'].partition(':')[0].lower() == subset_name.lower():
-                    subsets_to_remove.append(subset['subset'])
-    else:
-        for subset in subsets:
-            if not more:
-                if subset['count'] <= count:
-                    subsets_to_remove.append(subset['subset'])
-            else:
-                if subset['count'] >= count:
-                    subsets_to_remove.append(subset['subset'])
+    metadata = [m for m in client_v5.get('metadata')['result'] if m['type'] == 'string']
+    for m in metadata:
+        if only:
+            if m['name'].lower() == subset_name.lower():
+                for v in m['values']:
+                    if v['count'] <= count and not more:
+                        subsets_to_remove.append('%s: %s' % (m['name'], m['value']))
+                    if v['count'] >= count and more:
+                        subsets_to_remove.append('%s: %s' % (m['name'], m['value']))
+        else:
+            for v in m['values']:
+                    if v['count'] <= count and not more:
+                        subsets_to_remove.append('%s: %s' % (m['name'], m['value']))
+                    if v['count'] >= count and more:
+                        subsets_to_remove.append('%s: %s' % (m['name'], m['value']))
     return subsets_to_remove
 
 def modify_docs(docs, subsets_to_remove):
+    new_docs = []
     for doc in docs:
-        subset = []
-        for doc_subset in doc['subsets']:
-            if doc_subset not in subsets_to_remove:
-                subset.append(doc_subset)
-        doc['subsets'] = subset
-    return docs
+        info = {}
+        info['text'] = doc['text']
+        info['title'] = doc['title']
+        metadata = []
+        for m in doc['metadata']:
+            if m['type'] != 'string':
+                metadata.append(m)
+            if '%s: %s' % (m['name'], m['value']) not in subsets_to_remove:
+                metadata.append(m)
+        info['metadata'] = metadata
+        new_docs.append(info)
+    return new_docs
         
-def filter_subsets(client, account_id, project_id, proj_name, subset_name, count, only, more, batch_size=10000):
-    client = client.change_path(account_id + '/' + project_id)
+def filter_subsets(url, proj_name, subset_name, count, only, more, batch_size=10000):
     print('Getting all docs...')
+    api_root = url.strip('/ ').split('/app')[0]
+    proj_id = url.strip('/ ').split('/')[-1]
+    client = LuminosoClient.connect('{}/api/v5/projects/{}'.format(api_root, proj_id))
     docs = get_all_docs(client)
     remove = subsets_to_remove(client, count, only, subset_name, more)
     docs = modify_docs(docs, remove)
+    
+    language = client.get()['language']
+    account = client.get()['account_id']
     
     batch = 0
     total_size = len(docs)
     print('Removing subsets...')
     
-    if proj_name != '':
-        client = LuminosoClient.connect('https://analytics.luminoso.com/api/v4/projects/{}/'.format(account_id))
-        proj_id = client.post(name=proj_name)['project_id']
-        client = connect(account_id, proj_id)
-        while batch < total_size:
-            end = min(total_size, batch + batch_size)
-            client.upload('docs', docs=docs[batch:end])
-            batch += batch_size
-    else:
-        while batch < total_size:
-            end = min(total_size, batch + batch_size)
-            client.put_data('docs', json.dumps(docs[batch:end]), content_type='application/json')
-            batch += batch_size
+    root_client = LuminosoClient.connect('{}/api/v5/projects/'.format(api_root))
+    proj_id = root_client.post(name=proj_name, language=language, account_id=account)['project_id']
+    client = LuminosoClient.connect('{}/api/v5/projects/{}'.format(api_root, proj_id))
+    while batch < total_size:
+        end = min(total_size, batch + batch_size)
+        client.post('upload', docs=docs[batch:end])
+        batch += batch_size
    
-    client.post('docs/recalculate')
-    while client.get('jobs'):
-        time.sleep(1)
+    client.post('build')
+    client.wait_for_jobs()
     print('Recalculation done.')

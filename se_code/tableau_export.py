@@ -380,9 +380,9 @@ def main():
     api_url, proj = parse_url(args.project_url)
     
     if args.token:
-        client, docs, saved_concepts, concepts, metadata, drivers, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count), token=args.token)
+        client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count), token=args.token)
     else:
-        client, docs, saved_concepts, concepts, metadata, drivers, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count))
+        client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count))
 
     if not args.doc:
         doc_table, xref_table, metadata_map = create_doc_table(client, docs, subsets, themes)
