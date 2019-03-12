@@ -335,30 +335,21 @@ def delete_topics_page():
 @app.route('/term_utils/search', methods=['GET','POST'])
 def term_utils_search():
     url = request.args.get('url', 0, type=str).strip()
-    api_url, acct, proj = parse_url(url)
-    cli = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, acct, proj),
-                            username=session['username'],
-                            password=session['password'])
+    cli = connect_to_client(url)
     return jsonify(get_terms(cli))
 
 @app.route('/term_utils/merge')
 def term_utils_merge():
     url = request.args.get('url', 0, type=str)
-    api_url, acct, proj = parse_url(url)
     terms = eval(request.args.get('terms', 0, type=str))
-    cli = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, acct, proj),
-                                 username=session['username'],
-                                 password=session['password'])
+    cli = connect_to_client(url)
     return jsonify(merge_terms(cli, terms))
 
 @app.route('/term_utils/ignore')
 def term_utils_ignore():
     url = request.args.get('url', 0, type=str).strip()
-    api_url, acct, proj = parse_url(url)
     terms = eval(request.args.get('terms', 0, type=str))
-    cli = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, acct, proj),
-                                 username=session['username'],
-                                 password=session['password'])
+    cli = connect_to_client(url)
     return jsonify(ignore_terms(cli, terms))
 
 #@app.route('/deduper_page')
