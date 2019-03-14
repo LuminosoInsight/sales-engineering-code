@@ -54,12 +54,12 @@ def main():
     parser.add_argument('-t', '--token', default=None, help="Daylight token")
     args = parser.parse_args()
     
-    api_url = '/'.join(args.project_url.split('/')[:-5])
+    api_url = args.project_url.split('/app')[0]
     project_id = args.project_url.strip('/ ').split('/')[-1]
     if args.token:
-        client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (api_url, args.project_id), token=args.token)
+        client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (api_url, project_id), token=args.token)
     else:
-        client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (api_url, args.project_id))
+        client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (api_url, project_id))
     date_format = '%Y-%m-%d'
     
     docs = get_all_docs(client)
