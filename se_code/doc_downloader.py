@@ -55,7 +55,7 @@ def main():
     args = parser.parse_args()
     
     api_url = '/'.join(args.project_url.split('/')[:-5])
-    project_id = args.project_url.split('/').strip('/ ')[-1]
+    project_id = args.project_url.strip('/ ').split('/')[-1]
     if args.token:
         client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (api_url, args.project_id), token=args.token)
     else:
