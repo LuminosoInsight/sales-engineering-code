@@ -54,7 +54,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day
                 subset_counts[m['name']][v['value']] = v['count']
                 
     skt = subset_key_terms(client, subset_counts, len(docs), skt_limit)
-    drivers = get_driver_fields(client)
+    driver_fields = get_driver_fields(client)
     
     themes = client.get('concepts', concept_selector={'type': 'suggested', 
                                                       'num_clusters': themes,
@@ -72,6 +72,8 @@ def create_doc_term_table(docs, concepts):
     '''
 
     doc_term_table = []
+    terms_in_docs = []
+    term_in_doc = 0
     for doc in docs:
         if doc['vector']:
             for t in doc['terms']:
@@ -146,7 +148,7 @@ def create_term_topic_table(concepts, saved_concepts):
             if concept['vector'] and saved_concept['vector']:
                 concept_vector = [float(v) for v in unpack64(concept['vector'])]
                 saved_concept_vector = [float(v) for v in unpack64(saved_concept['vector'])]
-                term_topic_table.append({'term': concept['text'],
+                term_topic_table.append({'term': concept['name'],
                                          'topic': saved_concept['name'],
                                          'association': np.dot(concept_vector, saved_concept_vector)})
     return term_topic_table
@@ -167,7 +169,7 @@ def create_doc_subset_table(docs, metadata_map):
                                      'subset': metadata_map[m['name']],
                                      'subset_name': m['name'],
                                      'value': m['value']})
-    return doc_subset_table, metadata_map
+    return doc_subset_table
 
 
 def create_doc_table(client, docs, metadata):
@@ -385,7 +387,7 @@ def main():
         client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count))
 
     if not args.doc:
-        doc_table, xref_table, metadata_map = create_doc_table(client, docs, subsets, themes)
+        doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata)
         write_table_to_csv(doc_table, 'doc_table.csv')
         write_table_to_csv(xref_table, 'xref_table.csv')
     
