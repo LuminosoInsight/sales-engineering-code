@@ -24,7 +24,7 @@ def get_all_docs(client, batch_size=20000):
         docs.extend(newdocs['result'])
         offset += batch_size
         
-def remove_foreign_lang(client,lang_code,threshold=0):
+def remove_foreign_lang(client,lang_code,threshold=.4):
     
     docs = get_all_docs(client)
     
@@ -36,17 +36,18 @@ def remove_foreign_lang(client,lang_code,threshold=0):
         except ValueError:
             bad_doc_ids.append(doc['doc_id'])
             continue
-        if not details[0][1] == lang_code and isReliable or details[0][2] < threshold:
+        if (details[0][1] != lang_code) or (details[0][1] == lang_code and (not isReliable or (details[0][2] - details[1][2] <= (threshold * 100)))):
                 bad_doc_ids.append(doc['doc_id'])
     delete_docs(client,bad_doc_ids)
     client.post('build')
+    client.wait_for_build()
     print('{} documents not identified as "{}" removed from project.'.format(len(bad_doc_ids),lang_code))
     
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('project_url', help="The URL of the project to analyze")
     parser.add_argument('lang_code', default='en', help="The 2 character language code to retain ex. en, fr")
-    parser.add_argument('-t', '--threshold', default=0, type=float, help="Minimum threahold for desired language (ex .95 for 95%%)")
+    parser.add_argument('-t', '--threshold', default=.4, type=float, help="Minimum threahold for desired language (ex .95 for 95%%)")
     args = parser.parse_args()
     
     api_url = args.project_url.split('/app')[0]
