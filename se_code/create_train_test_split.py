@@ -50,7 +50,7 @@ def main():
     
     args = parser.parse_args()
     
-    with open(read_file) as f:
+    with open(read_file, encoding='utf-8-sig') as f:
         reader = csv.DictReader(f)
         table = [row for row in reader]
     keys = list(table[0].keys())
@@ -83,12 +83,12 @@ def main():
     else:
         test_write_file = read_file.split('.')[0] + '_testing.csv'
     
-    with open(train_write_file, 'w', encoding='utf-8-sig') as f:
+    with open(train_write_file, 'w', encoding='utf-8-sig', newline='') as f:
         writer = csv.DictWriter(f, ['text', 'label'])
         writer.writeheader()
         writer.writerows(train_docs)
     
-    with open(test_write_file, 'w', encoding='utf-8-sig') as f:
+    with open(test_write_file, 'w', encoding='utf-8-sig', newline='') as f:
         writer = csv.DictWriter(f, ['text', 'label'])
         writer.writeheader()
         writer.writerows(test_docs)
