@@ -13,10 +13,10 @@ def get_all_docs(client):
         else:
             return docs
         
-def copy_projects_to_accounts(all_projects, client, to_account):
+def copy_projects_to_accounts(all_projects, from_client, to_client, to_account):
     for from_project in all_projects:
         # Connect to project
-        from_client_project = client.client_for_path(from_project['project_id'])
+        from_client_project = from_client.client_for_path(from_project['project_id'])
         print('Connected to project: ' +  from_project['name'])
         language = from_project['language']
 
@@ -27,9 +27,9 @@ def copy_projects_to_accounts(all_projects, client, to_account):
                   'title': d['title'],
                   'metadata': d['metadata']} for d in from_docs]
         # Create a new project
-        client = client.client_for_path('/projects')
+        client = to_client.client_for_path('/projects')
         to_project = client.post(name=from_project['name'],language=language,account_id=to_account)
-        to_project_client = client.change_path(to_project['project_id'])
+        to_project_client = client.client_for_path(to_project['project_id'])
         to_project_client.post('upload', docs=from_docs)
         for i, t in enumerate(from_topics):
             to_project_client.post('concepts/saved', concepts=[{'name': t['name'],
@@ -45,18 +45,27 @@ def main():
     )
     parser.add_argument('from_url', help="The URL of the account that owns the current projects")
     parser.add_argument('to_url', help="The URL of the account to copy all projects to")
+    parser.add_argument('-t1', '--from_token', default=None, help="Authentication token for the 'from' Daylight project")
+    parser.add_argument('-t2', '--to_token', default=None, help="Authentication token for the 'to' Daylight project")
     args = parser.parse_args()
     
-    from_api_url = '/'.join(args.from_url.split('/')[:-4])
-    to_api_url = '/'.join(args.to_url.split('/')[:-4])
-    from_account = args.from_url.split('/')[-1]
-    to_account = args.to_url.split('/')[-1]
-    client = LuminosoClient.connect(url=from_api_url + '/api/v5/projects')
-    all_projects = client.get()
+    from_api_url = args.from_url.split('/app')[0]
+    to_api_url = args.to_url.split('/app')[0]
+    from_account = args.from_url.strip('/ ').split('/')[-1]
+    to_account = args.to_url.strip('/ ').split('/')[-1]
+    if args.from_token:
+        from_client = LuminosoClient.connect(url=from_api_url + '/api/v5/projects', token=args.from_token)
+    else:
+        from_client = LuminosoClient.connect(url=from_api_url + '/api/v5/projects')
+    if args.to_token:
+        to_client = LuminosoClient.connect(url=to_api_url + '/api/v5/projects', token=args.to_token)
+    else:
+        to_client = LuminosoClient.connect(url=to_api_url + '/api/v5/projects')
+    all_projects = from_client.get()
     all_projects = [p for p in all_projects if p['account_id'] == from_account]
     print('There are {} projects to be copied'.format(len(all_projects)))
     
-    copy_projects_to_accounts(all_projects, client, to_account)
+    copy_projects_to_accounts(all_projects, from_client, to_client, to_account)
     
     
 if __name__ == '__main__':
