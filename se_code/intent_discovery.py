@@ -178,7 +178,7 @@ def set_intent_vectors(client, intent_list, threshold=.9):
         for topic_def in label['topic_def']:
             topic = client.get('concepts', concept_selector={"type":"related", "search_concept":{"texts":[topic_def['text']]}})
             #topic = client.get('concepts', search={'texts': [topic_def['text']]})
-            intent_vectors.append([float(v) for v in unpack64(topic['search']['search_vector'])])
+            intent_vectors.append([float(v) for v in unpack64(topic['search']['vector'])])
 
         intent_similarity = min([np.dot(a, b)
                                  for a in intent_vectors
@@ -239,7 +239,7 @@ def save_doc_search_results(docs, intent_list, threshold=.5):
             for m in doc['metadata']:
                 metadata.append(m['name'] + ': ' + m['value'])
 
-            row = [doc['_id'], doc['text'],
+            row = [doc['doc_id'], doc['text'],
                    labels[np.argmax(doc['classification'])],
                    np.max(doc['classification']), metadata]
             row.extend(doc['classification'])
