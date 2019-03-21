@@ -27,28 +27,19 @@ def main():
     parser.add_argument('from_url', help="The URL of the project to copy all topics from")
     parser.add_argument('to_url', help="The URL of the project to copy all topics into")
     parser.add_argument('--keep', default=False, action='store_true', help="Use this flag to specify if you want to keep the existing topics")
+    parser.add_argument('-t', '--token', default=None, help="Authentication token for Daylight")
     
     args = parser.parse_args()
     from_proj = args.from_url.strip('/ ').split('/')[-1]
     from_root = args.from_url.split('/app')[0]
-    #from_root = '/'.join(args.from_url.strip('/ ').split('/')[:-4])
     to_proj = args.to_url.strip('/ ').split('/')[-1]
     to_root = args.to_url.split('/app')[0]
-    #to_root = '/'.join(args.to_url.strip('/ ').split('/')[:-4])
-    count = 0
-    while count < 3:
-        token = input('Token: ')
-        try:
-            from_client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (from_root, from_proj), token=token)
-            to_client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (to_root, to_proj), token=token)
-            break
-        except:
-            print('Incorrect credentials, please re-enter token')
-            count += 1
-            continue
-    if count >= 3:
-        print('Invalid credentials.')
-        return
+    if args.token:
+        from_client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (from_root, from_proj), token=args.token)
+        to_client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (to_root, to_proj), token=args.token)
+    else:
+        from_client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (from_root, from_proj))
+        to_client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (to_root, to_proj))
     topics = from_client.get('concepts/saved')
     if not args.keep:
         delete_topics(to_client)
