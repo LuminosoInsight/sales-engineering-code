@@ -48,8 +48,9 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day
     
     subset_counts = {}
     for m in metadata:
-        if m['type'] != 'date':
+        if m['type'] == 'string':
             subset_counts[m['name']] = {}
+            print(m.keys())
             for v in m['values']:
                 subset_counts[m['name']][v['value']] = v['count']
                 
