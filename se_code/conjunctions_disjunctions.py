@@ -35,7 +35,7 @@ def get_current_results(client, search_terms, unit, n):
     if unit == 'docs':
         search_results = client.get(unit, search={'texts':search_terms}, limit=10000)['result']
     else:
-        search_results = search_results = client_v5.get('concepts', concept_selector={'type':'related', 
+        search_results = search_results = client.get('concepts', concept_selector={'type':'related', 
                                                              'search_concept':{'texts':search_terms},
                                                              'limit':10000})['result']
     start_idx = 0
@@ -67,7 +67,7 @@ def get_new_results(client, search_terms, unit, n, operation):
         if unit == 'docs':
             search_results = client.get(unit, search={'texts':search_terms}, limit=10000)['result']
         else:
-            search_results = search_results = client_v5.get('concepts', concept_selector={'type':'related', 
+            search_results = search_results = client.get('concepts', concept_selector={'type':'related', 
                                                                  'search_concept':{'texts':search_terms},
                                                                  'limit':10000})['result']
             
