@@ -212,7 +212,7 @@ def main():
         write_all_uploads_to_csvs(args.filename, pro_docs, con_docs, docs, 
                                   encoding=args.encoding, path=path)
     
-    if not upload:
+    if not args.upload:
         upload_docs_to_projects(pro_docs, con_docs, docs, args.filename,
                             token=args.token, account_id=args.account_id,
                             api_root=args.api_root)
