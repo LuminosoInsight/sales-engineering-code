@@ -194,7 +194,10 @@ def main():
                         help="Do not upload the projects")
     args = parser.parse_args()
     
-    path = args.path.strip('/')
+    if args.path:
+        path = args.path.strip('/')
+    else:
+        path = None
     
     with open(args.filename, encoding=args.encoding) as f:
         reader = csv.DictReader(f)
@@ -207,7 +210,7 @@ def main():
     
     if args.save:
         write_all_uploads_to_csvs(args.filename, pro_docs, con_docs, docs, 
-                                  encoding=args.encoding, path=args.path)
+                                  encoding=args.encoding, path=path)
     
     if not upload:
         upload_docs_to_projects(pro_docs, con_docs, docs, args.filename,
