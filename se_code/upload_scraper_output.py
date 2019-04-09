@@ -92,7 +92,7 @@ def convert_docs_to_csv(docs):
 
 
 def write_all_uploads_to_csvs(filename, pro_docs, con_docs, docs, 
-                              encoding='utf-8', path=None):
+                              encoding='utf-8'):
     '''
     Writes the upload-ready documents to CSVs as a backup
     '''
@@ -101,8 +101,7 @@ def write_all_uploads_to_csvs(filename, pro_docs, con_docs, docs,
     write_total = convert_docs_to_csv(docs)
     
     root = filename.split('.csv')[0]
-    if path:
-        root = path + '/' + root
+    
     fields = ['title', 'text']
     for d in write_total:
         for k in d:
@@ -188,16 +187,9 @@ def main():
                         help="API Root for the Daylight environment to upload projects to")
     parser.add_argument('-s', '--save', default=False, action='store_true',
                         help="Whether or not to save upload files as a backup")
-    parser.add_argument('-p', '--path', default=None, 
-                        help="Full path from root to save files to e.g. ~/Documents/...")
     parser.add_argument('-u', '--upload', default=False, action='store_true',
                         help="Do not upload the projects")
     args = parser.parse_args()
-    
-    if args.path:
-        path = args.path.strip('/')
-    else:
-        path = None
     
     with open(args.filename, encoding=args.encoding) as f:
         reader = csv.DictReader(f)
@@ -210,7 +202,7 @@ def main():
     
     if args.save:
         write_all_uploads_to_csvs(args.filename, pro_docs, con_docs, docs, 
-                                  encoding=args.encoding, path=path)
+                                  encoding=args.encoding)
     
     if not args.upload:
         upload_docs_to_projects(pro_docs, con_docs, docs, args.filename,
