@@ -99,16 +99,19 @@ def write_csv(topic_dicts, doc_dicts, out_filename):
             writer.writerow(doc_row)
 
 
-def run(account_id, project_id, username, out_filename):
+def run(project_url, token, out_filename):
     """
     Get topics and documents from the project with the given `account_id`
     and `project_id`, using a LuminosoClient that logs in as `username`.
     Write the results in CSV form to `out_filename`.
     """
-    client = LuminosoClient.connect(
-        'https://analytics.luminoso.com/api/v4/projects/%s/%s' % (account_id, project_id),
-        username=username
-    )
+    api_root = project_url.strip('/ ').split('/app')[0]
+    project_id = project_url.strip('/ ').split('/')[-1]
+    if not token:
+        client = LuminosoClient.connect('%s/api/v5/projects/%s' % (api_root, project_id))
+    else:
+        client = LuminosoClient.connect('%s/api/v5/projects/%s' % (api_root, project_id),
+                                        token=token)
 
     topic_dicts, doc_dicts = collect_topic_mapping(client)
     write_csv(topic_dicts, doc_dicts, out_filename)
@@ -117,13 +120,9 @@ def run(account_id, project_id, username, out_filename):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('project_url', help="The URL of the project")
-    
-    parser.add_argument('username', help="A Luminoso username with access to the project")
     parser.add_argument('output', help="The filename to write CSV output to")
+    parser.add_argument('-t', '--token', default=None, help="Authentication token for Daylight")
 
     args = parser.parse_args()
-    
-    account_id = args.project_url.split('/')[-2]
-    project_id = args.project_url.split('/')[-1]
-    run(account_id, project_id, args.username, args.output)
+    run(args.project_url, args.output, args.token)
 
