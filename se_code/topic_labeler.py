@@ -40,7 +40,8 @@ def collect_topic_mapping(client):
     topic_dicts = get_topic_dicts(client)
     for doc_dict in doc_dicts:
         tokens = doc_dict['terms'] + doc_dict['fragments']
-        terms = set([token[0] for token in tokens])
+        #print(tokens)
+        terms = set([token['term_id'] for token in tokens])
         doc_dict['exact_topics'] = set()
         doc_dict['related_topics'] = set()
         for topic_dict in topic_dicts:
