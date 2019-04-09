@@ -99,7 +99,7 @@ def write_csv(topic_dicts, doc_dicts, out_filename):
             writer.writerow(doc_row)
 
 
-def run(project_url, token, out_filename):
+def run(project_url, out_filename, token):
     """
     Get topics and documents from the project with the given `account_id`
     and `project_id`, using a LuminosoClient that logs in as `username`.
