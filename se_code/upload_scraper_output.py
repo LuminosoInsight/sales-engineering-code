@@ -190,6 +190,8 @@ def main():
                         help="Whether or not to save upload files as a backup")
     parser.add_argument('-p', '--path', default=None, 
                         help="Full path from root to save files to e.g. ~/Documents/...")
+    parser.add_argument('-u', '--upload', default=False, action='store_true',
+                        help="Do not upload the projects")
     args = parser.parse_args()
     
     path = args.path.strip('/')
@@ -206,8 +208,9 @@ def main():
     if args.save:
         write_all_uploads_to_csvs(args.filename, pro_docs, con_docs, docs, 
                                   encoding=args.encoding, path=args.path)
-        
-    upload_docs_to_projects(pro_docs, con_docs, docs, args.filename,
+    
+    if not upload:
+        upload_docs_to_projects(pro_docs, con_docs, docs, args.filename,
                             token=args.token, account_id=args.account_id,
                             api_root=args.api_root)
     
