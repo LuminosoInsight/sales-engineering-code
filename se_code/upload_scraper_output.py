@@ -2,7 +2,8 @@ import csv, argparse, time
 from datetime import datetime
 from luminoso_api import V5LuminosoClient as LuminosoClient
 
-DATE_FORMAT = '%d-%b-%y'
+#DATE_FORMAT = '%d-%b-%y'
+DATE_FORMAT = '%b %d, %Y'
 TARGET_DATE_FORMAT = '%m/%d/%y'
 
 def read_table_to_docs(table, field='pros'):
@@ -21,13 +22,16 @@ def read_table_to_docs(table, field='pros'):
         row['title'] = '%d stars - %s' % (score, t['employeeStatus'])
         row['text'] = t['%sText' % field]
         metadata = []
-        if t['date_Date'] != 'null':
-            metadata.append({'type': 'date', 
-                             'name': 'Date', 
-                             'value': time.mktime(
-                                 datetime.strptime(
-                                     t['date_Date'], DATE_FORMAT
-                                 ).timetuple())})
+        try:
+            if t['date_Date'] != 'null':
+                metadata.append({'type': 'date', 
+                                 'name': 'Date', 
+                                 'value': time.mktime(
+                                     datetime.strptime(
+                                         t['date_Date'], DATE_FORMAT
+                                     ).timetuple())})
+        except ValueError as e:
+            print('Warning: %s' % e)
         if t['Location'] != 'null':
             metadata.append({'type': 'string', 
                              'name': 'Location', 
