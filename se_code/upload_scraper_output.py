@@ -129,7 +129,7 @@ def upload_docs_to_projects(pro_docs, con_docs, docs, filename,
     Uploads Luminoso-compatible documents to 3 separate projects and prints
     their resulting URLs for easy access.
     '''
-    if token:
+    if not token:
         client = LuminosoClient.connect('%s/projects/' % api_root)
     else:
         client = LuminosoClient.connect('%s/projects/' % api_root, token=token)
