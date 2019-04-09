@@ -18,7 +18,7 @@ def read_table_to_docs(table, field='pros'):
         field_score = 0
     for t in table:
         row = {}
-        score = int(t['score_Star Rating'].split('="')[-1])
+        score = int(t['score_Star Rating'])
         row['title'] = '%d stars - %s' % (score, t['employeeStatus'])
         row['text'] = t['%sText' % field]
         metadata = []
