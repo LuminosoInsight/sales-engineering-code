@@ -22,7 +22,7 @@ def read_table_to_docs(table, field='pros'):
         position = t['employeeStatus'].split('-')[-1].strip()
         if 'anonymous' in position.lower():
             position = 'Employee'
-        status = t['employeeStatus'].split('-')[0].strip()
+        status = t['employeeStatus'].split('Employee')[0].strip()
         row['title'] = '%s %s gave %d Stars' % (status, position, score)
         #row['title'] = '%d stars - %s' % (score, t['employeeStatus'])
         row['text'] = t['%sText' % field]
