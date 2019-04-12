@@ -52,7 +52,7 @@ def read_table_to_docs(table, field='pros'):
         if t['string_CEO Approval'] != 'null':
             metadata.append({'type': 'string', 
                              'name': 'CEO Approval', 
-                             'value': t['string_CEO Approval']})
+                             'value': t['string_CEO Approval'].split('of')[0].strip()})
         metadata.append({'type': 'string', 
                          'name': 'Field', 
                          'value': field})
