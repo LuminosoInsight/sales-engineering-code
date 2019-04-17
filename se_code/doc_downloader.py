@@ -1,6 +1,8 @@
 from luminoso_api import V5LuminosoClient as LuminosoClient
 import csv, json, datetime, time, argparse
 
+DATE_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
+
 def get_all_docs(client):
     docs = []
     while True:
@@ -29,8 +31,11 @@ def format_subsets(docs, fields, date_format):
         for doc in docs:
             for metadata in doc['metadata']:
                 if metadata['type'] == 'date':
-                    doc['%s_%s' % (metadata['type'], metadata['name'])] = datetime.datetime.fromtimestamp(
-                                                                            int(metadata['value'])).strftime(date_format)
+                    try:
+                        doc['%s_%s' % (metadata['type'], metadata['name'])] = datetime.datetime.fromtimestamp(
+                                                                                int(metadata['value'])).strftime(date_format)
+                    except ValueError:
+                        doc['%s_%s' % (metadata['type'], metadata['name'])] = '%s' % metadata['value'].split('T')[0]
                 else:
                     doc['%s_%s' % (metadata['type'], metadata['name'])] = metadata['value']
                 subsets.append('%s_%s' % (metadata['type'], metadata['name']))
