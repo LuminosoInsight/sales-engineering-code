@@ -2,7 +2,6 @@ from flask import Flask, jsonify, render_template, request, session, url_for, Re
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 from topic_utilities import copy_topics, del_topics, parse_url
-from se_code.run_voting_classifier import return_label, train_classifier, get_docs_labels, split_train_test
 from term_utilities import get_terms, ignore_terms, merge_terms
 from rd_utilities import search_subsets
 from deduper_utilities import dedupe
@@ -10,13 +9,13 @@ import numpy as np
 from boilerplate_utilities import BPDetector, boilerplate_create_proj
 from qualtrics_utilities import *
 import redis
-from se_code.conjunction_disjunction import get_new_results, get_current_results
+from se_code.conjunctions_disjunctions import get_new_results, get_current_results
 from text_filter import filter_project
 from subset_filter import filter_subsets
 from auto_plutchik import get_all_topics, delete_all_topics, add_plutchik, copy_project
 from compass_utilities import get_all_docs
 from random import randint
-from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, create_trends_table, write_table_to_csv, create_terms_table
+from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table
 
 #Storage for live classifier demo
 classifiers = None
@@ -55,13 +54,13 @@ def login():
         ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj')),('Conceptual Subset Search',url_for('subset_search'))),
         ('Modify', ('Text Filter', url_for('text_filter_page')), ('Auto Emotions', url_for('plutchik_page')), ('Subset Filter', url_for('subset_filter_page'))),
         ('Dashboards', ('Tableau Export',url_for('tableau_export_page')))]
-    print(session['apps_to_show'])
     try:
         LuminosoClient.connect_with_username_and_password('/projects', username=session['username'],
                                                                        password=session['password'])
 
         return render_template('welcome.html', urls=session['apps_to_show'])
-    except:
+    except Exception as e:
+        print(e)
         error = 'Invalid_credentials'
         return render_template('login.html', error=error)
 
