@@ -23,7 +23,7 @@ def read_table_to_docs(table):
                              'value': t['Source']})
         if t.get('Date') and t['Date'].strip().lower() not in ['', 'null']:
             try:
-                dt = datetime.datetime.strptime(t['Date'], DATE_FORMAT)
+                dt = datetime.strptime(t['Date'], DATE_FORMAT)
                 unix_date = time.mktime(dt.timetuple())
                 metadata.append({'type': 'date',
                                  'name': 'Date',
