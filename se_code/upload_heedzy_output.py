@@ -2,7 +2,7 @@ import csv, argparse, time
 from datetime import datetime
 from luminoso_api import V5LuminosoClient as LuminosoClient
 
-DATE_FORMAT = '%m/%d/%y'
+DATE_FORMAT = '%Y-%m-%d'
 
 def read_table_to_docs(table):
     '''
@@ -37,11 +37,11 @@ def read_table_to_docs(table):
         if t.get('Rating') and t['Rating'].strip().lower() not in ['', 'null']:
             metadata.append({'type': 'score',
                              'name': 'Rating',
-                             'vlaue': t['Rating']})
+                             'value': float(t['Rating'])})
         doc['metadata'] = metadata
         docs.append(doc)
-        docs = [d for d in docs if d['text'].strip() != '']
-        return docs
+    docs = [d for d in docs if d['text'].strip() != '']
+    return docs
 
 
 def convert_docs_to_csv(docs):
@@ -108,7 +108,7 @@ def upload_docs_to_projects(docs, filename,
     client.wait_for_build()
     
     url_root = api_root.split('api')[0] + 'app/projects/'
-    account = pro_client.get()['account_id']
+    account = client.get()['account_id']
     print('Completed project: %s' % (url_root + account + '/' + client.get()['project_id']))
 
     
