@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, render_template, request, session, url_for, Response
-from luminoso_api import V5LuminosoClient as LuminosoClient
+from luminoso_api import V5LuminosoClient
 from pack64 import unpack64
 from topic_utilities import copy_topics, del_topics, parse_url
 from term_utilities import get_terms, ignore_terms, merge_terms
@@ -32,8 +32,8 @@ red = redis.StrictRedis()
 def connect_to_client(url):
     api_url, from_proj = parse_url(url)
     
-    client = LuminosoClient.connect_with_username_and_password(url=api_url,
-                                                               username=session['usename'],
+    client = V5LuminosoClient.connect_with_username_and_password(url=api_url,
+                                                               username=session['username'],
                                                                password=session['password'])
     client = client_for_path('projects/{}'.format(from_proj))
     return client
@@ -55,7 +55,7 @@ def login():
         ('Modify', ('Text Filter', url_for('text_filter_page')), ('Auto Emotions', url_for('plutchik_page')), ('Subset Filter', url_for('subset_filter_page'))),
         ('Dashboards', ('Tableau Export',url_for('tableau_export_page')))]
     try:
-        LuminosoClient.connect_with_username_and_password('/projects', username=session['username'],
+        V5LuminosoClient.connect_with_username_and_password('/projects', username=session['username'],
                                                                        password=session['password'])
 
         return render_template('welcome.html', urls=session['apps_to_show'])
@@ -143,10 +143,6 @@ def tableau_export():
 def plutchik():
     url = request.form['url'].strip()
     client = connect_to_client(url)
-    api_url, from_acct, from_proj = parse_url(url)
-    client = LuminosoClient.connect('{}/projects/{}'.format(api_url, from_proj),
-                                    username=session['username'],
-                                    password=session['password'])
 
     delete = (request.form.get('delete') == 'on')
     name = request.form['dest_name'].strip()
@@ -255,15 +251,15 @@ def topic_utils_copy():
     #NOTE: Should add a checkbox for if the existing topics should be deleted first
     url = request.form['url'].strip()
     api_url, from_proj = parse_url(url)
+    client = connect_to_client(url)
+    client = client.client_for_path('/')
+    client = client.client_for_path('projects')
     dests = [url.strip() for url in request.form['dest_urls'].split(',')]
 
     for dest_proj in dests:
         api_url, to_proj = parse_url(dest_proj)
         copy_topics(
-            LuminosoClient.connect('{}/projects/'.format(api_url),
-                                   username=session['username'],
-                                   password=session['password']
-                                   ),
+            client,
             from_proj=from_proj,
             to_proj=to_proj
         )
