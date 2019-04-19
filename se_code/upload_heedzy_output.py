@@ -14,8 +14,12 @@ def read_table_to_docs(table):
         doc = {}
         if t.get('Content') and t['Content'].strip().lower() not in ['', 'null']:
             doc['text'] = t['Content']
+        else:
+            continue
         if t.get('Title') and t['Title'].strip().lower() not in ['', 'null']:
             doc['title'] = t['Title']
+        else:
+            doc['title'] = ''
         metadata = []
         if t.get('Source') and t['Source'].strip().lower() not in ['', 'null']:
             metadata.append({'type': 'string', 
@@ -40,6 +44,7 @@ def read_table_to_docs(table):
                              'value': float(t['Rating'])})
         doc['metadata'] = metadata
         docs.append(doc)
+    print(len(docs))
     docs = [d for d in docs if d['text'].strip() != '']
     return docs
 
