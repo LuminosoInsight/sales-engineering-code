@@ -237,7 +237,10 @@ def save_doc_search_results(docs, intent_list, threshold=.5):
                     np.max(doc['classification']) > threshold]:
             metadata = []
             for m in doc['metadata']:
-                metadata.append(m['name'] + ': ' + m['value'])
+                if m['type'] == 'string':
+                    metadata.append(m['name'] + ': ' + m['value'])
+                elif m['type'] == 'number':
+                    metadata.append('%s: %d' % (m['name'], m['value']))
 
             row = [doc['doc_id'], doc['text'],
                    labels[np.argmax(doc['classification'])],
