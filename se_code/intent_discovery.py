@@ -218,7 +218,7 @@ def doc_search(client, intent_list, all_terms):
     return docs
 
 
-def save_doc_search_results(docs, intent_list, threshold=.5):
+def save_doc_search_results(client, docs, intent_list, threshold=.5, expand_metadata=False):
 
     '''Save document search results to a file'''
 
@@ -226,31 +226,56 @@ def save_doc_search_results(docs, intent_list, threshold=.5):
     intents = []
     auto_intents = []
 
-    with open('results.csv', 'w') as file:
-        writer = csv.writer(file)
-        headers = ['_id', 'text', 'intent', 'score', 'metadata']
-        headers.extend(labels)
-        writer.writerow(headers)
-        count = 0
-        for doc in [doc for doc in docs
-                    if 'classification' in doc and
-                    np.max(doc['classification']) > threshold]:
-            metadata = []
-            for m in doc['metadata']:
-                if m['type'] == 'string':
-                    metadata.append(m['name'] + ': ' + m['value'])
-                elif m['type'] == 'number':
-                    metadata.append('%s: %d' % (m['name'], m['value']))
+    headers = ['_id', 'text', 'intent', 'score']
 
-            row = [doc['doc_id'], doc['text'],
-                   labels[np.argmax(doc['classification'])],
-                   np.max(doc['classification']), metadata]
-            row.extend(doc['classification'])
-            writer.writerow(row)
-            count += 1
+    if expand_metadata:
+        # need the list of meta data fields
+        md_list = client.get("/metadata")['result']
+        md_list = [md['name'] for md in md_list]
+        headers.extend(md_list)
+    else:
+        headers.append("metadata")
 
-            intents.append(metadata)
-            auto_intents.append(np.argmax(doc['classification']))
+    headers.extend(labels)
+
+    rows = []
+    count = 0
+    with open('results.csv', 'w') as f:
+        writer = csv.DictWriter(f, headers)
+        writer.writeheader()
+
+        for doc in docs:
+            if 'classification' in doc and np.max(doc['classification']) > threshold:
+
+                metadata = []
+                for m in doc['metadata']:
+                    if m['type'] == 'string':
+                        metadata.append(m['name'] + ': ' + m['value'])
+                    elif m['type'] == 'number':
+                        metadata.append('%s: %d' % (m['name'], m['value']))
+
+                row = {
+                    '_id': doc['doc_id'],
+                    'text': doc['text'],
+                    'intent': labels[np.argmax(doc['classification'])],
+                    'score': np.max(doc['classification'])
+                }
+                if expand_metadata:
+                    for md in doc['metadata']:
+                        row[md['name']] = md['value']
+                else:
+                    row['metadata'] = metadata
+
+                # add all the intents as key pairs in the row
+                row.update(dict(zip(labels,doc['classification'])))
+
+                rows.append(row)
+                count += 1
+
+                intents.append(metadata)
+                auto_intents.append(np.argmax(doc['classification']))
+
+        writer.writerows(rows)
 
     return intents, auto_intents
 
@@ -281,7 +306,7 @@ def main(args):
     doc_search_results = doc_search(client, intent_list, term_list)
 
     print('Saving results to "results.csv"...')
-    save_doc_search_results(doc_search_results, intent_list, threshold=.5)
+    save_doc_search_results(client, doc_search_results, intent_list, threshold=.5,expand_metadata=args.expand_metadata)
 
 
 if __name__ == '__main__':
@@ -314,6 +339,10 @@ if __name__ == '__main__':
     parser.add_argument(
         '-g', '--generic', default=False, action='store_true',
         help='Flag to include "generic" intents (single term intents)'
+        )
+    parser.add_argument(
+        '-e', '--expand_metadata', default=False, action='store_true',
+        help='Flag on ouput to expand metadata into individual columns'
         )
     args = parser.parse_args()
     main(args)
