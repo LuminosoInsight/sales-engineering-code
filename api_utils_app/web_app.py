@@ -1,3 +1,5 @@
+import datetime
+
 from flask import Flask, jsonify, render_template, request, session, url_for, Response
 from luminoso_api import V5LuminosoClient
 from pack64 import unpack64
@@ -53,7 +55,9 @@ def login():
         ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
         ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj')),('Conceptual Subset Search',url_for('subset_search'))),
         ('Modify', ('Text Filter', url_for('text_filter_page')), ('Auto Emotions', url_for('plutchik_page')), ('Subset Filter', url_for('subset_filter_page'))),
-        ('Dashboards', ('Tableau Export',url_for('tableau_export_page')))]
+        ('Dashboards', ('Tableau Export',url_for('tableau_export_page'))),
+        ('Connectors', ('Reddit by Time', url_for('reddit_by_time_page')),
+                       ('Reddit by Name', url_for('reddit_by_name_page')))]
     try:
         V5LuminosoClient.connect_with_username_and_password('/projects', username=session['username'],
                                                                        password=session['password'])
@@ -67,6 +71,54 @@ def login():
 @app.route('/index')
 def index():
     return render_template('index.html', urls=session['apps_to_show'])
+
+@app.route('/reddit_by_time_page', methods=['GET'])
+def reddit_by_time_page():
+    SEARCH_TYPES = ['top', 'controversial', 'new']
+    SEARCH_PERIODS = ['week', 'hour', 'day', 'month', 'year', 'all']
+    return render_template('reddit_by_timeframe.html', urls=session['apps_to_show'],
+                           types=SEARCH_TYPES,
+                           periods=SEARCH_PERIODS)
+
+@app.route('/reddit_by_time', methods=['POST'])
+def reddit_by_time():
+    fields = ['text', 'title', 'date_Post Date', 'string_Author Name', 'string_Comment Type', 'string_Thread', 'string_Reddit Post', ]
+    subreddit_name = request.form['subreddit'].strip()
+    start_date = request.form.get('start_date')
+    start_time = request.form.get('start_time')
+    start_datetime = datetime.datetime.strptime(' '.join([start_date, start_time]), '%Y-%m-%d %H:%M')
+    sort_type = request.form['type']
+    time_period = request.form['period']
+    reddit = get_reddit_api()
+    posts = get_posts_from_past(
+    reddit, subreddit_name, start_datetime, sort_type, time_period
+    )
+    docs = get_docs_from_comments(posts, reddit)
+    write_to_csv('%s docs.csv' % subreddit_name, docs, fields)
+    SEARCH_TYPES = ['top', 'controversial', 'new']
+    SEARCH_PERIODS = ['week', 'hour', 'day', 'month', 'year', 'all']
+    return render_template('reddit_by_timeframe.html', 
+                           urls=session['apps_to_show'],
+                           types=SEARCH_TYPES,
+                           periods=SEARCH_PERIODS)
+
+@app.route('/reddit_by_name_page', methods=['GET'])
+def reddit_by_name_page():
+    return render_template('reddit_by_name.html', 
+                           urls=session['apps_to_show'])
+
+@app.route('/reddit_by_name', methods=['POST'])
+def reddit_by_name():
+    fields = ['text', 'title', 'date_Post Date', 'string_Author Name', 'string_Comment Type', 'string_Thread', 'string_Reddit Post', ]
+    subreddit_name = request.form['subreddit'].strip()
+    post_names = request.form['post_list'].strip()
+    post_names = post_names.split(';')
+    reddit = get_reddit_api()
+    posts = get_posts_by_name(reddit, subreddit_name, post_names)
+    docs = get_docs_from_comments(posts, reddit)
+    write_to_csv('%s docs.csv' % subreddit_name, docs, fields)
+    return render_template('reddit_by_name.html', 
+                           urls=session['apps_to_show'])
     
 @app.route('/tableau_export_page', methods=['GET'])
 def tableau_export_page():
