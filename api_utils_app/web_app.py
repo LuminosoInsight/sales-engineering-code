@@ -35,7 +35,7 @@ def connect_to_client(url):
     client = V5LuminosoClient.connect_with_username_and_password(url=api_url,
                                                                username=session['username'],
                                                                password=session['password'])
-    client = client_for_path('projects/{}'.format(from_proj))
+    client = client.client_for_path('projects/{}'.format(from_proj))
     return client
 
 @app.route('/')
@@ -250,14 +250,17 @@ def topic_utils():
 def topic_utils_copy():
     #NOTE: Should add a checkbox for if the existing topics should be deleted first
     url = request.form['url'].strip()
+    to_delete = (request.form.get('delete') == 'on')
     api_url, from_proj = parse_url(url)
     client = connect_to_client(url)
     client = client.client_for_path('/')
     client = client.client_for_path('projects')
     dests = [url.strip() for url in request.form['dest_urls'].split(',')]
-
+    
     for dest_proj in dests:
         api_url, to_proj = parse_url(dest_proj)
+        if to_delete:
+            del_topics(connect_to_client(dest_proj))
         copy_topics(
             client,
             from_proj=from_proj,
