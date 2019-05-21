@@ -17,6 +17,7 @@ from subset_filter import filter_subsets
 from auto_plutchik import get_all_topics, delete_all_topics, add_plutchik, copy_project
 from compass_utilities import get_all_docs
 from random import randint
+from reddit_utilities import get_reddit_api, get_posts_from_past, get_posts_by_name, get_docs_from_comments, write_to_csv
 from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table
 
 #Storage for live classifier demo
