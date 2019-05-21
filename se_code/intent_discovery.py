@@ -240,7 +240,7 @@ def save_doc_search_results(client, docs, intent_list, threshold=.5, expand_meta
 
     rows = []
     count = 0
-    with open('results.csv', 'w') as f:
+    with open('results.csv', 'w', encoding='utf-8') as f:
         writer = csv.DictWriter(f, headers)
         writer.writeheader()
 
