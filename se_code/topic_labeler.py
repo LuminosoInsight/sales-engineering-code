@@ -1,40 +1,29 @@
-from luminoso_api import LuminosoClient
+from luminoso_api import V5LuminosoClient as LuminosoClient
 import argparse
 import csv
 
 
-def get_doc_dicts(client, batch_size=25000):
-    """
-    Use a LuminosoClient connection to get selected fields from
-    all of a project's documents.
-    """
+def get_all_docs(client, batch_size=25000):
     docs = []
-    offset = 0
     while True:
-        found = client.get('docs', limit=batch_size, offset=offset,
-                           doc_fields=['_id', 'text', 'terms', 'fragments'])
-        if len(found) == 0:
-            break
-        docs.extend(found)
-        offset += batch_size
-        print("Got %d documents" % len(docs))
-    return docs
+        new_docs = client.get('docs', limit=batch_size, offset=len(docs))['result']
+        if new_docs:
+            docs.extend(new_docs)
+        else:
+            return docs
 
-
+        
 def get_topic_dicts(client):
     """
-    Get information about the topics defined in a project.
+    Get information about the saved concepts defined in a project
     """
-    topic_dicts = client.get('topics')
+    topic_dicts = client.get('concepts/saved', include_science=True)
     for topic_dict in topic_dicts:
-        topic_id = topic_dict['_id']
-
-        # Find out the exact and related terms that match this topic, by
-        # running a search that asks for 0 documents matching the topic, and
-        # extracting the data about which terms were searched for.
-        topic_search = client.get('docs/search', topic=topic_id, limit=0)
-        topic_dict['exact_terms'] = set(topic_search['exact_terms'])
-        topic_dict['related_terms'] = set(topic_search['related_terms'])
+        topic_id = topic_dict['saved_concept_id']
+        topic_search = client.get('docs', 
+                                  search={'saved_concept_id': topic_dict['saved_concept_id']})['search']
+        topic_dict['exact_terms'] = set(topic_search['exact_term_ids'])
+        topic_dict['related_terms'] = set(topic_search['related_term_ids'])
     return topic_dicts
 
 
@@ -47,15 +36,16 @@ def collect_topic_mapping(client):
     documents will have extra 'exact_topics' and 'related_topics'
     fields indicating the topics they matched.
     """
-    doc_dicts = get_doc_dicts(client)
+    doc_dicts = get_all_docs(client)
     topic_dicts = get_topic_dicts(client)
     for doc_dict in doc_dicts:
         tokens = doc_dict['terms'] + doc_dict['fragments']
-        terms = set([token[0] for token in tokens])
+        #print(tokens)
+        terms = set([token['term_id'] for token in tokens])
         doc_dict['exact_topics'] = set()
         doc_dict['related_topics'] = set()
         for topic_dict in topic_dicts:
-            topic_id = topic_dict['_id']
+            topic_id = topic_dict['saved_concept_id']
 
             # Look for intersections between this document's terms and those
             # that define the topic.
@@ -90,7 +80,7 @@ def write_csv(topic_dicts, doc_dicts, out_filename):
         # Make two rows of headers. The first row shows the grouping of
         # exact matches vs. conceptual matches. The second row labels the
         # topics with their names.
-        topic_ids = [t['_id'] for t in topic_dicts]
+        topic_ids = [t['saved_concept_id'] for t in topic_dicts]
         topic_names = [t['name'] for t in topic_dicts]
         padding = (len(topic_ids) - 1) * ['']
         header1 = (['', 'Exact matches'] + padding +
@@ -105,21 +95,24 @@ def write_csv(topic_dicts, doc_dicts, out_filename):
             conceptual_matches = ['1' if tid in doc_dict['related_topics']
                                   else '' for tid in topic_ids]
             text = doc_dict['text'].replace('\n', ' ')
-            doc_row = ([doc_dict['_id']] + exact_matches +
+            doc_row = ([doc_dict['doc_id']] + exact_matches +
                        conceptual_matches + [text])
             writer.writerow(doc_row)
 
 
-def run(account_id, project_id, username, out_filename):
+def run(project_url, out_filename, token):
     """
     Get topics and documents from the project with the given `account_id`
     and `project_id`, using a LuminosoClient that logs in as `username`.
     Write the results in CSV form to `out_filename`.
     """
-    client = LuminosoClient.connect(
-        'https://analytics.luminoso.com/api/v4/projects/%s/%s' % (account_id, project_id),
-        username=username
-    )
+    api_root = project_url.strip('/ ').split('/app')[0]
+    project_id = project_url.strip('/ ').split('/')[-1]
+    if not token:
+        client = LuminosoClient.connect('%s/api/v5/projects/%s' % (api_root, project_id))
+    else:
+        client = LuminosoClient.connect('%s/api/v5/projects/%s' % (api_root, project_id),
+                                        token=token)
 
     topic_dicts, doc_dicts = collect_topic_mapping(client)
     write_csv(topic_dicts, doc_dicts, out_filename)
@@ -128,13 +121,9 @@ def run(account_id, project_id, username, out_filename):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('project_url', help="The URL of the project")
-    
-    parser.add_argument('username', help="A Luminoso username with access to the project")
     parser.add_argument('output', help="The filename to write CSV output to")
+    parser.add_argument('-t', '--token', default=None, help="Authentication token for Daylight")
 
     args = parser.parse_args()
-    
-    account_id = args.project_url.split('/')[-2]
-    project_id = args.project_url.split('/')[-1]
-    run(account_id, project_id, args.username, args.output)
+    run(args.project_url, args.output, args.token)
 

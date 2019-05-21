@@ -3,7 +3,7 @@ import csv
 import numpy as np
 import argparse
 
-from luminoso_api import LuminosoClient
+from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 
 
@@ -18,16 +18,17 @@ def get_all_docs(client, subset=None):
             new_docs = client.get('docs',
                                   offset=offset,
                                   limit=25000,
-                                  subset=subset)
+                                  filter={'name': subset.partition(':')[0].strip(),
+                                          'value': subset.partition(':')[-1].strip()})
         else:
             new_docs = client.get('docs',
                                   offset=offset,
                                   limit=25000)
 
-        if not new_docs:
+        if not new_docs['result']:
             return docs
 
-        docs.extend(new_docs)
+        docs.extend(new_docs['result'])
         offset += 25000
 
 
@@ -35,13 +36,16 @@ def top_term_stats(client, num_terms=1000):
 
     '''Get top terms, measure distribution of related terms'''
 
-    top_terms = client.get('terms', limit=num_terms)
+    top_terms = client.get('concepts', concept_selector={"type": "top", "limit":num_terms})['result']
     top_terms = [term for term in top_terms if term['vector'] is not None]
+    match_counts = client.get('concepts/match_counts', concept_selector={"type": "top", "limit":num_terms})['match_counts']
+    for i, t in enumerate(match_counts):
+        top_terms[i]['exact_match_count'] = t['exact_match_count']
 
-    term_vects = [unpack64(term['vector']) for term in top_terms]
+    term_vects = [[float(v) for v in unpack64(term['vector'])] for term in top_terms]
 
     all_scores = np.dot(term_vects, np.transpose(term_vects))
-    dispersion_list = {term['term']: (np.std(scores > .6), term['vector'])
+    dispersion_list = {term['exact_term_ids'][0]: (np.std(scores > .6), term['vector'])
                        for term, scores in zip(top_terms, all_scores)}
 
     return dispersion_list, top_terms
@@ -53,10 +57,10 @@ def get_collocations(term_list):
 
     collocated_terms = []
     for term in term_list:
-        if len(term['term'].split(' ')) > 1:
-            collocated_terms.extend(term['term'].split(' '))
+        if len(term['exact_term_ids'][0].split(' ')) > 1:
+            collocated_terms.extend(term['exact_term_ids'][0].split(' '))
 
-    return term_list
+    return collocated_terms
 
 
 def generate_intent_score(term_list, dispersion_list, collocation_list):
@@ -65,11 +69,11 @@ def generate_intent_score(term_list, dispersion_list, collocation_list):
 
     for term in term_list:
         term['collocations'] = len([t for t in collocation_list
-                                    if t == term['term']])
+                                    if t == term['exact_term_ids'][0]])
 
-        term['collocation'] = (len(term['term'].split(' ')) > 1) * 1
-        term['averageness'] = term['score']/term['total_doc_count']
-        term['dispersion'] = dispersion_list[term['term']][0]
+        term['collocation'] = (len(term['exact_term_ids'][0].split(' ')) > 1) * 1
+        term['averageness'] = term['relevance']/term['exact_match_count']
+        term['dispersion'] = dispersion_list[term['exact_term_ids'][0]][0]
         term['intent_score'] = np.product([(1 + term['collocation']),
                                            term['averageness'],
                                            (1 - term['dispersion']),
@@ -86,11 +90,11 @@ def create_intent_pairs(term_list, num_intent_topics=75, intent_threshold=1, add
 
     intent_list = []
 
-    term_vects = [unpack64(t['vector'])
+    term_vects = [[float(v) for v in unpack64(t['vector'])]
                   for t in term_list if t['intent_score'] > intent_threshold]
 
     for term in term_list[:num_intent_topics]:
-        term_similarity = np.dot(unpack64(term['vector']),
+        term_similarity = np.dot([float(v) for v in unpack64(term['vector'])],
                                  np.transpose(term_vects))
         second_terms = [term2
                         for term2, similarity in zip(term_list, term_similarity)
@@ -98,18 +102,18 @@ def create_intent_pairs(term_list, num_intent_topics=75, intent_threshold=1, add
 
         # Add generic intents
         if add_generic:
-            intent_list.append({'name': 'general-{}'.format(term['text']),
-                                        'topic_def': [{'text': term['text']}],
-                                        'text': 'general-{}'.format(term['text'])})
+            intent_list.append({'name': 'general-{}'.format(term['texts'][0]),
+                                        'topic_def': [{'text': term['texts'][0]}],
+                                        'text': 'general-{}'.format(term['texts'][0])})
 
         for term2 in second_terms:
-                topic_text = '{} {}'.format(term['text'], term2['text'])
+                topic_text = '{} {}'.format(term['texts'][0], term2['texts'][0])
                 intent_list.append({'name': '{}-{}'.format(
-                                     term['text'], term2['text']),
+                                     term['texts'][0], term2['texts'][0]),
                                     'topic_def': [],
                                     'text': topic_text})
-                intent_list[-1]['topic_def'].extend([{'text': term['text']},
-                                                     {'text': term2['text']}])
+                intent_list[-1]['topic_def'].extend([{'text': term['texts'][0]},
+                                                     {'text': term2['texts'][0]}])
     print('Intent Topics Created:{}'.format(len(intent_list)))
     
     return intent_list
@@ -120,7 +124,7 @@ def remove_duplicate_terms(term_list, threshold=.85):
     '''Remove Duplicate Terms'''
 
     duplicate_terms = []
-    term_vects = [unpack64(term['vector']) for term in term_list]
+    term_vects = [[float(v) for v in unpack64(term['vector'])] for term in term_list]
     all_scores = np.dot(term_vects, np.transpose(term_vects))
     num_largest = 3000 + len(term_list)
     indices = (-all_scores).argpartition(num_largest, axis=None)[:num_largest]
@@ -129,11 +133,10 @@ def remove_duplicate_terms(term_list, threshold=.85):
     count = 0
     for x, y in zip(x, y):
         if x < y and all_scores[x, y] >= threshold:
-            print('Duplicate Found: {}=={}'.format(term_list[x]['text'],term_list[y]['text']))
-            duplicate_terms.append(term_list[y]['term'])
+            print('Duplicate Found: {}=={}'.format(term_list[x]['texts'][0],term_list[y]['texts'][0]))
+            duplicate_terms.append(term_list[y]['exact_term_ids'][0])
             count += 1
-
-    return [t for t in term_list if t['term'] not in duplicate_terms]
+    return [t for t in term_list if t['exact_term_ids'][0] not in duplicate_terms]
 
 
 def remove_duplicates(client, intent_list):
@@ -144,11 +147,11 @@ def remove_duplicates(client, intent_list):
                       for key_name in ['name', 'topic_def', 'text']}
                      for doc in intent_list]
 
-    intent_docs = client.post_data('docs/vectors',
-                                   json.dumps(intent_list),
-                                   content_type='application/json')
+    intent_docs = [i['text'] for i in intent_list]
+    intent_docs = client.post('vectorize',
+                              texts=intent_docs)
 
-    doc_vects = [unpack64(doc['vector']) for doc in intent_docs]
+    doc_vects = [[float(v) for v in unpack64(doc['vector'])] for doc in intent_docs]
     all_scores = np.dot(doc_vects, np.transpose(doc_vects))
     num_largest = 3000 + len(intent_docs)
     indices = (-all_scores).argpartition(num_largest, axis=None)[:num_largest]
@@ -173,8 +176,9 @@ def set_intent_vectors(client, intent_list, threshold=.9):
     for label in intent_list:
         intent_vectors = []
         for topic_def in label['topic_def']:
-            topic = client.get('terms/search', text=topic_def['text'])
-            intent_vectors.append(unpack64(topic['search_vector']))
+            topic = client.get('concepts', concept_selector={"type":"related", "search_concept":{"texts":[topic_def['text']]}})
+            #topic = client.get('concepts', search={'texts': [topic_def['text']]})
+            intent_vectors.append([float(v) for v in unpack64(topic['search']['vector'])])
 
         intent_similarity = min([np.dot(a, b)
                                  for a in intent_vectors
@@ -193,13 +197,13 @@ def doc_search(client, intent_list, all_terms):
 
     docs = get_all_docs(client)
     for doc in docs:
-        doc_fragments = [t for t, _, _ in doc['fragments']]
-        doc_fragments.extend([t for t, _, _ in doc['terms']])
+        doc_fragments = [t['term_id'] for t in doc['fragments']]
+        doc_fragments.extend([t['term_id'] for t in doc['terms']])
         doc_fragments = set(doc_fragments)
         doc_terms = [term for term in all_terms
-                     if term['term'] in doc_fragments]
+                     if term['exact_term_ids'][0] in doc_fragments]
 
-        doc_term_vects = [unpack64(term['vector']) for term in doc_terms]
+        doc_term_vects = [[float(v) for v in unpack64(term['vector'])] for term in doc_terms]
 
         if len(doc_terms) > 0:
             doc['classification'] = []
@@ -224,36 +228,41 @@ def save_doc_search_results(docs, intent_list, threshold=.5):
 
     with open('results.csv', 'w') as file:
         writer = csv.writer(file)
-        headers = ['_id', 'text', 'intent', 'score', 'subsets']
+        headers = ['_id', 'text', 'intent', 'score', 'metadata']
         headers.extend(labels)
         writer.writerow(headers)
         count = 0
         for doc in [doc for doc in docs
                     if 'classification' in doc and
                     np.max(doc['classification']) > threshold]:
+            metadata = []
+            for m in doc['metadata']:
+                if m['type'] == 'string':
+                    metadata.append(m['name'] + ': ' + m['value'])
+                elif m['type'] == 'number':
+                    metadata.append('%s: %d' % (m['name'], m['value']))
 
-            row = [doc['_id'], doc['text'],
+            row = [doc['doc_id'], doc['text'],
                    labels[np.argmax(doc['classification'])],
-                   np.max(doc['classification']), doc['subsets']]
+                   np.max(doc['classification']), metadata]
             row.extend(doc['classification'])
             writer.writerow(row)
             count += 1
 
-            intents.append(doc['subsets'])
+            intents.append(metadata)
             auto_intents.append(np.argmax(doc['classification']))
 
     return intents, auto_intents
 
 
 def main(args):
-
-    
-    root_url = '/'.join(args.project_url.split('/')[:-4]) + '/api/v4'
-    account_id = args.project_url.split('/')[-2]
-    project_id = args.project_url.split('/')[-1]
-    client = LuminosoClient.connect(url=root_url, username=args.username)
-    client = client.change_path('/projects/{}/{}'.format(account_id,
-                                                         project_id))
+    project_id = args.project_url.strip('/').split('/')[-1]
+    api_url = args.project_url.split('/app')[0] + '/api/v5/'
+    if args.token:
+        client = LuminosoClient.connect(url=api_url, token=args.token)
+    else:
+        client = LuminosoClient.connect(url=api_url)
+    client = client.client_for_path('/projects/{}'.format(project_id))
 
     print('Finding terms...')
     dispersion_list, term_list = top_term_stats(client, args.num_terms)
@@ -283,11 +292,12 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         'project_url',
-        help="The URL of the project to run Intent Discovery on"
+        help="URL of the project"
         )
     parser.add_argument(
-        '-u', '--username',
-        help='Username (email) of Luminoso account'
+        '-k', '--token',
+        default=None,
+        help="Token to use to authenticate calls"
         )
     parser.add_argument(
         '-n', '--num_terms', default=1000,

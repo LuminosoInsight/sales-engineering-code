@@ -1,6 +1,5 @@
 import sys
 import time
-sys.path.insert(0, '../se_code/')
 from se_code.deduper import Deduper
 
 def __get_token(cli):
