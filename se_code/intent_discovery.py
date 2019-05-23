@@ -92,8 +92,14 @@ def create_intent_pairs(term_list, num_intent_topics=75, intent_threshold=1, add
 
     term_vects = [[float(v) for v in unpack64(t['vector'])]
                   for t in term_list if t['intent_score'] > intent_threshold]
+    
+    if len(term_vects) == 0:
+        print('WARNING: Not enough terms found as intents')
+        return []
 
     for term in term_list[:num_intent_topics]:
+        if len(unpack64(term['vector'])) == 0:
+            print(term)
         term_similarity = np.dot([float(v) for v in unpack64(term['vector'])],
                                  np.transpose(term_vects))
         second_terms = [term2
@@ -119,16 +125,16 @@ def create_intent_pairs(term_list, num_intent_topics=75, intent_threshold=1, add
     return intent_list
 
 
-def remove_duplicate_terms(term_list, threshold=.85):
+def remove_duplicate_terms(term_list, threshold=.85, num_terms=1000):
 
     '''Remove Duplicate Terms'''
 
     duplicate_terms = []
     term_vects = [[float(v) for v in unpack64(term['vector'])] for term in term_list]
     all_scores = np.dot(term_vects, np.transpose(term_vects))
-    num_largest = 3000 + len(term_list)
+    num_largest = (num_terms * 3) + len(term_list)
     indices = (-all_scores).argpartition(num_largest, axis=None)[:num_largest]
-
+    
     x, y = np.unravel_index(indices, all_scores.shape)
     count = 0
     for x, y in zip(x, y):
@@ -139,7 +145,7 @@ def remove_duplicate_terms(term_list, threshold=.85):
     return [t for t in term_list if t['exact_term_ids'][0] not in duplicate_terms]
 
 
-def remove_duplicates(client, intent_list):
+def remove_duplicates(client, intent_list, num_terms=1000):
 
     '''Remove Duplicate Intents'''
 
@@ -153,7 +159,7 @@ def remove_duplicates(client, intent_list):
 
     doc_vects = [[float(v) for v in unpack64(doc['vector'])] for doc in intent_docs]
     all_scores = np.dot(doc_vects, np.transpose(doc_vects))
-    num_largest = 3000 + len(intent_docs)
+    num_largest = (3 * num_terms) + len(intent_docs)
     indices = (-all_scores).argpartition(num_largest, axis=None)[:num_largest]
 
     x, y = np.unravel_index(indices, all_scores.shape)
@@ -295,11 +301,13 @@ def main(args):
     term_list = generate_intent_score(term_list,
                                       dispersion_list,
                                       collocation_list)
-    term_list = remove_duplicate_terms(term_list, threshold=.85)
+    term_list = remove_duplicate_terms(term_list, threshold=.85, num_terms=args.num_terms)
 
     print('Generating intents...')
     intent_list = create_intent_pairs(term_list, num_intent_topics=args.pair_terms, add_generic=args.generic)
-    intent_list = remove_duplicates(client, intent_list)
+    if len(intent_list) == 0:
+        return
+    intent_list = remove_duplicates(client, intent_list, args.num_terms)
     intent_list = set_intent_vectors(client, intent_list)
 
     print('Searching documents for intents...')
@@ -325,7 +333,7 @@ if __name__ == '__main__':
         help="Token to use to authenticate calls"
         )
     parser.add_argument(
-        '-n', '--num_terms', default=1000,
+        '-n', '--num_terms', default=1000, type=int,
         help="Number of terms to consider for intent pairing"
         )
     parser.add_argument(

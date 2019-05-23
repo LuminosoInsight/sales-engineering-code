@@ -14,12 +14,12 @@ def __post_topic(cli, topic):
     if 'vector' in topic:
         del topic['vector']
     del topic['saved_concept_id']
-    cli.post('/concepts/saved/', **topic)
+    cli.post('/concepts/saved/', concepts=[topic])
 
 def copy_topics(cli, from_proj, to_proj):
     """ Copy all topics from a project to another project """
-    src_proj = cli.client_for_path('/' + from_proj)
-    dest_proj = cli.client_for_path('/' + to_proj)        
+    src_proj = cli.client_for_path(from_proj)
+    dest_proj = cli.client_for_path(to_proj)
     src_topics = src_proj.get('/concepts/saved') #get topics from source project
     for topic in reversed(src_topics): 
         __post_topic(dest_proj, topic)
