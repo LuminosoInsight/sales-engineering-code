@@ -304,7 +304,7 @@ def main(args):
     term_list = remove_duplicate_terms(term_list, threshold=.85, num_terms=args.num_terms)
 
     print('Generating intents...')
-    intent_list = create_intent_pairs(term_list, num_intent_topics=args.pair_terms, add_generic=args.generic)
+    intent_list = create_intent_pairs(term_list, num_intent_topics=args.pair_terms, add_generic=args.generic, intent_threshold=float(args.intent_threshold))
     if len(intent_list) == 0:
         return
     intent_list = remove_duplicates(client, intent_list, args.num_terms)
