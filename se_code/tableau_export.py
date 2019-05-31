@@ -183,7 +183,7 @@ def create_doc_table(client, docs, metadata):
     '''
 
     print('Creating doc table...')
-    numeric_metadata = [m for m in metadata if m['type'] == 'number']
+    numeric_metadata = [m for m in metadata if m['type'] == 'number' or m['type'] == 'score']
     string_metadata = [m for m in metadata if m['type'] == 'string']
     date_metadata = [m for m in metadata if m['type'] == 'date']
     metadata_map = {}
