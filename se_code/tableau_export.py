@@ -50,17 +50,19 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day
     for m in metadata:
         if m['type'] == 'string':
             subset_counts[m['name']] = {}
-            print(m.keys())
-            for v in m['values']:
-                subset_counts[m['name']][v['value']] = v['count']
-                
+            if len(m['values'])>200:
+                print("Subset {} has {} (too many) values. Reducing to first 200 values.".format(m['name'],len(m['values'])))
+                for v in m['values'][:200]:
+                    subset_counts[m['name']][v['value']] = v['count']
+            else:
+                for v in m['values']:
+                    subset_counts[m['name']][v['value']] = v['count']
+
     skt = subset_key_terms(client, subset_counts, len(docs), skt_limit)
     driver_fields = get_driver_fields(client)
-    
-    themes = client.get('concepts', concept_selector={'type': 'suggested', 
+    themes = client.get('concepts', concept_selector={'type': 'suggested',
                                                       'num_clusters': themes,
                                                       'num_cluster_concepts': theme_terms})
-    
     return client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes
 
 
@@ -340,7 +342,7 @@ def create_trends_table(terms, docs):
     return trends_table, trendingterms_table
 """    
     
-def write_table_to_csv(table, filename):
+def write_table_to_csv(table, filename, calc_keys=False):
     '''
     Function for writing lists of dictionaries to a CSV file
     :param table: List of dictionaries to be written
@@ -353,7 +355,12 @@ def write_table_to_csv(table, filename):
         print('Warning: No data to write to {}.'.format(filename))
         return
     with open(filename, 'w', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=table[0].keys())
+        if calc_keys:
+            fieldnames = {k for t_item in table for k in t_item.keys()}
+        else:
+            fieldnames = table[0].keys()
+
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(table)
 
@@ -389,8 +396,8 @@ def main():
 
     if not args.doc:
         doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata)
-        write_table_to_csv(doc_table, 'doc_table.csv')
-        write_table_to_csv(xref_table, 'xref_table.csv')
+        write_table_to_csv(doc_table, 'doc_table.csv', calc_keys=True)
+        write_table_to_csv(xref_table, 'xref_table.csv', calc_keys=True)
     
     if not args.terms:
         terms_table = create_terms_table(concepts)
