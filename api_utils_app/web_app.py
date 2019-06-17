@@ -1,30 +1,18 @@
 import datetime
+import redis
 
 from flask import Flask, jsonify, render_template, request, session, url_for, Response
 from luminoso_api import V5LuminosoClient
 from pack64 import unpack64
 from topic_utilities import copy_topics, del_topics, parse_url
 from term_utilities import get_terms, ignore_terms, merge_terms
-from rd_utilities import search_subsets
-from deduper_utilities import dedupe
+#from deduper_utilities import dedupe
 import numpy as np
-from boilerplate_utilities import BPDetector, boilerplate_create_proj
-from qualtrics_utilities import *
-import redis
 from se_code.conjunctions_disjunctions import get_new_results, get_current_results
-from text_filter import filter_project
-from subset_filter import filter_subsets
-from auto_plutchik import get_all_topics, delete_all_topics, add_plutchik, copy_project
-from compass_utilities import get_all_docs
 from random import randint
 from reddit_utilities import get_reddit_api, get_posts_from_past, get_posts_by_name, get_docs_from_comments, write_to_csv
 from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table
 
-#Storage for live classifier demo
-classifiers = None
-vectorizers = None
-train_client = None
-results = []
 
 #Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
 
@@ -52,10 +40,7 @@ def login():
     session['apps_to_show'] = [
         ('Topic',('Copy Topics',url_for('copy_topics_page')),('Delete Topics',url_for('delete_topics_page'))),
         ('Term',('Merge Terms',url_for('term_merge_page')),('Ignore Terms',url_for('term_ignore_page'))),
-        #('Cleaning',('Deduper',url_for('deduper_page')), ('Boilerplate Cleaner',url_for('boilerplate_page'))),
-        ('Import/Export',('Qualtrics Survey Export',url_for('qualtrics'))),
-        ('R&D Code',('Conjunction/Disjunction',url_for('conj_disj')),('Conceptual Subset Search',url_for('subset_search'))),
-        ('Modify', ('Text Filter', url_for('text_filter_page')), ('Auto Emotions', url_for('plutchik_page')), ('Subset Filter', url_for('subset_filter_page'))),
+        #('Cleaning','Deduper',url_for('deduper_page')), ('Boilerplate Cleaner',url_for('boilerplate_page'))),
         ('Dashboards', ('Tableau Export',url_for('tableau_export_page'))),
         ('Connectors', ('Reddit by Time', url_for('reddit_by_time_page')),
                        ('Reddit by Name', url_for('reddit_by_name_page')))]
@@ -192,109 +177,6 @@ def tableau_export():
     
     return render_template('tableau_export.html', urls=session['apps_to_show'])
 
-@app.route('/plutchik', methods=['POST'])
-def plutchik():
-    url = request.form['url'].strip()
-    client = connect_to_client(url)
-
-    delete = (request.form.get('delete') == 'on')
-    name = request.form['dest_name'].strip()
-    copy = (request.form.get('copy') == 'on')
-    to_acct = request.form['dest_acct'].strip()
-    if to_acct == '':
-        to_acct = from_acct
-    
-    topic_list = get_all_topics(client)
-    if copy:
-        client = copy_project(client, to_acct, name)
-    if delete:
-        delete_all_topics(client, topic_list)
-    add_plutchik(client)
-    return render_template('auto_plutchik.html', urls=session['apps_to_show'])
-    
-
-@app.route('/plutchik_page')
-def plutchik_page():
-    return render_template('auto_plutchik.html', urls=session['apps_to_show'])
-
-@app.route('/subset_search', methods=['GET','POST'])
-def subset_search():
-    
-    global client, subset_list, subset_vecs, field
-    
-    if request.method == 'POST':
-        if 'url' in request.form:
-            url = request.form['url'].strip()
-            field = request.form['field'].strip()
-            client = connect_to_client(url)
-            project = client.get()['name']
-            if field:
-                docs = get_all_docs(client)
-                subset_list = {}
-                for doc in docs:
-                    for metadata in doc['metadata']:
-                        if metadata['name'] == field:
-                            if metadata['value'] in subset_list:
-                                subset_list[metadata['value']]['count'] += 1
-                                subset_list[metadata['value']]['vector'] = np.sum([[float(v) for v in unpack64(doc['vector'])],
-                                                                                   subset_list[metadata['value']]['vector']],
-                                                                                   axis=0)
-                            else:
-                                subset_list[metadata['value']] = {'count': 1,
-                                                                  'vector': [float(v) for v in unpack64(doc['vector'])],
-                                                                  'subset': metadata['value']}
-                            break
-        else:
-            project = client.get()['name']
-            question = request.form['text']
-            query_info, results = search_subsets(client,
-                                                 question,
-                                                 subset_vecs,
-                                                 subset_list,
-                                                 top_reviews=2,
-                                                 field=field)
-            return render_template('subset_search.html',
-                                   urls=session['apps_to_show'],
-                                   query_info=query_info,
-                                   results=results,
-                                   project=project)
-    else:
-        project = ''
-        
-    return render_template('subset_search.html', urls=session['apps_to_show'], project=project)
-
-@app.route('/conj_disj', methods=['POST','GET'])
-def conj_disj():
-    new_results = []
-    current_results = []
-    query_info = ''
-    
-    if request.method == 'POST':
-        url = request.form['url'].strip()
-        client = connect_to_client(url)
-                    
-        new_results = get_new_results(client,
-                                  request.form['search_terms'].split(','),
-                                  request.form['unit'],
-                                  int(request.form['n']),
-                                  request.form['operation'])
-        
-        current_results = get_current_results(client,
-                                  request.form['search_terms'].split(','),
-                                  request.form['unit'],
-                                  int(request.form['n']))
-        
-        connector = ' AND '
-        if request.form['operation'] == 'disjunction':
-            connector = ' OR '
-            
-        query_info = 'Results for {}'.format(connector.join(request.form['search_terms'].split(',')))
-    
-    return render_template('conj_disj.html',
-                           urls=session['apps_to_show'],
-                           results=list(zip(new_results, current_results)),
-                           query_info=query_info)
-
 @app.route('/topic_utils')
 def topic_utils():
     return render_template('topic_utils.html', urls=session['apps_to_show'])
@@ -331,37 +213,6 @@ def topic_utils_delete():
         del_topics(client)
     #NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
     return render_template('delete_topics.html', urls=session['apps_to_show'])
-
-@app.route('/text_filter', methods=['POST'])
-def text_filter():
-    url = request.form['url'].strip()
-    client = connect_to_client(url)
-    text = request.form['remove'].strip()
-    exact = (request.form.get('exact') == 'on')
-    name = request.form['dest_name'].strip()
-    filter_project(client=client, name=name, text=text, exact=exact)
-    return render_template('text_filter.html', urls=session['apps_to_show'])
-    
-
-@app.route('/subset_filter', methods=['POST'])
-def subset_filter():
-    url = request.form['url'].strip()
-    count = int(request.form['min_count'].strip())
-    name = request.form['dest_name'].strip()
-    more = (request.form.get('more') == 'on')
-    subset_name = request.form['subset_name'].strip()
-    only = (request.form.get('only') == 'on')
-    filter_subsets(url=url, proj_name=name, subset_name=subset_name, count=count, 
-                   only=only, more=more)
-    return render_template('subset_filter.html', urls=session['apps_to_show'])
-
-@app.route('/subset_filter_page')
-def subset_filter_page():
-    return render_template('subset_filter.html', urls=session['apps_to_show'])
-    
-@app.route('/text_filter_page')
-def text_filter_page():
-    return render_template('text_filter.html', urls=session['apps_to_show'])
 
 @app.route('/term_utils')
 def term_utils():
@@ -422,38 +273,6 @@ def term_utils_ignore():
 #            recalc=recalc, reconcile_func=reconcile, copy=copy))
 
 # Qualtrics routes
-@app.route('/qualtrics')
-def qualtrics():
-    return render_template('qual_simple.html', urls=session['apps_to_show'])
-
-@app.route('/qualtrics_step1')
-def step1():
-    """From the given token, get name and id of surveys"""
-    token = request.args.get('token', 0, type=str)
-    info = get_name_id(token) #returns a dictionary
-    return jsonify(**info)
-
-@app.route('/qualtrics_step2')
-def step2():
-    """Given sid and token, return the question info"""
-    sid = request.args.get('sid', 0, type=str)
-    token = request.args.get('token', 0, type=str)
-    return jsonify(get_question_descriptions(sid, token))
-
-@app.route('/qualtrics_step3')
-def step3():
-    """Given sid, token, text question ID, subset question IDs,
-       a luminoso account and token, create a proj in Analytics"""
-    sid = request.args.get('sid', 0, type=str)
-    token = request.args.get('token', 0, type=str)
-    text_qs = eval(request.args.get('text_qs', 0, type=str))
-    subset_qs = eval(request.args.get('subset_qs', 0, type=str))
-    title = request.args.get('title', 0, type=str)
-    proj_url = build_analytics_project(sid, token, text_qs, subset_qs,
-                                       user=session['username'],
-                                       passwd=session['password'],
-                                       name=title+" (Imported from Qualtrics)")
-    return jsonify({"url":proj_url})
 
 ###
 # BEGIN Boilerplate code, some of which will be moved to separate file
@@ -519,23 +338,4 @@ def event_stream():
 ###
 
 if __name__ == '__main__':
-    app.run()#, ssl_context='adhoc')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    app.run()
