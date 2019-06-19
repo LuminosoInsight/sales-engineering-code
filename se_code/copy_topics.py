@@ -8,11 +8,12 @@ def get_topics(client):
 
 def delete_topics(client):
     topics = client.get('concepts/saved')
-    ids_to_delete = []
-    for t in topics:
-        ids_to_delete.append(t['saved_concept_id'])
-    client.delete('concepts/saved', saved_concept_ids=ids_to_delete)
-    print('Old topics deleted')
+    if len(topics)>0:
+        ids_to_delete = []
+        for t in topics:
+            ids_to_delete.append(t['saved_concept_id'])
+        client.delete('concepts/saved', saved_concept_ids=ids_to_delete)
+        print('Old topics deleted')
         
 def copy_topics(client, topics):
     concepts = []
