@@ -11,8 +11,11 @@ def delete_topics(client):
     ids_to_delete = []
     for t in topics:
         ids_to_delete.append(t['saved_concept_id'])
-    client.delete('concepts/saved', saved_concept_ids=ids_to_delete)
-    print('Old topics deleted')
+    if len(ids_to_delete) > 0:
+        client.delete('concepts/saved', saved_concept_ids=ids_to_delete)
+        print('Old topics deleted')
+    else:
+        print('No Old topics to Delete')
         
 def copy_topics(client, topics):
     concepts = []
@@ -41,6 +44,8 @@ def main():
         from_client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (from_root, from_proj))
     if args.token2:
         to_client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (to_root, to_proj), token=args.token2)
+    elif args.token1 and not args.token2:
+        to_client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (to_root, to_proj), token=args.token1)
     else:
         to_client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (to_root, to_proj))
         
