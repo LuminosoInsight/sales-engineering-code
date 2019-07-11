@@ -9,41 +9,40 @@ sentiment score assigned to them by SentimentScorer, taking into account that se
 the term's relevance. Use a sentiment axis created in this way to query the project for similar
 terms. Sort the terms using their new sentiment score (how well they match the sentiment axis)
 and their relevance. Return the number of top domain-specific terms equal to n_results.
-
-This code does not depend on lumi_science, but instead uses copies of SentimentScorer and
-ClusterTree.
 """
 import click
-import numpy as np
-from luminoso_api import V5LuminosoClient as LuminosoClient
+from lumi_science.sentiment import SentimentScorer
+from lumi_science.tree_clustering import ClusterTree
+from luminoso_api import LuminosoClient
 from pack64 import unpack64, pack64
 from scipy.stats import hmean
-from sentiment import SentimentScorer
-from tree_clustering import ClusterTree
-import numpy as np
 
 
 class SentimentTopics:
-    def __init__(self, client, n_terms, n_results):
-        self.client = client
-        self.project_terms = self._get_project_terms(n_terms)
+    def __init__(self, account_id, project_id, language, n_terms):
+        self.client = self._connect(account_id, project_id)
+        self.project_terms = self._get_project_terms(n_terms, language)
         self.axes = {}
         self.domain_sentiment_terms = {}
-        self.n_results = n_results
 
-    def _get_project_terms(self, n_terms):
+    @staticmethod
+    def _connect(account_id, project_id):
+        client = LuminosoClient.connect(
+            'https://analytics.luminoso.com/api/v4/projects/{}/{}'.format(account_id, project_id))
+        return client
+
+    def _get_project_terms(self, n_terms, language):
         """
         Get the top n terms in the project. Assign a sentiment score (orig-sentiment-score) to each
         term according to the sentiment scorer. Unpack each term's vector and overwrite its
         'vector' field.
         """
-        language = self.client.get()['language']
         sentiment_scorer = SentimentScorer(language)
-        terms = self.client.get('concepts', concept_selector={'type': 'top', 'limit':n_terms})['result']
+        terms = self.client.get('terms', limit=n_terms)
         terms = [term for term in terms if term['vector']]
         for term in terms:
             term['vector'] = unpack64(term['vector'])
-            term['orig-sentiment-score'] = sentiment_scorer.term_sentiment(term['exact_term_ids'][0])
+            term['orig-sentiment-score'] = sentiment_scorer.term_sentiment(term['term'])
         return terms
 
     def _get_known_sentiment_terms(self, sentiment):
@@ -61,7 +60,7 @@ class SentimentTopics:
     def _get_sent_axis(self, sentiment):
         """
         Return the sentiment axis for a specified sentiment. The sentiment axis is computed using
-        the terms in the project that have a sentiment score assigned to them by SentimentScorer
+        the terms in the project that have a sentiment scored assigned to them by SentimentScorer
         (orig-sentiment-score). Their vectors are averaged, weighted by the orig-sentiment-score
         as well as the relevance to the project (score).
         """
@@ -69,66 +68,61 @@ class SentimentTopics:
             return self.axes[sentiment]
 
         sent_terms = self._get_known_sentiment_terms(sentiment)
-        axis = np.zeros(len(sent_terms[0]['vector']))
+        axis = sent_terms[0]['vector'] * 0
         axis_sum = sum(abs(term['orig-sentiment-score']) for term in sent_terms)
         for term in sent_terms:
-<<<<<<< HEAD
-            axis += term['vector'] * abs(term['orig-sentiment-score']) * term['relevance'] / axis_sum
-=======
-            axis += np.asarray(term['vector']) * abs(term['orig-sentiment-score']) * term['score'] / axis_sum
->>>>>>> merge-v5-into-master
+            axis += term['vector'] * abs(term['orig-sentiment-score']) * term['score'] / axis_sum
         axis /= (axis.dot(axis)) ** 0.5
-
         self.axes[sentiment] = axis
         return self.axes[sentiment]
 
-    def get_domain_sentiment_terms(self, sentiment):
+    def get_domain_sentiment_terms(self, sentiment, n_results):
         """
         Get the terms in the project that best match the sentiment axis. Each term's new
         sentiment score (as opposed to the original sentiment score, which is assigned by
         SentimentScorer) is the matching strength returned by the search terms endpoint.
         """
-        if sentiment in self.domain_sentiment_terms:
-            return self.domain_sentiment_terms[sentiment]
+        if (sentiment, n_results) in self.domain_sentiment_terms:
+            return self.domain_sentiment_terms[(sentiment, n_results)]
 
         axis = self._get_sent_axis(sentiment)
-        concepts = self.client.get('concepts', concept_selector={'type': 'top', 
-                                             'limit': self.n_results * 5 if self.n_results > 200 else 1000})['result']
-        terms = sorted([(c, np.dot(unpack64(c['vector']), axis)) for c in concepts], 
-                       key=lambda c: c[1], reverse=True)
-
+        terms = self.client.get(
+            'terms/search', vector=pack64(axis),
+            limit=n_results if n_results > 100 else 100)['search_results']
 
         sentiment_terms = []
-        for term, matching_strength in terms[:self.n_results]:
+        for term, matching_strength in terms:
             term['new-sentiment-score'] = matching_strength
-            term['vector'] = [float(v) for v in unpack64(term['vector'])]
-            term['sentiment-label'] = sentiment
+            term['vector'] = unpack64(term['vector'])
             sentiment_terms.append(term)
 
-        self.domain_sentiment_terms[sentiment] = sentiment_terms
-        return self.domain_sentiment_terms[sentiment]
+        self.domain_sentiment_terms[(sentiment, n_results)] = sentiment_terms
+        return self.domain_sentiment_terms[(sentiment, n_results)]
 
-    def sorted_sentiment_terms(self, sentiment):
+    def sorted_sentiment_terms(self, sentiment, n_results):
         """
         Get the project terms that best match the specified sentiment axis. Normalize their
         sentiment and relevance scores. Return the list of top n_results domain-specific terms,
         sorted by the harmonic mean of their sentiment and relevance scores.
         """
-        sentiment_terms = self.get_domain_sentiment_terms(sentiment)
+        sentiment_terms = self.get_domain_sentiment_terms(sentiment, n_results)
         self._normalize_scores(sentiment_terms)
-        return sorted(sentiment_terms, key=self._harmonic_mean, reverse=True)[:self.n_results]
+        return sorted(sentiment_terms, key=self._harmonic_mean, reverse=True)[:n_results]
 
     def _normalize_scores(self, terms):
         """
         Normalize sentiment score (new-sentiment-score) and relevance score (score) of each term
         to a value between 0 and 1.
         """
-        all_sentiment_scores = [term['new-sentiment-score'] for term in terms]
-        all_relevance_scores = [term['relevance'] for term in terms]
+        all_sentiment_scores = []
+        all_relevance_scores = []
+        for term in terms:
+            all_sentiment_scores.append(term['new-sentiment-score'])
+            all_relevance_scores.append(term['score'])
         for term in terms:
             term['norm-new-sent-score'] = self._normalize_score(term['new-sentiment-score'],
                                                                 all_sentiment_scores)
-            term['norm-relevance-score'] = self._normalize_score(term['relevance'], all_relevance_scores)
+            term['norm-relevance-score'] = self._normalize_score(term['score'], all_relevance_scores)
 
     @staticmethod
     def _normalize_score(score, all_scores):
@@ -153,9 +147,10 @@ class SentimentTopics:
         """
         Get 200 positive terms and 200 negative terms, and cluster them.
         """
-        pos_terms = self.get_domain_sentiment_terms('pos')[:200]
-        neg_terms = self.get_domain_sentiment_terms('neg')[:200]
-        tree = ClusterTree.from_term_list(pos_terms + neg_terms)
+        pos_terms = self.get_domain_sentiment_terms('pos', 200)
+        neg_terms = self.get_domain_sentiment_terms('neg', 200)
+        sent_terms = pos_terms + neg_terms
+        tree = ClusterTree.from_term_list(sent_terms)
         return tree
 
 
@@ -165,9 +160,9 @@ def print_clusters(tree, n_clusters=7):
     """
     for subtree in tree.flat_cluster_list(n_clusters):
         subtree_terms = [term for term in subtree.filtered_termlist[:3]]
-        print(subtree.term['name'])
+        print(subtree.term['text'])
         for term in subtree_terms:
-            print('{} '.format(term['name']))
+            print('{} '.format(term['text']))
         print()
 
 
@@ -176,19 +171,18 @@ def print_sentiment_terms(terms, verbose=False):
     Print the top sentiment terms. If verbose=True, also print the sentiment score and the
     relevance score.
     """
-    if verbose:
-        print('Term\tSentiment score\tRelevance score')
     for term in terms:
-        output = '{}'.format(term['name'])
+        output = '{}'.format(term['text'])
         if verbose:
             output += '\t{}\t{}'.format(term['norm-new-sent-score'], term['norm-relevance-score'])
         print(output)
 
 
 @click.command()
+@click.argument('account_id')
 @click.argument('project_id')
-@click.option('--api', default='https://analytics.luminoso.com/api/v5/projects')
 @click.option('--sentiment', default='pos', help='pos, neg')
+@click.option('--language', '-l', default='en')
 @click.option('--terms', is_flag=True, help='Use to get a list of sentiment terms')
 @click.option('--clusters', is_flag=True, help='Cluster only the sentiment terms')
 @click.option('--n-terms', default=500, help='Number of project terms among which to find terms '
@@ -197,17 +191,14 @@ def print_sentiment_terms(terms, verbose=False):
 @click.option('--n-results', default=30, help='Number of results to show')
 @click.option('--n-clusters', default=7, help='Show clusters')
 @click.option('--verbose', '-v', is_flag=True, help='Show details about the results')
-@click.option('--token', '-t', default=None, help="Token for Daylight")
-def main(project_id, api, sentiment, terms, clusters, n_terms, n_results, n_clusters,
-         verbose, token):
-    if not token:
-        client = LuminosoClient.connect('{}/{}'.format(api, project_id))
-    else:
-        client = LuminosoClient.connect('{}/{}'.format(api, project_id), token=token)
-    sentiment_topics = SentimentTopics(client, n_terms, n_results)
+def main(account_id, project_id, sentiment, language, terms, clusters, n_terms, n_results,
+         n_clusters, verbose):
+
+    sentiment_topics = SentimentTopics(account_id, project_id, language, n_terms)
 
     if terms:
-        print_sentiment_terms(sentiment_topics.sorted_sentiment_terms(sentiment), verbose=verbose)
+        print_sentiment_terms(sentiment_topics.sorted_sentiment_terms(sentiment, n_results),
+                              verbose=verbose)
 
     if clusters:
         print_clusters(sentiment_topics.cluster_sentiment_terms(), n_clusters)

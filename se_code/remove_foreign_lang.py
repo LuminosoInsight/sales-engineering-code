@@ -1,6 +1,9 @@
 from luminoso_api import V5LuminosoClient as LuminosoClient
 import argparse, json
-import pycld2 as cld2
+try:
+    import pycld2 as cld2
+except:
+    import cld2
 
 def batch(iterable, n=1):
     l = len(iterable)
@@ -32,7 +35,7 @@ def remove_foreign_lang(client,lang_code,threshold=.4):
     
     for doc in docs:
         try:
-            isReliable, textBytesFound, details = cld2.detect(doc['text'])
+            isReliable, textBytesFound, details = cld2.detect(doc['text'].encode('utf-8'))
         except ValueError:
             bad_doc_ids.append(doc['doc_id'])
             continue
@@ -47,12 +50,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('project_url', help="The URL of the project to analyze")
     parser.add_argument('lang_code', default='en', help="The 2 character language code to retain ex. en, fr")
-    parser.add_argument('-t', '--threshold', default=.4, type=float, help="Minimum threahold for desired language (ex .95 for 95%%)")
+    parser.add_argument('-t', '--threshold', default=.4, type=float, help="Minimum threshold for desired language (ex .95 for 95%%)")
     args = parser.parse_args()
     
     api_url = args.project_url.split('/app')[0]
     project_id = args.project_url.strip('/ ').split('/')[-1]
-        
     client = LuminosoClient.connect(url='{}/api/v5/projects/{}/'.format(api_url, project_id))
     remove_foreign_lang(client,args.lang_code,args.threshold)
     

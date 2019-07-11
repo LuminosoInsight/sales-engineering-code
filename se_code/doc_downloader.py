@@ -5,6 +5,7 @@ DATE_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 
 def get_all_docs(client):
     docs = []
+<<<<<<< HEAD
     while True:
         new_docs = client.get('docs', limit=25000, offset=len(docs))
         if new_docs['result']:
@@ -43,8 +44,8 @@ def format_subsets(docs, fields, date_format):
     field_names.extend(list(set(subsets)))
     return docs, field_names
     
-def write_to_csv(filename, docs, field_names):
-    with open(filename, 'w') as f:
+def write_to_csv(filename, docs, field_names, encoding='utf-8'):
+    with open(filename, 'w', encoding=encoding) as f:
         writer = csv.DictWriter(f, field_names)
         writer.writeheader()
         writer.writerows(docs)
@@ -57,6 +58,7 @@ def main():
     parser.add_argument('project_url', help="The URL of the project to analyze")
     parser.add_argument('filename', help="Name of CSV file to write project documents to")
     parser.add_argument('-t', '--token', default=None, help="Daylight token")
+    parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding type of the file to write to")
     args = parser.parse_args()
     
     api_url = args.project_url.split('/app')[0]
@@ -70,7 +72,7 @@ def main():
     docs = get_all_docs(client)
     fields = get_fields(docs)
     docs, field_names = format_subsets(docs, fields, date_format)
-    write_to_csv(args.filename, docs, field_names)
+    write_to_csv(args.filename, docs, field_names, encoding=args.encoding)
     
     
 if __name__ == '__main__':

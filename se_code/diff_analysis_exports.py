@@ -14,8 +14,8 @@ def format_write_table(match_counts):
                     'Total Match Percent of All Documents': '%.2f%%' % (c['match_count'] / total_count * 100)} for i, c in enumerate(match_counts['match_counts'])]
     return write_table
 
-def write_to_csv(write_table, filename, fields):
-    with open(filename, 'w') as f:
+def write_to_csv(write_table, filename, fields, encoding="utf-8"):
+    with open(filename, 'w', newline='', encoding=encoding) as f:
         writer = csv.DictWriter(f, fields)
         writer.writeheader()
         writer.writerows(write_table)
@@ -32,6 +32,7 @@ def main():
     parser.add_argument('-l', '--limit', type=int, default=500, help="number of concepts to download from projects.")
     parser.add_argument('-f1', '--filename_1', default='baseline_term_counts_export.csv', help="Name of file to write first project's output to.")
     parser.add_argument('-f2', '--filename_2', default='new_data_term_counts_export.csv', help="Name of file to write second project's output to.")
+    parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding type of file to write to")
     args = parser.parse_args()
     
     if args.filename_1.split('.')[-1] != 'csv' or args.filename_2.split('.')[-1] != 'csv':
@@ -58,8 +59,8 @@ def main():
     write_table_1 = format_write_table(match_counts_1)
     write_table_2 = format_write_table(match_counts_2)
 
-    write_to_csv(write_table_1, args.filename_1, FIELDS)
-    write_to_csv(write_table_2, args.filename_2, FIELDS)
+    write_to_csv(write_table_1, args.filename_1, FIELDS, encoding=args.encoding)
+    write_to_csv(write_table_2, args.filename_2, FIELDS, encoding=args.encoding)
 
 if __name__ == '__main__':
     main()

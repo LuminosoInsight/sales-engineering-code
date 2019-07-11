@@ -224,7 +224,7 @@ def doc_search(client, intent_list, all_terms):
     return docs
 
 
-def save_doc_search_results(docs, intent_list, threshold=.5):
+def save_doc_search_results(docs, intent_list, threshold=.5, encoding="utf-8"):
 
     '''Save document search results to a file'''
 
@@ -232,7 +232,7 @@ def save_doc_search_results(docs, intent_list, threshold=.5):
     intents = []
     auto_intents = []
 
-    with open('results.csv', 'w') as file:
+    with open('results.csv', 'w', newline='', encoding=encoding) as file:
         writer = csv.writer(file)
         headers = ['_id', 'text', 'intent', 'score', 'metadata']
         headers.extend(labels)
@@ -289,7 +289,7 @@ def main(args):
     doc_search_results = doc_search(client, intent_list, term_list)
 
     print('Saving results to "results.csv"...')
-    save_doc_search_results(doc_search_results, intent_list, threshold=.5)
+    save_doc_search_results(doc_search_results, intent_list, threshold=.5, encoding=args.encoding)
 
 
 if __name__ == '__main__':
@@ -323,5 +323,8 @@ if __name__ == '__main__':
         '-g', '--generic', default=False, action='store_true',
         help='Flag to include "generic" intents (single term intents)'
         )
+    parser.add_argument(
+        '-e', '--encoding', default="utf-8", help="Encoding type of the file to write to"
+    )
     args = parser.parse_args()
     main(args)

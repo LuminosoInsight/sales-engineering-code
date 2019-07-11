@@ -9,6 +9,7 @@ def main():
     parser.add_argument('project_url', help="Full URL of the project to load the topics into.")
     parser.add_argument('-d', '--delete', default=False, action="store_true", help="Whether to delete existing topics or not.")
     parser.add_argument('-t', '--token', default=None, help="If Daylight token has not been saved to your machine, enter it here.")
+    parser.add_argument('-e', '--encoding', default="utf-8", help="Encoding type of the files to read from")
     args = parser.parse_args()
     
     root_url = args.project_url.split('/app')[0]
@@ -23,7 +24,7 @@ def main():
     true_data = []
     while not correct:
         if '.csv' in filename:
-            with open(filename) as f:
+            with open(filename, encoding=args.encoding) as f:
                 reader = csv.DictReader(f)
                 data = [row for row in reader]
             for d in data:
@@ -41,7 +42,7 @@ def main():
                 true_data.append(row)
             correct = True
         elif '.json' in filename:
-            data = json.load(open(filename))
+            data = json.load(open(filename, encoding=args.encoding))
             for d in data:
                 if 'text' or 'texts' not in [k.lower() for k in list(d.keys())]:
                     print('ERROR: File must contain a "text" field.')

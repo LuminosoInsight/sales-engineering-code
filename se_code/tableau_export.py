@@ -12,15 +12,17 @@ import sys
 import datetime
 import argparse
 import numpy as np
+import concurrent.futures
+import threading
 
 
 def parse_url(url):
     api_root = url.strip('/ ').split('/app')[0] + '/api/v5'
     project_id = url.strip('/ ').split('/')[-1]
     return api_root, project_id
-
-        
+   
 def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day', themes=7, theme_terms=4, token=None):
+
     '''
     Extract relevant data from Luminoso project
     :param project: Luminoso project id
@@ -256,9 +258,9 @@ def create_themes_table(client, suggested_topics):
             count += m['exact_match_count']
         row['docs'] = count
         themes.append(row)
-    return themes
-                    
+    return themes      
 """
+
 def create_trends_table(terms, docs):
     '''
     Creates tabulation of terms and their association per document in order to compute trends over time
@@ -426,10 +428,9 @@ def main():
     if not args.doc_subset:
         doc_subset_table = create_doc_subset_table(docs, metadata_map)
         write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
-
     if not args.skt_table:
         skt_table = create_skt_table(client, skt)
-        write_table_to_csv(skt_table, 'skt_table.csv')
+        write_table_to_csv(skt_table, 'skt_table.csv', encoding=args.encoding)
     
     if not args.drive:
         driver_table = create_drivers_table(client, driver_fields, args.topic_drive)

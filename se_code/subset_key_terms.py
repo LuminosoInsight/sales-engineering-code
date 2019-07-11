@@ -3,6 +3,7 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 import numpy as np
 from scipy.stats import fisher_exact
 import argparse, csv, sys, getpass, json
+import concurrent.futures
 
 
 def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10, scan_terms=1000):
@@ -28,63 +29,57 @@ def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10, sc
     """
     pvalue_cutoff = 1 / scan_terms / 20
     results = []
-    index = 0
-    all_term_dict = {}
-    for name in sorted(subset_counts):
-        for subset in sorted(subset_counts[name]):
-            index += 1
-            subset_terms = client.get('concepts/match_counts', 
-                                      filter=[{'name':name,'values':[subset]}], 
-                                      concept_selector={"type": "top",
-                                                        "limit": scan_terms})['match_counts']
-            length = 0
-            termlist = []
-            all_terms = []
-            for term in subset_terms:
-                if term['exact_term_ids'][0] not in all_term_dict:
-                    if length + len(term['exact_term_ids'][0]) > 1000:
-                        all_terms.extend(client.get('terms', term_ids=termlist))
-                        #concepts = [{"texts": [t]} for t in termlist]
-                        #all_terms.extend(client.get('concepts/match_counts',
-                        #                            concept_selector={"type": "specified",
-                        #                                              "concepts": concepts})['match_counts'])
-                        termlist = []
-                        length = 0
-                    termlist.append(term['exact_term_ids'][0])
-                    length += len(term['exact_term_ids'][0])
-            if len(termlist) > 0:
-                all_terms.extend(client.get('terms', term_ids=termlist))
-                #concepts = [{"texts": [t]} for t in termlist]
-                #all_terms.extend(client.get('concepts/match_counts',
-                #                            concept_selector={"type": "specified",
-                #                                              "concepts": concepts})['match_counts'])
-            all_term_dict.update({term['term_id']: term['total_doc_count'] for term in all_terms})
-            subset_scores = []
-            for term in subset_terms:
-                term_in_subset = term['exact_match_count']
-                term_outside_subset = all_term_dict[term['exact_term_ids'][0]] - term_in_subset + 1
-                docs_in_subset = subset_counts[name][subset]
-                docs_outside_subset = total_count - docs_in_subset + 1
-                if term_in_subset < 0 or term_outside_subset < 0 or docs_in_subset < 0 or docs_outside_subset < 0:
-                    print('subset: "%s: %s"' % (name, subset))
-                    print('term: %s' % term)
-                    print('term in subset: %d' % term_in_subset)
-                    print('term outside subset: %d' % term_outside_subset)
-                    print('docs in subset: %d' % docs_in_subset)
-                    print('docs outside subset: %d' % docs_outside_subset)
-                table = np.array([
-                    [term_in_subset, term_outside_subset],
-                    [docs_in_subset, docs_outside_subset]
-                ])
-                odds_ratio, pvalue = fisher_exact(table, alternative='greater')
-                if pvalue < pvalue_cutoff:
-                    subset_scores.append((name, subset, term, odds_ratio, pvalue))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
 
-            if len(subset_scores) > 0:
-                subset_scores.sort(key=lambda x: ('%s: %s' % (x[0], x[1]), -x[3]))
+        futures = {executor.submit(skt, client, subset, scan_terms, subset_counts, pvalue_cutoff, all_term_dict): name for sorted(subset_counts) for subset in sorted(subset_counts[name])}
+        for future in concurrent.futures.as_completed(futures):
+            subset_scores = future.result()
+
             results.extend(subset_scores[:terms_per_subset])
 
     return results
+
+
+def skt(client, subset, scan_terms, subset_counts, pvalue_cutoff, all_term_dict):
+    subset_terms = client.get('concepts/match_counts', 
+                                      filter=[{'name':name,'values':[subset]}], 
+                                      concept_selector={"type": "top",
+                                                        "limit": scan_terms,
+                                                        "include_extra_concept_details": True})['match_counts']
+    length = 0
+    termlist = []
+    all_terms = []
+    for term in subset_terms:
+        if term['exact_term_ids'][0] not in all_term_dict:
+                    if length + len(term['exact_term_ids'][0]) > 1000:
+                        all_terms.extend(client.get('terms', term_ids=termlist))
+            termlist = []
+            length = 0
+        termlist.append(term['exact_term_ids'][0])
+        length += len(term['exact_term_ids'][0])
+    if len(termlist) > 0:
+        all_terms.extend(client.get('terms', term_ids=termlist))
+    for term in all_terms:
+        all_term_dict.update({term['term_id']: term['distinct_doc_count']})
+
+    subset_scores = []
+    for term in subset_terms:
+        term_in_subset = term['distinct_doc_count']
+        term_outside_subset = all_term_dict[term['exact_term_ids'][0]] - term_in_subset + 1
+        docs_in_subset = subset_counts[name][subset]
+        docs_outside_subset = total_count - docs_in_subset + 1
+        table = np.array([
+            [term_in_subset, term_outside_subset],
+            [docs_in_subset, docs_outside_subset]
+        ])
+        odds_ratio, pvalue = fisher_exact(table, alternative='greater')
+        if pvalue < pvalue_cutoff:
+            subset_scores.append((name, subset, term, odds_ratio, pvalue))
+
+    if len(subset_scores) > 0:
+        subset_scores.sort(key=lambda x: ('%s: %s' % (x[0], x[1]), -x[3]))
+
+    return subset_scores
 
 def create_skt_table(client, skt):
     '''
@@ -125,7 +120,7 @@ def create_skt_table(client, skt):
                           'total_matches': t['match_count']})
     return skt_table
 
-def write_table_to_csv(table, filename):
+def write_table_to_csv(table, filename, encoding='utf-8'):
     '''
     Function for writing lists of dictionaries to a CSV file
     :param table: List of dictionaries to be written
@@ -137,7 +132,7 @@ def write_table_to_csv(table, filename):
     if len(table) == 0:
         print('Warning: No data to write to {}.'.format(filename))
         return
-    with open(filename, 'w') as file:
+    with open(filename, 'w', newline='', encoding=encoding) as file:
         writer = csv.DictWriter(file, fieldnames=table[0].keys())
         writer.writeheader()
         writer.writerows(table)
@@ -159,6 +154,7 @@ def main():
     parser.add_argument('project_url', help="The complete URL of the Analytics project")
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset, default 20")
     parser.add_argument('-t', '--token', default=None, help="Authentication token for Daylight")
+    parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding type of the file to write to")
     args = parser.parse_args()
     
     project_url = args.project_url.strip('/')
@@ -182,7 +178,7 @@ def main():
     print('Retrieving Subset Key Terms...')
     skt = subset_key_terms(client, subset_counts, total_count, terms_per_subset=int(args.skt_limit))
     table = create_skt_table(client, skt)
-    write_table_to_csv(table, 'skt_table.csv')
+    write_table_to_csv(table, 'skt_table.csv', encoding=args.encoding)
     
 if __name__ == '__main__':
     main()

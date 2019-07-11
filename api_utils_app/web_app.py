@@ -105,7 +105,6 @@ def reddit_by_name():
     write_to_csv('%s docs.csv' % subreddit_name, docs, fields)
     return render_template('reddit_by_name.html', 
                            urls=session['apps_to_show'])
-    
 @app.route('/tableau_export_page', methods=['GET'])
 def tableau_export_page():
     return render_template('tableau_export.html', urls=session['apps_to_show'])

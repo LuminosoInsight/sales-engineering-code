@@ -11,6 +11,7 @@ from collections import defaultdict
 
 import click
 import numpy as np
+import concurrent.futures
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
 
@@ -61,30 +62,38 @@ def get_new_results(client, search_terms, unit, n, operation):
     """
     scores = defaultdict(lambda: len(search_terms) * [0])
     display_texts = {}
+    if unit == 'docs': 
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(search_docs, client, unit, term, i)
+                       for i, term in enumerate(search_terms)]
 
-    # Get matching scores for top term, document pairs
-    for i, term in enumerate(search_terms):
-        if unit == 'docs':
-            search_results = client.get(unit, search={'texts':search_terms}, limit=10000)['result']
-        else:
-            search_results = search_results = client.get('concepts', concept_selector={'type':'related', 
-                                                                 'search_concept':{'texts':search_terms},
-                                                                 'limit':10000})['result']
-            
-        for result in search_results:
-            if unit == 'docs':
-                _id = result['doc_id']
-                display_texts[_id] = result['text']
-            else:
-                _id = result['texts'][0]
-                display_texts[_id] = _id
+            for future in concurrent.futures.as_completed(futures):
+                (i, search_results) = future.result()
                 
-            matching_strength = result['match_score']
+                for result in search_results:
+                    _id = result['doc_id']
+                    display_texts[_id] = result['text']
+                    matching_strength = result['match_score']
+                    if i >= len(search_terms):
+                        scores[_id][i] = fuzzy_not(normalize_score(matching_strength, unit))
+                    else:
+                        scores[_id][i] = normalize_score(matching_strength, unit)
+    else:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(search_concepts, client, term, i)
+                       for i, term in enumerate(search_terms)]
 
-            if i >= len(search_terms):
-                scores[_id][i] = fuzzy_not(normalize_score(matching_strength, unit))
-            else:
-                scores[_id][i] = normalize_score(matching_strength, unit)
+            for future in concurrent.futures.as_completed(futures):
+                (i, search_results) = future.result()
+                
+                for result in search_results:
+                    _id = result['doc_id']
+                    display_texts[_id] = result['text']
+                    matching_strength = result['match_score']
+                    if i >= len(search_terms):
+                        scores[_id][i] = fuzzy_not(normalize_score(matching_strength, unit))
+                    else:
+                        scores[_id][i] = normalize_score(matching_strength, unit)
 
     # Compute combined scores
     final_scores = []
@@ -103,6 +112,16 @@ def get_new_results(client, search_terms, unit, n, operation):
                         'score': score})
 
     return results
+
+
+def search_docs(client, unit, term, i):
+    return i, client.get(unit, search={'texts':[term]}, limit=10000)['result']
+    #return i, client.get(unit + '/search', text=term, limit=10000)['search_results']
+    
+def search_concepts(client, term, i):
+    return i, client.get('concepts', concept_selector={'type': 'related',
+                                                       'search_concept': {'texts':[term]},
+                                                       'limit':10000})['result']
 
 
 def compute_score(doc_scores, operation, search_terms, neg_terms):
