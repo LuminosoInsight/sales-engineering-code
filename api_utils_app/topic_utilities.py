@@ -1,33 +1,30 @@
-from luminoso_api import LuminosoClient
+from luminoso_api import V5LuminosoClient as LuminosoClient
 import re
 
-def del_topics(cli, acct_id, proj_id):
+def del_topics(cli):
     """ Delete all topics in a project """
-    cli = cli.change_path(acct_id+'/'+proj_id)
-    topics = cli.get('/topics')
-    topic_ids = [t['_id'] for t in topics]
-    for tid in topic_ids:
-        cli.delete('/topics/id/' + tid)
+    topics = cli.get('concepts/saved')
+    topic_ids = [t['saved_concept_id'] for t in topics]
+    cli.delete('concepts/saved', saved_concept_ids=topic_ids)
 
 def __post_topic(cli, topic):
     """ Post a topic to a project """
-    del topic['vector']
-    del topic['_id']
-    cli.post('/topics', **topic)
+    if 'exact_term_ids' in topic:
+        del topic['exact_term_ids']
+    if 'vector' in topic:
+        del topic['vector']
+    del topic['saved_concept_id']
+    cli.post('/concepts/saved/', concepts=[topic])
 
-def copy_topics(cli, from_acct, from_proj, to_acct, to_proj):
+def copy_topics(cli, from_proj, to_proj):
     """ Copy all topics from a project to another project """
-    src_proj = cli.change_path(from_acct + '/' + from_proj)
-    dest_proj = cli.change_path(to_acct + '/' + to_proj)        
-    src_topics = src_proj.get('/topics') #get topics from source project
+    src_proj = cli.client_for_path(from_proj)
+    dest_proj = cli.client_for_path(to_proj)
+    src_topics = src_proj.get('/concepts/saved') #get topics from source project
     for topic in reversed(src_topics): 
         __post_topic(dest_proj, topic)
 
 def parse_url(url):
-    api_url = url.partition('.com')[0] + '.com/api/v4/'
-    if '?account=' in url: #old url format
-        acct = re.search("\?account=(.*)&", url).group(1)
-        proj = re.search("&projectId=(.*)", url).group(1)
-    else:
-        acct, proj = url.split('app/projects/')[1].split('/')
-    return (api_url, acct, proj)
+    api_url = url.partition('.com')[0] + '.com/api/v5/'
+    proj = url.split('app/projects/')[1].strip('/ ').split('/')[-1]
+    return (api_url, proj)

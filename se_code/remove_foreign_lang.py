@@ -1,6 +1,5 @@
-from luminoso_api import LuminosoClient
+from luminoso_api import V5LuminosoClient as LuminosoClient
 import argparse, json
-
 try:
     import pycld2 as cld2
 except:
@@ -16,19 +15,19 @@ def delete_docs(client, ids):
     offset = 0
     bad_batch = batch(ids,600)
     for bad_ids in bad_batch:
-        client.delete('docs',ids=bad_ids)
+        client.post('docs/delete',doc_ids=bad_ids)
         
 def get_all_docs(client, batch_size=20000):
     docs = []
     offset = 0
     while True:
         newdocs = client.get('docs', offset=offset, limit=batch_size)
-        if not newdocs:
+        if not newdocs['result']:
             return docs
-        docs.extend(newdocs)
+        docs.extend(newdocs['result'])
         offset += batch_size
         
-def remove_foreign_lang(client,lang_code,threshold=0):
+def remove_foreign_lang(client,lang_code,threshold=.4):
     
     docs = get_all_docs(client)
     
@@ -38,36 +37,26 @@ def remove_foreign_lang(client,lang_code,threshold=0):
         try:
             isReliable, textBytesFound, details = cld2.detect(doc['text'].encode('utf-8'))
         except ValueError:
-            bad_doc_ids.append(doc['_id'])
+            bad_doc_ids.append(doc['doc_id'])
             continue
-        if not details[0][1] == lang_code and isReliable or details[0][2] < threshold:
-                bad_doc_ids.append(doc['_id'])
+        if (details[0][1] != lang_code) or (details[0][1] == lang_code and (not isReliable or (details[0][2] - details[1][2] <= (threshold * 100)))):
+                bad_doc_ids.append(doc['doc_id'])
     delete_docs(client,bad_doc_ids)
-    client.post('docs/recalculate', language=lang_code)
+    client.post('build')
+    client.wait_for_build()
     print('{} documents not identified as "{}" removed from project.'.format(len(bad_doc_ids),lang_code))
     
-def main(args):
-    root_url = args.project_url.split('/app')[0] + '/api/v4'
-    account_id = args.project_url.split('/')[-2]
-    project_id = args.project_url.split('/')[-1]
-    if not args.lang_code or args.lang_code not in [b for a,b in cld2.LANGUAGES]:
-        args.lang_code = input('Enter the 2 letter language code to be retained: ')
-        
-    client = LuminosoClient.connect(url=root_url,username=args.username)
-    client = client.change_path('/projects/{}/{}/'.format(account_id,project_id))
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('project_url', help="The URL of the project to analyze")
+    parser.add_argument('lang_code', default='en', help="The 2 character language code to retain ex. en, fr")
+    parser.add_argument('-t', '--threshold', default=.4, type=float, help="Minimum threshold for desired language (ex .95 for 95%%)")
+    args = parser.parse_args()
+    
+    api_url = args.project_url.split('/app')[0]
+    project_id = args.project_url.strip('/ ').split('/')[-1]
+    client = LuminosoClient.connect(url='{}/api/v5/projects/{}/'.format(api_url, project_id))
     remove_foreign_lang(client,args.lang_code,args.threshold)
     
 if __name__ == '__main__':
-    print("Remove Foreign Language Tool:"
-          "\nRemoves documents from a project if they cannot be positively identified as the target language.")
-    print("\nScript can be run with arguments or interactively. Run with -h to see help.\n")   
-    print("\nBy default this script retains only documents in English ('en')")
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('project_url', help="The URL of the Daylight project to remove foreign language from")
-    parser.add_argument('-l','--lang_code', help="The 2 character language code to retain ex. en, fr", default='en')
-    parser.add_argument('-t','--threshold', help="Add a minimum threshold for the desired language (ex. 95 for 95%%)",
-                        default=0,type=int)
-    parser.add_argument('-username','--username', help="Luminoso username")
-    args = parser.parse_args()
-    main(args)
+    main()
