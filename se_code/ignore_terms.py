@@ -23,7 +23,7 @@ def read_csv_file(filename):
 def ignore_multiple_terms(texts, client):
     concepts = [{'texts': [t]} for t in texts]
     concept = client.get('concepts', concept_selector={'type':'specified','concepts':concepts})['result']
-    ignore_terms = [c['exact_term_ids'][0] for c in concept]
+    ignore_terms = [c['exact_term_ids'][0] for c in concept if len(c['exact_term_ids']) > 0]
     terms = {t:{'action':'ignore'} for t in ignore_terms}
     client.put('terms/manage', term_management=terms)
     ignore = client.get('terms/manage')
