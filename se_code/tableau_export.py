@@ -344,7 +344,7 @@ def create_trends_table(terms, docs):
     return trends_table, trendingterms_table
 """    
     
-def write_table_to_csv(table, filename, calc_keys=False):
+def write_table_to_csv(table, filename, calc_keys=False, encoding='utf-8'):
     '''
     Function for writing lists of dictionaries to a CSV file
     :param table: List of dictionaries to be written
@@ -356,7 +356,7 @@ def write_table_to_csv(table, filename, calc_keys=False):
     if len(table) == 0:
         print('Warning: No data to write to {}.'.format(filename))
         return
-    with open(filename, 'w', newline='') as file:
+    with open(filename, 'w', newline='', encoding=encoding) as file:
         if calc_keys:
             fieldnames = {k for t_item in table for k in t_item.keys()}
         else:
@@ -374,6 +374,7 @@ def main():
     parser.add_argument('project_url', help="The URL of the Daylight project to export from")
     parser.add_argument('-t', '--token', default=None, help="Enter your Daylight token")
     parser.add_argument('-c', '--concept_count', default=100, help="The number of top concepts to pull from the project")
+    parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding of the file to write to")
     parser.add_argument('-sktl', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
     parser.add_argument('-docs', '--doc', default=False, action='store_true', help="Do not generate doc_table")
     parser.add_argument('-terms', '--terms', default=False, action='store_true', help="Do not generate terms_table")
@@ -398,43 +399,43 @@ def main():
 
     if not args.doc:
         doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata)
-        write_table_to_csv(doc_table, 'doc_table.csv', calc_keys=True)
-        write_table_to_csv(xref_table, 'xref_table.csv', calc_keys=True)
+        write_table_to_csv(doc_table, 'doc_table.csv', calc_keys=True, encoding=args.encoding)
+        write_table_to_csv(xref_table, 'xref_table.csv', calc_keys=True, encoding=args.encoding)
     
     if not args.terms:
         terms_table = create_terms_table(concepts)
-        write_table_to_csv(terms_table, 'terms_table.csv')
+        write_table_to_csv(terms_table, 'terms_table.csv', encoding=args.encoding)
         
     if not args.themes:
         themes_table = create_themes_table(client, themes)
-        write_table_to_csv(themes_table, 'themes_table.csv')
+        write_table_to_csv(themes_table, 'themes_table.csv', encoding=args.encoding)
         
     if not args.doc_term:
         doc_term_table = create_doc_term_table(docs, concepts)
-        write_table_to_csv(doc_term_table, 'doc_term_table.csv')
+        write_table_to_csv(doc_term_table, 'doc_term_table.csv', encoding=args.encoding)
     
     if not args.doc_topic:
         doc_topic_table = create_doc_topic_table(docs, saved_concepts)
-        write_table_to_csv(doc_topic_table, 'doc_topic_table.csv')
+        write_table_to_csv(doc_topic_table, 'doc_topic_table.csv', encoding=args.encoding)
         
     if not args.topic_topic:
         topic_topic_table = create_topic_topic_table(saved_concepts)
-        write_table_to_csv(topic_topic_table, 'topic_topic_table.csv')
+        write_table_to_csv(topic_topic_table, 'topic_topic_table.csv', encoding=args.encoding)
         
     if not args.term_topic:
         term_topic_table = create_term_topic_table(concepts, saved_concepts)
-        write_table_to_csv(term_topic_table, 'term_topic_table.csv')
+        write_table_to_csv(term_topic_table, 'term_topic_table.csv', encoding=args.encoding)
         
     if not args.doc_subset:
         doc_subset_table = create_doc_subset_table(docs, metadata_map)
-        write_table_to_csv(doc_subset_table, 'doc_subset_table.csv')
+        write_table_to_csv(doc_subset_table, 'doc_subset_table.csv', encoding=args.encoding)
     if not args.skt_table:
         skt_table = create_skt_table(client, skt)
         write_table_to_csv(skt_table, 'skt_table.csv', encoding=args.encoding)
     
     if not args.drive:
         driver_table = create_drivers_table(client, driver_fields, args.topic_drive)
-        write_table_to_csv(driver_table, 'drivers_table.csv')
+        write_table_to_csv(driver_table, 'drivers_table.csv', encoding=args.encoding)
     
     #if not args.trend_tables:
     #    trends_table, trendingterms_table = create_trends_table(terms, docs)

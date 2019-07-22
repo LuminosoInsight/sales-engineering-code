@@ -31,7 +31,7 @@ def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10, sc
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
 
-        futures = {executor.submit(skt, client, subset, scan_terms, subset_counts, pvalue_cutoff, all_term_dict): name for sorted(subset_counts) for subset in sorted(subset_counts[name])}
+        futures = {executor.submit(skt, client, name, subset, total_count, scan_terms, subset_counts, pvalue_cutoff): name for name in sorted(subset_counts) for subset in sorted(subset_counts[name])}
         for future in concurrent.futures.as_completed(futures):
             subset_scores = future.result()
 
@@ -40,19 +40,20 @@ def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10, sc
     return results
 
 
-def skt(client, subset, scan_terms, subset_counts, pvalue_cutoff, all_term_dict):
+def skt(client, name, subset, total_count, scan_terms, subset_counts, pvalue_cutoff):
     subset_terms = client.get('concepts/match_counts', 
                                       filter=[{'name':name,'values':[subset]}], 
                                       concept_selector={"type": "top",
                                                         "limit": scan_terms,
                                                         "include_extra_concept_details": True})['match_counts']
+    #all_term_dict= {}
     length = 0
     termlist = []
     all_terms = []
     for term in subset_terms:
-        if term['exact_term_ids'][0] not in all_term_dict:
-                    if length + len(term['exact_term_ids'][0]) > 1000:
-                        all_terms.extend(client.get('terms', term_ids=termlist))
+        #if term['exact_term_ids'][0] not in all_term_dict:
+        if length + len(term['exact_term_ids'][0]) > 1000:
+            all_terms.extend(client.get('terms', term_ids=termlist))
             termlist = []
             length = 0
         termlist.append(term['exact_term_ids'][0])
@@ -60,7 +61,7 @@ def skt(client, subset, scan_terms, subset_counts, pvalue_cutoff, all_term_dict)
     if len(termlist) > 0:
         all_terms.extend(client.get('terms', term_ids=termlist))
     for term in all_terms:
-        all_term_dict.update({term['term_id']: term['distinct_doc_count']})
+        all_term_dict = {term['term_id']: term['distinct_doc_count'] for term in all_terms}
 
     subset_scores = []
     for term in subset_terms:
