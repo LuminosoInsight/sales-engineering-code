@@ -31,7 +31,7 @@ def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10, sc
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
 
-        futures = {executor.submit(skt, client, subset, scan_terms, subset_counts, pvalue_cutoff, all_term_dict): name for sorted(subset_counts) for subset in sorted(subset_counts[name])}
+        futures = {executor.submit(skt, client, subset, scan_terms, subset_counts, pvalue_cutoff, all_term_dict): name for name in sorted(subset_counts) for subset in sorted(subset_counts[name])}
         for future in concurrent.futures.as_completed(futures):
             subset_scores = future.result()
 
@@ -51,8 +51,8 @@ def skt(client, subset, scan_terms, subset_counts, pvalue_cutoff, all_term_dict)
     all_terms = []
     for term in subset_terms:
         if term['exact_term_ids'][0] not in all_term_dict:
-                    if length + len(term['exact_term_ids'][0]) > 1000:
-                        all_terms.extend(client.get('terms', term_ids=termlist))
+            if length + len(term['exact_term_ids'][0]) > 1000:
+                all_terms.extend(client.get('terms', term_ids=termlist))
             termlist = []
             length = 0
         termlist.append(term['exact_term_ids'][0])
