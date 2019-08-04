@@ -136,7 +136,7 @@ def tableau_export():
     topic_drive = (request.form.get('topic_drive') == 'on')
     
     
-    client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count))
+    client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
 
     doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata)
     write_table_to_csv(doc_table, foldername, 'doc_table.csv')
