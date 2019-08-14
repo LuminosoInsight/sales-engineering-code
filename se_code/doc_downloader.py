@@ -5,7 +5,6 @@ DATE_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 
 def get_all_docs(client):
     docs = []
-<<<<<<< HEAD
     while True:
         new_docs = client.get('docs', limit=25000, offset=len(docs))
         if new_docs['result']:
