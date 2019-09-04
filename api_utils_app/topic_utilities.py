@@ -26,5 +26,5 @@ def copy_topics(cli, from_proj, to_proj):
 
 def parse_url(url):
     api_url = url.partition('.com')[0] + '.com/api/v5/'
-    proj = url.split('app/projects/')[1].strip('/ ').split('/')[-1]
+    proj = url.split('app/projects/')[1].strip('/ ').split('/')[1]
     return (api_url, proj)

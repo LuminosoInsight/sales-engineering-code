@@ -1,5 +1,7 @@
 import datetime
+import logging
 import redis
+import sys
 
 from flask import Flask, jsonify, render_template, request, session, url_for, Response
 from luminoso_api import V5LuminosoClient
@@ -12,6 +14,7 @@ from se_code.conjunctions_disjunctions import get_new_results, get_current_resul
 from random import randint
 from reddit_utilities import get_reddit_api, get_posts_from_past, get_posts_by_name, get_docs_from_comments, write_to_csv
 from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table
+from subset_utilities import search_subsets, calc_metadata_vectors
 
 
 #Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
@@ -40,6 +43,7 @@ def login():
     session['apps_to_show'] = [
         ('Topic',('Copy Topics',url_for('copy_topics_page')),('Delete Topics',url_for('delete_topics_page'))),
         ('Term',('Merge Terms',url_for('term_merge_page')),('Ignore Terms',url_for('term_ignore_page'))),
+        ('Subsets',('Conceptual Subset Search',url_for('subset_search'))),
         #('Cleaning','Deduper',url_for('deduper_page')), ('Boilerplate Cleaner',url_for('boilerplate_page'))),
         ('Dashboards', ('Tableau Export',url_for('tableau_export_page'))),
         ('Connectors', ('Reddit by Time', url_for('reddit_by_time_page')),
@@ -113,6 +117,7 @@ def tableau_export_page():
 def tableau_export():
     url = request.form['url'].strip()
     api_url, proj = parse_url(url)
+
     foldername = request.form['folder_name'].strip()
     concept_count = request.form['term_count'].strip()
     if concept_count == '':
@@ -139,35 +144,35 @@ def tableau_export():
     client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
 
     doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata)
-    write_table_to_csv(doc_table, foldername, 'doc_table.csv')
-    write_table_to_csv(xref_table, foldername, 'xref_table.csv')
+    write_table_to_csv(doc_table, foldername+'doc_table.csv')
+    write_table_to_csv(xref_table, foldername+'xref_table.csv')
     
     if term_table:
         terms_table = create_terms_table(concepts)
-        write_table_to_csv(terms_table, foldername, 'terms_table.csv')
+        write_table_to_csv(terms_table, foldername+'terms_table.csv')
     if doc_term:
         doc_term_table = create_doc_term_table(docs, concepts)
-        write_table_to_csv(doc_term_table, foldername, 'doc_term_table.csv')
+        write_table_to_csv(doc_term_table, foldername+'doc_term_table.csv')
     
     if doc_topic:
         doc_topic_table = create_doc_topic_table(docs, saved_concepts)
-        write_table_to_csv(doc_topic_table, foldername, 'doc_topic_table.csv')
+        write_table_to_csv(doc_topic_table, foldername+'doc_topic_table.csv')
         
     if doc_subset:
         doc_subset_table = create_doc_subset_table(docs, metadata_map)
-        write_table_to_csv(doc_subset_table, foldername, 'doc_subset_table.csv')
+        write_table_to_csv(doc_subset_table, foldername+'doc_subset_table.csv')
     
     if themes_on:
         themes_table = create_themes_table(client, themes)
-        write_table_to_csv(themes_table, foldername, 'themes_table.csv')
+        write_table_to_csv(themes_table, foldername+'themes_table.csv')
 
     if skt_on:
         skt_table = create_skt_table(client, skt)
-        write_table_to_csv(skt_table, foldername, 'skt_table.csv')
+        write_table_to_csv(skt_table, foldername+'skt_table.csv')
     
     if drivers_on:
         driver_table = create_drivers_table(client, driver_fields, topic_drive)
-        write_table_to_csv(driver_table, foldername, 'drivers_table.csv')
+        write_table_to_csv(driver_table, foldername+'drivers_table.csv')
     
     #if trends:
     #    trends_table, trendingterms_table = create_trends_table(terms, topics, docs)
@@ -175,6 +180,45 @@ def tableau_export():
     #    write_table_to_csv(trendingterms_table, foldername, 'trendingterms_table.csv')
     
     return render_template('tableau_export.html', urls=session['apps_to_show'])
+
+
+@app.route('/subset_search', methods=['GET','POST'])
+def subset_search():
+    
+    global client, metadata_with_vects, field
+    
+    if request.method == 'POST':
+        if 'url' in request.form:
+            url = request.form['url'].strip()
+            field = request.form['field'].strip()
+            client = connect_to_client(url)
+
+            project = client.get()['name']
+            metadata_with_vects = client.get('/metadata')['result']
+
+            if field:
+                metadata_with_vects = calc_metadata_vectors(client,metadata_with_vects,field)
+            else:
+                field=None
+                metadata_with_vects = calc_metadata_vectors(client,metadata_with_vects)
+        else:
+            project = client.get()['name']
+            question = request.form['text']
+            include_docs = False
+            if request.form.get('include_docs'):
+                include_docs = True
+
+            result = search_subsets(client, [ question ],metadata_with_vects,field=field, sample_docs=include_docs)
+
+            return render_template('subset_search.html',
+                                   urls=session['apps_to_show'],
+                                   query_info=question,
+                                   results=result[question],
+                                   project=project)
+    else:
+        project = ''
+        
+    return render_template('subset_search.html', urls=session['apps_to_show'], project=project)
 
 @app.route('/topic_utils')
 def topic_utils():

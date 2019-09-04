@@ -111,18 +111,22 @@ circle {
         Please load a project.
         {% endif %}
         <input type="text" name="text" class="form-control" placeholder="Comfortable, easy to use" required autofocus>
+        <input type="checkbox" name="include_docs" value="true"/>Include sample documents<br>
         <input class="btn btn-primary btn-lg" name="search" type="submit" value="Search"/>
         
       </form>
     {% if results|length>0 %}
 	<h2>{{ query_info }}</h2>
 	<table class='demo' width=100%>
-	<tr><th>Rank</th><th>Subset</th><th>Score</th><th>Example Review</th></tr>
+	<tr><th>Rank</th><th>Subset</th><th>Score</th><th>Example</th></tr>
 	{% for result in results %}
-	<tr valign=top><td width=4%>{{ loop.index }}</td>
-		<td width=45%>{{ result['car'] }}</td>
-		<td width=3%>{{ '{0:.2}'.format(result['score']) }}</td>
-		<td width=45%>{{ result['example_review'] }}</td></tr>
+	<tr valign=top>
+        <td width=4%>{{ result['rank'] }}</td>
+		<td width=45%>{{ result['field'] }}</td>
+        <td width=3%>{{ '{0:.2}'.format(result['score']) }}</td>
+        <td width=45%>{{ result['doc_0'] }}</td>
+        <!--<td width=45%>{{ result['example_review'] }}</td>-->
+    </tr>
 	{% endfor %}
 	</table>
 	{% endif %}
