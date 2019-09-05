@@ -23,7 +23,7 @@ def read_documents(client,lumi_filter,max_docs=0):
 
 def search_documents(client,lumi_concept_search,max_docs=0):
 
-        '''Pull documents using the specified concept selector'''
+    '''Pull documents using the specified concept selector'''
 
     docs = []
     limit = 5000
