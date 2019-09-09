@@ -15,12 +15,12 @@ def get_as(vector1, vector2):
     
 def get_driver_fields(client):
     '''
-    Get all numeric metadata fields from the project in order to run drivers against
+    Get all numeric or score metadata fields from the project in order to run drivers against
     :param client: LuminosoClient object pointed to project path
     :return: List of fields that contain drivers
     '''
     metadata = client.get('metadata')
-    driver_fields = [m['name'] for m in metadata['result'] if m['type'] == 'number']
+    driver_fields = [m['name'] for m in metadata['result'] if m['type'] == 'number' or m['type'] == 'score']
     return driver_fields
     
     
