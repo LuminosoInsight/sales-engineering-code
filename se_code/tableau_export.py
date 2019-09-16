@@ -259,6 +259,21 @@ def create_themes_table(client, suggested_topics):
         row['docs'] = count
         themes.append(row)
     return themes      
+
+
+def create_sentiment_table(client):
+
+    results = client.get('/concepts/sentiment/')['match_counts']
+    sentiment_match_counts = [{ 'texts':c['texts'],
+                                'name':c['name'],
+                                'match_count':c['match_count'],
+                                'exact_match_count':c['exact_match_count'],
+                                'sentiment_share_positive':c['sentiment_share']['positive'],
+                                'sentiment_share_neutral':c['sentiment_share']['neutral'],
+                                'sentiment_share_negative':c['sentiment_share']['negative']
+                                } for c in results]
+    return sentiment_match_counts
+
 """
 
 def create_trends_table(terms, docs):
@@ -388,6 +403,7 @@ def main():
     parser.add_argument('-skt', '--skt_table', default=False, action='store_true',help="Do not generate skt_tables")
     parser.add_argument('-drive', '--drive', default=False, action='store_true',help="Do not generate driver_table")
     parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="Generate drivers_table with topics instead of drivers")
+    parser.add_argument('-sentiment', '--sentiment', default=False, action='store_true', help="Generate sentiment for top concepts")
     args = parser.parse_args()
     
     api_url, proj = parse_url(args.project_url)
@@ -437,6 +453,10 @@ def main():
         driver_table = create_drivers_table(client, driver_fields, args.topic_drive)
         write_table_to_csv(driver_table, 'drivers_table.csv', encoding=args.encoding)
     
+    if args.sentiment:
+        sentiment_table = create_sentiment_table(client)
+        write_table_to_csv(sentiment_table, 'sentiment.csv', encoding=args.encoding)
+
     #if not args.trend_tables:
     #    trends_table, trendingterms_table = create_trends_table(terms, docs)
     #    write_table_to_csv(trends_table, 'trends_table.csv')
