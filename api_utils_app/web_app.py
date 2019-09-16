@@ -13,7 +13,7 @@ import numpy as np
 from se_code.conjunctions_disjunctions import get_new_results, get_current_results
 from random import randint
 from reddit_utilities import get_reddit_api, get_posts_from_past, get_posts_by_name, get_docs_from_comments, write_to_csv
-from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table
+from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table
 from subset_utilities import search_subsets, calc_metadata_vectors
 
 
@@ -138,15 +138,19 @@ def tableau_export():
     skt_on = (request.form.get('skt') == 'on')
     drivers_on = (request.form.get('drivers') == 'on')
     #trends = (request.form.get('trends') == 'on')
+    sentiment = (request.form.get('sentiment') == 'on')
     topic_drive = (request.form.get('topic_drive') == 'on')
-    
-    
+        
     client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
 
     doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata)
     write_table_to_csv(doc_table, foldername+'doc_table.csv')
     write_table_to_csv(xref_table, foldername+'xref_table.csv')
     
+    if sentiment:
+        sentiment_table = create_sentiment_table(client)
+        write_table_to_csv(sentiment_table, foldername+'sentiment.csv')
+
     if term_table:
         terms_table = create_terms_table(concepts)
         write_table_to_csv(terms_table, foldername+'terms_table.csv')
