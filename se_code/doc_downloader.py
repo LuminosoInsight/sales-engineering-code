@@ -1,8 +1,6 @@
 from luminoso_api import V5LuminosoClient as LuminosoClient
 import csv, json, datetime, time, argparse
 
-DATE_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
-
 def get_all_docs(client):
     docs = []
     while True:
@@ -58,6 +56,7 @@ def main():
     parser.add_argument('filename', help="Name of CSV file to write project documents to")
     parser.add_argument('-t', '--token', default=None, help="Daylight token")
     parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding type of the file to write to")
+    parser.add_argument('-d', '--date_format', default='%Y-%m-%d', help="Format of timestamp")
     args = parser.parse_args()
     
     api_url = args.project_url.split('/app')[0]
@@ -66,11 +65,10 @@ def main():
         client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (api_url, project_id), token=args.token)
     else:
         client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (api_url, project_id))
-    date_format = '%Y-%m-%d'
     
     docs = get_all_docs(client)
     fields = get_fields(docs)
-    docs, field_names = format_subsets(docs, fields, date_format)
+    docs, field_names = format_subsets(docs, fields, args.date_format)
     write_to_csv(args.filename, docs, field_names, encoding=args.encoding)
     
     
