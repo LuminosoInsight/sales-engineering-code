@@ -43,7 +43,9 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day
     docs = get_all_docs(client)
     
     metadata = client.get('metadata')['result']
-    saved_concepts = client.get('concepts/saved', include_science=True)
+    #saved_concepts = client.get('concepts/saved', include_science=True)
+    saved_concepts = client.get('concepts/match_counts',
+                                concept_selector={'type': 'saved'})['match_counts']
     concepts = client.get('concepts/match_counts', 
                           concept_selector={'type': 'top', 
                                             'limit': concept_count})['match_counts']
@@ -65,10 +67,22 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day
     themes = client.get('concepts', concept_selector={'type': 'suggested',
                                                       'num_clusters': themes,
                                                       'num_cluster_concepts': theme_terms})
+    # set the theme_id values and unpack the vectors
+    theme_id = ''
+    cluster_labels = {}
+    for r in themes['result']:
+        if r['cluster_label'] not in cluster_labels:
+            theme_id = 'Theme {}'.format(len(cluster_labels))
+            cluster_labels[r['cluster_label']] = {'id': theme_id, 'name': []}
+        # add the theme_id and unpack the vector
+        r['theme_id'] = theme_id
+        if len(r['vector']) > 0:
+            r['fvector'] =  [float(v) for v in unpack64(r['vector'])]
+
     return client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes
 
 
-def create_doc_term_table(docs, concepts):
+def create_doc_term_table(docs, concepts, saved_concepts):
     '''
     Creates a tabulated format for the relationships between docs & terms
     :param docs: List of document dictionaries
@@ -77,91 +91,100 @@ def create_doc_term_table(docs, concepts):
     '''
 
     doc_term_table = []
-    terms_in_docs = []
-    term_in_doc = 0
+    concept_ids = {}
+    for c in concepts:
+        for t in c['exact_term_ids']:
+            if t not in concept_ids:
+                concept_ids[t] =  [(c['name'], 'top')]
+            else:
+                concept_ids[t].append((c['name'], 'top'))
+    for s in saved_concepts:
+        for t in s['exact_term_ids']:
+            if t not in concept_ids:
+                concept_ids[t] = [(s['name'], 'saved')]
+            else:
+                concept_ids[t].append((s['name'], 'saved'))
+    
     doc_count = 0
     for doc in docs:
         if doc['vector']:
             for t in doc['terms']:
-                terms_in_docs.append(t['term_id'])
-            for c in concepts:
-                if c['exact_term_ids'][0] in terms_in_docs:
-                    term_in_doc = 1
-                doc_term_table.append({'doc_id': doc['doc_id'],
-                                       'term': c['name'],
-                                       'exact_match': term_in_doc})
-        if (doc_count % 5000) == 0:
-            print("DocTerm: {}/{}".format(doc_count,len(docs)))
+                if t['term_id'] in concept_ids:
+                    for n in concept_ids[t['term_id']]:
+                        doc_term_table.append({'doc_id': doc['doc_id'],
+                                               'term': n[0],
+                                               'exact_match': 1,
+                                               'concept_type': n[1]})
         doc_count += 1
 
     return doc_term_table
 
 
-def create_doc_topic_table(docs, saved_concepts):
-    '''
-    Create a tabulation of docs and topics they're related to
-    :param docs: List of document dictionaries
-    :param saved_concepts: List of saved concept dictionaries
-    :return: List of document ids associated topic and score
-    '''
-
-    doc_topic_table = []
-    for doc in docs:
-        if doc['vector']:
-            doc_vector = [float(v) for v in unpack64(doc['vector'])]
-            max_score = 0
-            max_topic = ''
-            for c in saved_concepts:
-                if c['vector']:
-                    saved_concept_vector = [float(v) for v in unpack64(c['vector'])]
-                    #if np.dot(doc_vector, topic_vector) >= .3:
-                    score = np.dot(doc_vector, saved_concept_vector)
-                    if score > max_score:
-                        max_score = score
-                        max_topic = c['name']
-            doc_topic_table.append({'doc_id': doc['doc_id'], 
-                                    'topic': max_topic,
-                                    'association': max_score})
-    return doc_topic_table
-
-
-def create_topic_topic_table(saved_concepts):
-    '''
-    Create a tabulation of topic to topic relationships
-    :param saved_concepts: List of saved concept dictionaries
-    :return: List of topic pairs and association score
-    '''
-
-    topic_topic_table = []
-    for concept in saved_concepts:
-        for c in saved_concepts:
-            if concept['vector'] and c['vector'] and concept['name'] != c['name']:
-                concept_vector = [float(v) for v in unpack64(concept['vector'])]
-                c_vector = [float(v) for v in unpack64(c['vector'])]
-                topic_topic_table.append({'topic': concept['name'],
-                                          'second topic': c['name'],
-                                          'association': np.dot(concept_vector, c_vector)})
-    return topic_topic_table
+#def create_doc_topic_table(docs, saved_concepts):
+#    '''
+#    Create a tabulation of docs and topics they're related to
+#    :param docs: List of document dictionaries
+#    :param saved_concepts: List of saved concept dictionaries
+#    :return: List of document ids associated topic and score
+#    '''
+#
+#    doc_topic_table = []
+#    for doc in docs:
+#        if doc['vector']:
+#            doc_vector = [float(v) for v in unpack64(doc['vector'])]
+#            max_score = 0
+#            max_topic = ''
+#            for c in saved_concepts:
+#                if c['vector']:
+#                    saved_concept_vector = [float(v) for v in unpack64(c['vector'])]
+#                    #if np.dot(doc_vector, topic_vector) >= .3:
+#                    score = np.dot(doc_vector, saved_concept_vector)
+#                    if score > max_score:
+#                        max_score = score
+#                        max_topic = c['name']
+#            doc_topic_table.append({'doc_id': doc['doc_id'], 
+#                                    'topic': max_topic,
+#                                    'association': max_score})
+#    return doc_topic_table
 
 
-def create_term_topic_table(concepts, saved_concepts):
-    '''
-    Create a tabulation of topic to term relationships
-    :param concepts: List of concept dictionaries
-    :param saved_concepts: List of saved concept dictionaries
-    :return: List of topics, terms and association score
-    '''
+#def create_topic_topic_table(saved_concepts):
+#    '''
+#    Create a tabulation of topic to topic relationships
+#    :param saved_concepts: List of saved concept dictionaries
+#    :return: List of topic pairs and association score
+#    '''
+#
+#    topic_topic_table = []
+#    for concept in saved_concepts:
+#        for c in saved_concepts:
+#            if concept['vector'] and c['vector'] and concept['name'] != c['name']:
+#                concept_vector = [float(v) for v in unpack64(concept['vector'])]
+#                c_vector = [float(v) for v in unpack64(c['vector'])]
+#                topic_topic_table.append({'topic': concept['name'],
+#                                          'second topic': c['name'],
+#                                          'association': np.dot(concept_vector, c_vector)})
+#    return topic_topic_table
 
-    term_topic_table = []
-    for concept in concepts:
-        for saved_concept in saved_concepts:
-            if concept['vector'] and saved_concept['vector']:
-                concept_vector = [float(v) for v in unpack64(concept['vector'])]
-                saved_concept_vector = [float(v) for v in unpack64(saved_concept['vector'])]
-                term_topic_table.append({'term': concept['name'],
-                                         'topic': saved_concept['name'],
-                                         'association': np.dot(concept_vector, saved_concept_vector)})
-    return term_topic_table
+
+#def create_term_topic_table(concepts, saved_concepts):
+#    '''
+#    Create a tabulation of topic to term relationships
+#    :param concepts: List of concept dictionaries
+#    :param saved_concepts: List of saved concept dictionaries
+#    :return: List of topics, terms and association score
+#    '''
+#
+#    term_topic_table = []
+#    for concept in concepts:
+#        for saved_concept in saved_concepts:
+#            if concept['vector'] and saved_concept['vector']:
+#                concept_vector = [float(v) for v in unpack64(concept['vector'])]
+#                saved_concept_vector = [float(v) for v in unpack64(saved_concept['vector'])]
+#                term_topic_table.append({'term': concept['name'],
+#                                         'topic': saved_concept['name'],
+#                                         'association': np.dot(concept_vector, saved_concept_vector)})
+#    return term_topic_table
 
 
 def create_doc_subset_table(docs, metadata_map):
@@ -182,7 +205,7 @@ def create_doc_subset_table(docs, metadata_map):
     return doc_subset_table
 
 
-def create_doc_table(client, docs, metadata, sentiment=False):
+def create_doc_table(client, docs, metadata, suggested_topics, sentiment=False):
     '''
     Create a tabulation of documents and their related subsets & themes
     :param client: LuminosoClient object set to project path
@@ -203,7 +226,7 @@ def create_doc_table(client, docs, metadata, sentiment=False):
         metadata_map[m['name']] = 'Subset %d' % (i + len(numeric_metadata))
     for i, m in enumerate(date_metadata):
         metadata_map[m['name']] = 'Subset %d' % (i + len(numeric_metadata) + len(date_metadata))
-        
+
     doc_table = []
         
     for doc in docs:
@@ -221,13 +244,28 @@ def create_doc_table(client, docs, metadata, sentiment=False):
             row['doc_date 0'] = 0
         if sentiment:
             row['sentiment_score'] = doc['sentiment_score']
+        
+        # add the them (cluster) data
+        doc['fvector'] = [float(v) for v in unpack64(doc['vector'])]
+
+        max_score = 0
+        max_id = ''
+        for t in suggested_topics['result']:
+            if len(t['vector']) > 0:
+                score = np.dot(doc['fvector'], t['fvector'])
+                if score > max_score:
+                    max_score = score
+                    max_id = t['theme_id']
+
+        row['theme_id'] = max_id
+
         doc_table.append(row)
         
     xref_table = [metadata_map]
     return doc_table, xref_table, metadata_map
 
 
-def create_terms_table(concepts):
+def create_terms_table(concepts, saved_concepts):
     '''
     Create a tabulation of top terms and their exact/total match counts
     :param concepts: List of concept dictionaries
@@ -238,9 +276,17 @@ def create_terms_table(concepts):
     table = []
     for c in concepts:
         row = {}
-        row['Term'] = c['name']
-        row['Exact Matches'] = c['exact_match_count']
-        row['Related Matches'] = c['match_count'] - c['exact_match_count']
+        row['term'] = c['name']
+        row['exact_match_count'] = c['exact_match_count']
+        row['related_match_count'] = c['match_count'] - c['exact_match_count']
+        row['concept_type'] = 'top'
+        table.append(row)
+    for s in saved_concepts:
+        row = {}
+        row['term'] = s['name']
+        row['exact_match_count'] = s['exact_match_count']
+        row['related_match_count'] = s['match_count'] - s['exact_match_count']
+        row['concept_type'] = 'saved'
         table.append(row)
     return table
 
@@ -249,6 +295,8 @@ def create_themes_table(client, suggested_topics):
     print('Creating themes table...')
     cluster_labels = {}
     themes = []
+
+    # this is duplicating code done in get_lumi_data - may need refactor
     for r in suggested_topics['result']:
         if r['cluster_label'] not in cluster_labels:
             cluster_labels[r['cluster_label']] = {'id': 'Theme %d' % len(cluster_labels),
@@ -396,16 +444,17 @@ def main():
     )
     parser.add_argument('project_url', help="The URL of the Daylight project to export from")
     parser.add_argument('-t', '--token', default=None, help="Enter your Daylight token")
-    parser.add_argument('-c', '--concept_count', default=100, help="The number of top concepts to pull from the project")
+    parser.add_argument('-c', '--concept_count', default=20, help="The number of top concepts to pull from the project")
     parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding of the file to write to")
+    #parser.add_argument('-s', '--saved_and_top', default=False, action='store_true', help="Track saved concepts and top concepts in doc_term_table")
     parser.add_argument('-sktl', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
     parser.add_argument('-docs', '--doc', default=False, action='store_true', help="Do not generate doc_table")
     parser.add_argument('-terms', '--terms', default=False, action='store_true', help="Do not generate terms_table")
     parser.add_argument('-theme', '--themes', default=False, action='store_true', help="Do not generate themes_table")
     parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Do not generate doc_term_table")
-    parser.add_argument('-tterm', '--term_topic', default=False, action='store_true', help="Do not generate term_topic_table")
-    parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Do not generate doc_topic_table")
-    parser.add_argument('-ttopic', '--topic_topic', default=False, action='store_true', help="Do not generate topic_topic_table")
+    #parser.add_argument('-tterm', '--term_topic', default=False, action='store_true', help="Do not generate term_topic_table")
+    #parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Do not generate doc_topic_table")
+    #parser.add_argument('-ttopic', '--topic_topic', default=False, action='store_true', help="Do not generate topic_topic_table")
     parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Do not generate doc_subset_table")
     #parser.add_argument('-trends', '--trend_tables', default=False, action='store_true', help="Do not generate trends_table and trendingterms_table")
     parser.add_argument('-skt', '--skt_table', default=False, action='store_true',help="Do not generate skt_tables")
@@ -422,35 +471,36 @@ def main():
         client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count))
 
     # get the docs no matter what because later data needs the metadata_map
-    doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata, sentiment=not args.sentiment)
+    doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata, themes, sentiment=not args.sentiment)
 
     if not args.doc:
         write_table_to_csv(doc_table, 'doc_table.csv', calc_keys=True, encoding=args.encoding)
         write_table_to_csv(xref_table, 'xref_table.csv', calc_keys=True, encoding=args.encoding)
     
     if not args.terms:
-        terms_table = create_terms_table(concepts)
+        terms_table = create_terms_table(concepts, saved_concepts)
         write_table_to_csv(terms_table, 'terms_table.csv', encoding=args.encoding)
         
     if not args.themes:
         themes_table = create_themes_table(client, themes)
         write_table_to_csv(themes_table, 'themes_table.csv', encoding=args.encoding)
 
+    # Combines list of concepts and saved_concepts
     if not args.doc_term:
-        doc_term_table = create_doc_term_table(docs, concepts)
+        doc_term_table = create_doc_term_table(docs, concepts, saved_concepts)
         write_table_to_csv(doc_term_table, 'doc_term_table.csv', encoding=args.encoding)
     
-    if not args.doc_topic:
-        doc_topic_table = create_doc_topic_table(docs, saved_concepts)
-        write_table_to_csv(doc_topic_table, 'doc_topic_table.csv', encoding=args.encoding)
+    #if not args.doc_topic:
+    #    doc_topic_table = create_doc_topic_table(docs, saved_concepts)
+    #    write_table_to_csv(doc_topic_table, 'doc_topic_table.csv', encoding=args.encoding)
         
-    if not args.topic_topic:
-        topic_topic_table = create_topic_topic_table(saved_concepts)
-        write_table_to_csv(topic_topic_table, 'topic_topic_table.csv', encoding=args.encoding)
+    #if not args.topic_topic:
+    #    topic_topic_table = create_topic_topic_table(saved_concepts)
+    #    write_table_to_csv(topic_topic_table, 'topic_topic_table.csv', encoding=args.encoding)
         
-    if not args.term_topic:
-        term_topic_table = create_term_topic_table(concepts, saved_concepts)
-        write_table_to_csv(term_topic_table, 'term_topic_table.csv', encoding=args.encoding)
+    #if not args.term_topic:
+    #    term_topic_table = create_term_topic_table(concepts, saved_concepts)
+    #    write_table_to_csv(term_topic_table, 'term_topic_table.csv', encoding=args.encoding)
         
     if not args.doc_subset:
         doc_subset_table = create_doc_subset_table(docs, metadata_map)
