@@ -79,6 +79,7 @@ def create_doc_term_table(docs, concepts):
     doc_term_table = []
     terms_in_docs = []
     term_in_doc = 0
+    doc_count = 0
     for doc in docs:
         if doc['vector']:
             for t in doc['terms']:
@@ -89,6 +90,10 @@ def create_doc_term_table(docs, concepts):
                 doc_term_table.append({'doc_id': doc['doc_id'],
                                        'term': c['name'],
                                        'exact_match': term_in_doc})
+        if (doc_count % 5000) == 0:
+            print("DocTerm: {}/{}".format(doc_count,len(docs)))
+        doc_count += 1
+
     return doc_term_table
 
 
@@ -177,12 +182,13 @@ def create_doc_subset_table(docs, metadata_map):
     return doc_subset_table
 
 
-def create_doc_table(client, docs, metadata):
+def create_doc_table(client, docs, metadata, sentiment=False):
     '''
     Create a tabulation of documents and their related subsets & themes
     :param client: LuminosoClient object set to project path
     :param docs: List of document dictionaries
     :param metadata: List of metadata dictionaries
+    :param sentiment: Include doc level sentiment
     :return: List of documents with associated themes and list of cross-references between docs and subsets
     '''
 
@@ -213,6 +219,8 @@ def create_doc_table(client, docs, metadata):
             row[metadata_map[m['name']]] = m['value']
         if date_number == 0:
             row['doc_date 0'] = 0
+        if sentiment:
+            row['sentiment_score'] = doc['sentiment_score']
         doc_table.append(row)
         
     xref_table = [metadata_map]
@@ -376,7 +384,7 @@ def write_table_to_csv(table, filename, calc_keys=False, encoding='utf-8'):
             fieldnames = {k for t_item in table for k in t_item.keys()}
         else:
             fieldnames = table[0].keys()
-
+        
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(table)
@@ -413,8 +421,10 @@ def main():
     else:
         client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count))
 
+    # get the docs no matter what because later data needs the metadata_map
+    doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata, sentiment=not args.sentiment)
+
     if not args.doc:
-        doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata)
         write_table_to_csv(doc_table, 'doc_table.csv', calc_keys=True, encoding=args.encoding)
         write_table_to_csv(xref_table, 'xref_table.csv', calc_keys=True, encoding=args.encoding)
     
@@ -425,7 +435,7 @@ def main():
     if not args.themes:
         themes_table = create_themes_table(client, themes)
         write_table_to_csv(themes_table, 'themes_table.csv', encoding=args.encoding)
-        
+
     if not args.doc_term:
         doc_term_table = create_doc_term_table(docs, concepts)
         write_table_to_csv(doc_term_table, 'doc_term_table.csv', encoding=args.encoding)
@@ -453,7 +463,7 @@ def main():
         driver_table = create_drivers_table(client, driver_fields, args.topic_drive)
         write_table_to_csv(driver_table, 'drivers_table.csv', encoding=args.encoding)
     
-    if args.sentiment:
+    if not args.sentiment:
         sentiment_table = create_sentiment_table(client)
         write_table_to_csv(sentiment_table, 'sentiment.csv', encoding=args.encoding)
 

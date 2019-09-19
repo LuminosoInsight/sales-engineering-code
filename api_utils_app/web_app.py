@@ -140,11 +140,12 @@ def tableau_export():
     #trends = (request.form.get('trends') == 'on')
     sentiment = (request.form.get('sentiment') == 'on')
     topic_drive = (request.form.get('topic_drive') == 'on')
-        
-    client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
 
-    doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata)
-    write_table_to_csv(doc_table, foldername+'doc_table.csv')
+    client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count),token="8O1IFUQkn3ZDgjp3NwbcpNusctiqRpaK")        
+    #client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
+
+    doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata,sentiment=sentiment)
+    write_table_to_csv(doc_table, foldername+'doc_table.csv',calc_keys=True)
     write_table_to_csv(xref_table, foldername+'xref_table.csv')
     
     if sentiment:
