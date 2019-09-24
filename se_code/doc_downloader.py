@@ -33,7 +33,7 @@ def format_subsets(docs, fields, date_format):
                         doc['%s_%s' % (metadata['type'], metadata['name'])] = datetime.datetime.fromtimestamp(
                                                                                 int(metadata['value'])).strftime(date_format)
                     except ValueError:
-                        doc['%s_%s' % (metadata['type'], metadata['name'])] = '%s' % metadata['value'].split('T')[0]
+                        doc['%s_%s' % (metadata['type'], metadata['name'])] = '%s' % metadata['value']
                 else:
                     doc['%s_%s' % (metadata['type'], metadata['name'])] = metadata['value']
                 subsets.append('%s_%s' % (metadata['type'], metadata['name']))
