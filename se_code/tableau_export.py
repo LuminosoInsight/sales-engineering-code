@@ -352,47 +352,41 @@ def create_sentiment_table(client, saved_concepts, top_concepts):
                                 'sentiment_share_negative':c['sentiment_share']['negative']
                                 } for c in results]
     
-    # build a list of top and saved concepts
-    # if a concepts is in both saved and top, then it will be listed as saved in output
-    saved_names = [c['name'] for c in saved_concepts]
-    strings_list = []
-    texts = []
-    names = []
-    for c in saved_concepts:
-        as_string = ', '.join(c['texts'])
-        if as_string not in strings_list:
-            texts.append({"texts":c['texts']})
-            names.append(c['name'])
-            strings_list.append(as_string)
-    for c in top_concepts:
-        as_string = ', '.join(c['texts'])
-        if as_string not in strings_list:
-            texts.append({"texts":c['texts']})
-            names.append(c['name'])
-            strings_list.append(as_string)
+    concept_selector = {"type": "saved"}
+    results_saved = client.get('/concepts/sentiment/',concept_selector=concept_selector)['match_counts']
+    results_saved
 
-    concept_selector = {"type": "specified","concepts":texts}
+    saved_names = [c['name'] for c in results_saved]
 
-    results = client.get('/concepts/sentiment/',concept_selector=concept_selector)['match_counts']
-    
-    # fix the naems for conpound saved concepts. Use original concept name, not list of concepts
-    for i in range(0,len(names)):
-        results[i]['name'] = names[i]
-
-    for c in results:
+    for c in results_saved:
         row = { 'texts':c['texts'],
                 'name':c['name'],
                 'match_count':c['match_count'],
+                'concept_type': 'saved',
                 'exact_match_count':c['exact_match_count'],
                 'sentiment_share_positive':c['sentiment_share']['positive'],
                 'sentiment_share_neutral':c['sentiment_share']['neutral'],
                 'sentiment_share_negative':c['sentiment_share']['negative']
                 }
-        if row['name'] in saved_names:
-            row['concept_type'] = 'saved'
-        else:
-            row['concept_type'] = 'top'
         sentiment_match_counts.append(row)
+
+
+    concept_selector = {"type": "top", 'limit': 100}
+    results_top = client.get('/concepts/sentiment/',concept_selector=concept_selector)['match_counts']
+    results_top
+
+    for c in results_top:
+        if c['name'] not in saved_names:
+            row = { 'texts':c['texts'],
+                    'name':c['name'],
+                    'match_count':c['match_count'],
+                    'concept_type': 'top',
+                    'exact_match_count':c['exact_match_count'],
+                    'sentiment_share_positive':c['sentiment_share']['positive'],
+                    'sentiment_share_neutral':c['sentiment_share']['neutral'],
+                    'sentiment_share_negative':c['sentiment_share']['negative']
+                    }
+            sentiment_match_counts.append(row)
 
     # add three sample documents to each row
     for srow in sentiment_match_counts:
