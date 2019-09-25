@@ -14,12 +14,15 @@ import argparse
 import numpy as np
 import concurrent.futures
 import threading
+import urllib
 
 
 def parse_url(url):
-    api_root = url.strip('/ ').split('/app')[0] + '/api/v5'
+    root_url = url.strip('/ ').split('/app')[0]
+    api_root = root_url + '/api/v5'
+    account_id = url.strip('/ ').split('/')[-2]
     project_id = url.strip('/ ').split('/')[-1]
-    return api_root, project_id
+    return root_url, api_root, account_id, project_id
    
 def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day', themes=7, theme_terms=4, token=None):
 
@@ -306,7 +309,6 @@ def create_themes_table(client, suggested_concepts):
         cluster_labels[r['cluster_label']]['name'].append(r['name'])
         
     for c in cluster_labels:
-
         # find related documents
         selector_docs = {'texts':cluster_labels[c]['name']}
         search_docs = client.get('docs', search=selector_docs, limit=3, exact_only=True)['result']
@@ -318,16 +320,6 @@ def create_themes_table(client, suggested_concepts):
             count += m['exact_match_count']
 
         for sdoc in search_docs:
-            #row['example_doc'] = ''
-            #row['example_doc2'] = ''
-            #row['example_doc3'] = ''
-            #if len(search_docs) >= 1:
-            #    row['example_doc'] = search_docs[0]['text']
-            #if len(search_docs) >= 2:
-            #    row['example_doc2'] = search_docs[1]['text']
-            #if len(search_docs) >= 3:
-            #    row['example_doc3'] = search_docs[2]['text']
-
             row = {}
             row['cluster_label'] = c
             row['name'] = ', '.join(cluster_labels[c]['name'])
@@ -338,7 +330,7 @@ def create_themes_table(client, suggested_concepts):
     return themes      
 
 
-def create_sentiment_table(client, saved_concepts, top_concepts):
+def create_sentiment_table(client, saved_concepts, top_concepts, root_url=''):
 
     # first get the default sentiment output with sentiment suggestions
     results = client.get('/concepts/sentiment/')['match_counts']
@@ -351,7 +343,7 @@ def create_sentiment_table(client, saved_concepts, top_concepts):
                                 'sentiment_share_neutral':c['sentiment_share']['neutral'],
                                 'sentiment_share_negative':c['sentiment_share']['negative']
                                 } for c in results]
-    
+
     concept_selector = {"type": "saved"}
     results_saved = client.get('/concepts/sentiment/',concept_selector=concept_selector)['match_counts']
     results_saved
@@ -368,6 +360,7 @@ def create_sentiment_table(client, saved_concepts, top_concepts):
                 'sentiment_share_neutral':c['sentiment_share']['neutral'],
                 'sentiment_share_negative':c['sentiment_share']['negative']
                 }
+
         sentiment_match_counts.append(row)
 
 
@@ -386,10 +379,15 @@ def create_sentiment_table(client, saved_concepts, top_concepts):
                     'sentiment_share_neutral':c['sentiment_share']['neutral'],
                     'sentiment_share_negative':c['sentiment_share']['negative']
                     }
+
             sentiment_match_counts.append(row)
 
     # add three sample documents to each row
     for srow in sentiment_match_counts:
+
+        if len(root_url)>0:
+            srow['url'] = root_url+"/galaxy?suggesting=false&search="+urllib.parse.quote(" ".join(srow['texts']))
+
         # Use the driver term to find related documents
         search_docs = client.get('docs', search={'texts': srow['texts']}, limit=3, exact_only=True)['result']
 
@@ -541,7 +539,7 @@ def main():
     parser.add_argument('-sentiment', '--sentiment', default=False, action='store_true', help="Do not generate sentiment for top concepts")
     args = parser.parse_args()
     
-    api_url, proj = parse_url(args.project_url)
+    root_url, api_url, acct, proj = parse_url(args.project_url)
     
     if args.token:
         client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count), token=args.token)
@@ -586,13 +584,15 @@ def main():
     if not args.skt_table:
         skt_table = create_skt_table(client, skt)
         write_table_to_csv(skt_table, 'skt_table.csv', encoding=args.encoding)
-    
+
+    ui_project_url = root_url + '/app/projects/' + acct + '/' + proj
+
     if not args.drive:
-        driver_table = create_drivers_table(client, driver_fields, not args.topic_drive)
+        driver_table = create_drivers_table(client, driver_fields, not args.topic_drive, ui_project_url)
         write_table_to_csv(driver_table, 'drivers_table.csv', encoding=args.encoding)
     
     if not args.sentiment:
-        sentiment_table = create_sentiment_table(client, saved_concepts, concepts)
+        sentiment_table = create_sentiment_table(client, saved_concepts, concepts, root_url=ui_project_url)
         write_table_to_csv(sentiment_table, 'sentiment.csv', encoding=args.encoding)
 
     #if not args.trend_tables:

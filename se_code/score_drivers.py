@@ -3,6 +3,7 @@ from pack64 import unpack64
 from sklearn.linear_model import Ridge
 import numpy as np
 import csv, time, sys, argparse, getpass, json
+import urllib
 
 def get_as(vector1, vector2):
     '''
@@ -24,7 +25,7 @@ def get_driver_fields(client):
     return driver_fields
     
     
-def create_drivers_table(client, driver_fields, topic_drive):
+def create_drivers_table(client, driver_fields, topic_drive, root_url=''):
     '''
     Create tabulation of ScoreDrivers output, complete with doc counts, example docs, scores and driver clusters
     :param client: LuminosoClient object pointed to project path
@@ -45,6 +46,9 @@ def create_drivers_table(client, driver_fields, topic_drive):
                 row['impact'] = driver['impact']
                 row['related_terms'] = driver['texts']
                 row['doc_count'] = driver['exact_match_count']
+
+                if len(root_url)>0:
+                    row['url'] = root_url+"/galaxy?suggesting=false&search="+urllib.parse.quote(" ".join(driver['texts']))
 
                 # Use the driver term to find related documents
                 search_docs = client.get('docs', search={'texts': driver['texts']}, limit=500, exact_only=True)
@@ -76,6 +80,9 @@ def create_drivers_table(client, driver_fields, topic_drive):
                 row['related_terms'] = driver['texts']
                 row['doc_count'] = driver['exact_match_count']
 
+                if len(root_url)>0:
+                    row['url'] = root_url+"/galaxy?suggesting=false&search="+urllib.parse.quote(" ".join(driver['texts']))
+
                 # Use the driver term to find related documents
                 search_docs = client.get('docs', search={'texts': driver['texts']}, limit=500, exact_only=True)
 
@@ -106,6 +113,9 @@ def create_drivers_table(client, driver_fields, topic_drive):
             row['impact'] = driver['impact']
             row['related_terms'] = driver['texts']
             row['doc_count'] = driver['exact_match_count']
+
+            if len(root_url)>0:
+                row['url'] = root_url+"/galaxy?suggesting=false&search="+urllib.parse.quote(" ".join(driver['texts']))
 
             # Use the driver term to find related documents
             search_docs = client.get('docs', search={'texts': driver['texts']}, limit=500, exact_only=True)
