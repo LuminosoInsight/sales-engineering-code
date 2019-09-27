@@ -110,14 +110,17 @@ def create_doc_term_table(docs, concepts, saved_concepts):
     
     doc_count = 0
     for doc in docs:
+        concepts_in_doc = []
         if doc['vector']:
             for t in doc['terms']:
                 if t['term_id'] in concept_ids:
                     for n in concept_ids[t['term_id']]:
-                        doc_term_table.append({'doc_id': doc['doc_id'],
-                                               'term': n[0],
-                                               'exact_match': 1,
-                                               'concept_type': n[1]})
+                        if n not in concepts_in_doc:
+                            concepts_in_doc.append(n)
+                            doc_term_table.append({'doc_id': doc['doc_id'],
+                                                   'term': n[0],
+                                                   'exact_match': 1,
+                                                   'concept_type': n[1]})
         doc_count += 1
 
     return doc_term_table
