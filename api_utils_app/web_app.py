@@ -13,8 +13,8 @@ import numpy as np
 from se_code.conjunctions_disjunctions import get_new_results, get_current_results
 from random import randint
 from reddit_utilities import get_reddit_api, get_posts_from_past, get_posts_by_name, get_docs_from_comments, write_to_csv
-from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_topic_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table
-from subset_utilities import search_subsets, calc_metadata_vectors
+from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table
+from subset_utilities import search_subsets, calc_metadata_vectors, #create_doc_topic_table
 
 
 #Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
