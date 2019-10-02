@@ -3,6 +3,7 @@ from pack64 import unpack64
 from sklearn.linear_model import Ridge
 import numpy as np
 import csv, time, sys, argparse, getpass, json
+import urllib
 
 def get_as(vector1, vector2):
     '''
@@ -24,12 +25,12 @@ def get_driver_fields(client):
     return driver_fields
     
     
-def create_drivers_table(client, driver_fields, topic_drive):
+def create_drivers_table(client, driver_fields, topic_drive, root_url=''):
     '''
     Create tabulation of ScoreDrivers output, complete with doc counts, example docs, scores and driver clusters
     :param client: LuminosoClient object pointed to project path
     :param driver_fields: List of driver fields (string list)
-    :param topic_drive: Whether or not to include topics as drivers (bool)
+    :param topic_drive: Whether or not to include saved/top concepts as drivers (bool)
     :return: List of drivers with scores, example docs, clusters and type
     '''
     driver_table = []
@@ -40,18 +41,21 @@ def create_drivers_table(client, driver_fields, topic_drive):
             for driver in score_drivers:
                 row = {}
                 row['driver'] = driver['name']
-                row['type'] = 'user_defined'
+                row['type'] = 'saved'
                 row['subset'] = field
                 row['impact'] = driver['impact']
                 row['related_terms'] = driver['texts']
                 row['doc_count'] = driver['exact_match_count']
+
+                if len(root_url)>0:
+                    row['url'] = root_url+"/galaxy?suggesting=false&search="+urllib.parse.quote(" ".join(driver['texts']))
 
                 # Use the driver term to find related documents
                 search_docs = client.get('docs', search={'texts': driver['texts']}, limit=500, exact_only=True)
 
                 # Sort documents based on their association with the coefficient vector
                 for doc in search_docs['result']:
-                    document['driver_as'] = get_as(driver['vector'],document['vector'])
+                    doc['driver_as'] = get_as(driver['vector'],doc['vector'])
 
                 docs = sorted(search_docs['result'], key=lambda k: k['driver_as']) 
                 row['example_doc'] = ''
@@ -64,6 +68,41 @@ def create_drivers_table(client, driver_fields, topic_drive):
                 if len(docs) >= 3:
                     row['example_doc3'] = docs[2]['text']
                 driver_table.append(row)
+
+            score_drivers = client.get('concepts/score_drivers', score_field=field,
+                                       concept_selector={'type': 'top'})
+            for driver in score_drivers:
+                row = {}
+                row['driver'] = driver['name']
+                row['type'] = 'top'
+                row['subset'] = field
+                row['impact'] = driver['impact']
+                row['related_terms'] = driver['texts']
+                row['doc_count'] = driver['exact_match_count']
+
+                if len(root_url)>0:
+                    row['url'] = root_url+"/galaxy?suggesting=false&search="+urllib.parse.quote(" ".join(driver['texts']))
+
+                # Use the driver term to find related documents
+                search_docs = client.get('docs', search={'texts': driver['texts']}, limit=500, exact_only=True)
+
+                # Sort documents based on their association with the coefficient vector
+                for doc in search_docs['result']:
+                    doc['driver_as'] = get_as(driver['vector'],doc['vector'])
+
+                docs = sorted(search_docs['result'], key=lambda k: k['driver_as']) 
+                row['example_doc'] = ''
+                row['example_doc2'] = ''
+                row['example_doc3'] = ''
+                if len(docs) >= 1:
+                    row['example_doc'] = docs[0]['text']
+                if len(docs) >= 2:
+                    row['example_doc2'] = docs[1]['text']
+                if len(docs) >= 3:
+                    row['example_doc3'] = docs[2]['text']
+                
+                driver_table.append(row)
+
         score_drivers = client.get('concepts/score_drivers', score_field=field, limit=100)
         score_drivers = [d for d in score_drivers if d['importance'] >= .4]
         for driver in score_drivers:
@@ -74,6 +113,9 @@ def create_drivers_table(client, driver_fields, topic_drive):
             row['impact'] = driver['impact']
             row['related_terms'] = driver['texts']
             row['doc_count'] = driver['exact_match_count']
+
+            if len(root_url)>0:
+                row['url'] = root_url+"/galaxy?suggesting=false&search="+urllib.parse.quote(" ".join(driver['texts']))
 
             # Use the driver term to find related documents
             search_docs = client.get('docs', search={'texts': driver['texts']}, limit=500, exact_only=True)
@@ -99,7 +141,7 @@ def create_drivers_table(client, driver_fields, topic_drive):
 def get_all_docs(client):
     docs = []
     while True:
-        new_docs = client.get('docs', limit=25000, offset=len(docs))['result']
+        new_docs = client.get('docs', limit=25000, offset=len(docs), include_sentiment=True)['result']
         if new_docs:
             docs.extend(new_docs)
         else:
@@ -155,7 +197,7 @@ def main():
     docs = get_all_docs(client)
     
     driver_fields = get_driver_fields(client)
-    driver_table = create_drivers_table(client, drivers, args.topic_drivers)
+    driver_table = create_drivers_table(client, driver_fields, args.topic_drivers)
     write_table_to_csv(driver_table, 'drivers_table.csv', encoding=args.encoding)
     
     
