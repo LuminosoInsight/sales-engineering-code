@@ -2,7 +2,7 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 from se_code.conjunctions_disjunctions import get_new_results
 from se_code.subset_key_terms import subset_key_terms, create_skt_table
-from se_code.score_drivers import get_as, get_all_docs, get_driver_fields, create_drivers_table
+from se_code.score_drivers import get_as, get_all_docs, get_driver_fields, create_drivers_table, create_sdot_table, get_first_date_field, get_date_field_by_name
 from scipy.stats import linregress
 
 import csv
@@ -540,6 +540,11 @@ def main():
     parser.add_argument('-drive', '--drive', default=False, action='store_true',help="Do not generate driver_table")
     parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="Do not generate drivers_table with saved/top concepts")
     parser.add_argument('-sentiment', '--sentiment', default=False, action='store_true', help="Do not generate sentiment for top concepts")
+    parser.add_argument('--sdot', action='store_true', help="Calculate over time")
+    parser.add_argument('--sdot_end',default=None, help="Last date to calculat sdot MM/DD/YYYY - algorithm works moving backwards in time.")
+    parser.add_argument('--sdot_iterations',default=7, help="Number of over time samples")
+    parser.add_argument('--sdot_range',default=None, help="Size of each sample: M,W,D. If none given, range type will be calculated for best fit")
+    parser.add_argument('--sdot_date_field',default=None,help="The name of the date field. If none, the first date field will be used")
     args = parser.parse_args()
     
     root_url, api_url, acct, proj = parse_url(args.project_url)
@@ -597,6 +602,22 @@ def main():
     if not args.sentiment:
         sentiment_table = create_sentiment_table(client, saved_concepts, concepts, root_url=ui_project_url)
         write_table_to_csv(sentiment_table, 'sentiment.csv', encoding=args.encoding)
+    
+    if bool(args.sdot):
+
+        if args.sdot_date_field == None:
+            date_field_info = get_first_date_field(client, True)
+            if date_field_info == None:
+                print("ERROR no date field in project")
+                return
+        else:
+            date_field_info = get_date_field_by_name(args.sdot_date_field)
+            if date_field_info == None:
+                print("ERROR: no date field name: {}".format(args.sdot_date_field))
+                return
+
+        sdot_table = create_sdot_table(client, driver_fields, date_field_info, args.sdot_end, int(args.sdot_iterations), args.sdot_range, args.topic_drive, root_url=ui_project_url, docs=docs)
+        write_table_to_csv(sdot_table, 'sdot_table.csv', encoding=args.encoding)
 
     #if not args.trend_tables:
     #    trends_table, trendingterms_table = create_trends_table(terms, docs)
