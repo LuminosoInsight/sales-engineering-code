@@ -237,7 +237,7 @@ def create_sdot_table(client, driver_fields, date_field_info, end_date, iteratio
     sd_data_raw = []
     futures = []
     
-    if end_date == None:
+    if end_date == None or len(end_date)==0:
         end_date = date_field_info['maximum']
 
     date_field_name = date_field_info['name']
@@ -249,7 +249,7 @@ def create_sdot_table(client, driver_fields, date_field_info, end_date, iteratio
     end_date_epoch = end_date_dt.timestamp()
     start_date_dt = None
 
-    if range_type==None:
+    if range_type==None or range_type not in ['M','W','D']:
         if docs==None:
             docs = get_all_docs(client)
         range_type = find_best_interval(client,docs,date_field_name,iterations)

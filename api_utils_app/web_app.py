@@ -14,7 +14,7 @@ from se_code.conjunctions_disjunctions import get_new_results, get_current_resul
 from random import randint
 from reddit_utilities import get_reddit_api, get_posts_from_past, get_posts_by_name, get_docs_from_comments, write_to_csv
 
-from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table
+from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, get_first_date_field, get_date_field_by_name
 from subset_utilities import search_subsets, calc_metadata_vectors
 
 
@@ -141,7 +141,21 @@ def tableau_export():
     #trends = (request.form.get('trends') == 'on')
     sentiment = (request.form.get('sentiment') == 'on')
     topic_drive = (request.form.get('topic_drive') == 'on')
-
+    
+    sdot_on = (request.form.get('sdot') == 'on')
+    sdot_end = ''
+    if 'sdot_end' in request.form:
+        sdot_end = request.form['sdot_end'].strip()
+    sdot_iterations = 7
+    if 'sdot_iterations' in request.form:
+        sdot_iterations = request.form['sdot_iterations'].strip()
+    sdot_range_type = ''
+    if 'sdot_range_type' in request.form:
+        sdot_range_type = request.form['sdot_range'].strip()
+    sdot_date_field_name = ''
+    if 'sdot_date_field_name' in request.form:
+        sdot_date_field_name = request.form['sdot_date_field_name'].strip()
+    
     client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
 
     doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata, themes, sentiment=sentiment)
@@ -178,6 +192,23 @@ def tableau_export():
     if drivers_on:
         driver_table = create_drivers_table(client, driver_fields, topic_drive)
         write_table_to_csv(driver_table, foldername+'drivers_table.csv')
+    
+    if sdot_on:
+        print("SDOT {},{},{},{}".format(sdot_end,sdot_iterations,sdot_range_type,sdot_date_field_name))
+
+        if len(sdot_date_field_name)==0:
+            date_field_info = get_first_date_field(client, True)
+            if date_field_info == None:
+                print("ERROR no date field in project")
+                return
+        else:
+            date_field_info = get_date_field_by_name(sdot_date_field_name)
+            if date_field_info == None:
+                print("ERROR: no date field name: {}".format(sdot_date_field_name))
+                return
+
+        sdot_table = create_sdot_table(client, driver_fields, date_field_info, sdot_end, int(sdot_iterations), sdot_range_type, topic_drive, root_url='', docs=docs)
+        write_table_to_csv(sdot_table, foldername+'sdot_table.csv')
     
     #if trends:
     #    trends_table, trendingterms_table = create_trends_table(terms, topics, docs)
