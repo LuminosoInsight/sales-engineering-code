@@ -541,14 +541,14 @@ def main():
     parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="Do not generate drivers_table with saved/top concepts")
     parser.add_argument('-sentiment', '--sentiment', default=False, action='store_true', help="Do not generate sentiment for top concepts")
     parser.add_argument('--sdot', action='store_true', help="Calculate over time")
-    parser.add_argument('--sdot_end',default=None, help="Last date to calculat sdot MM/DD/YYYY - algorithm works moving backwards in time.")
+    parser.add_argument('--sdot_end',default=None, help="Last date to calculate sdot MM/DD/YYYY - algorithm works moving backwards in time.")
     parser.add_argument('--sdot_iterations',default=7, help="Number of over time samples")
     parser.add_argument('--sdot_range',default=None, help="Size of each sample: M,W,D. If none given, range type will be calculated for best fit")
     parser.add_argument('--sdot_date_field',default=None,help="The name of the date field. If none, the first date field will be used")
     args = parser.parse_args()
     
     root_url, api_url, acct, proj = parse_url(args.project_url)
-    
+        
     if args.token:
         client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count), token=args.token)
     else:
@@ -611,7 +611,7 @@ def main():
                 print("ERROR no date field in project")
                 return
         else:
-            date_field_info = get_date_field_by_name(args.sdot_date_field)
+            date_field_info = get_date_field_by_name(client, args.sdot_date_field)
             if date_field_info == None:
                 print("ERROR: no date field name: {}".format(args.sdot_date_field))
                 return
