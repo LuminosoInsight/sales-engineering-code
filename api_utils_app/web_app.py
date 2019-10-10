@@ -4,11 +4,11 @@ import redis
 import sys
 
 from flask import Flask, jsonify, render_template, request, session, url_for, Response
-from luminoso_api import V5LuminosoClient
+from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 from topic_utilities import copy_topics, del_topics, parse_url
 from term_utilities import get_terms, ignore_terms, merge_terms
-#from deduper_utilities import dedupe
+from deduper_utilities import dedupe
 import numpy as np
 from se_code.conjunctions_disjunctions import get_new_results, get_current_results
 from random import randint
@@ -45,7 +45,7 @@ def login():
         ('Topic',('Copy Topics',url_for('copy_topics_page')),('Delete Topics',url_for('delete_topics_page'))),
         ('Term',('Merge Terms',url_for('term_merge_page')),('Ignore Terms',url_for('term_ignore_page'))),
         ('Subsets',('Conceptual Subset Search',url_for('subset_search'))),
-        #('Cleaning','Deduper',url_for('deduper_page')), ('Boilerplate Cleaner',url_for('boilerplate_page'))),
+        ('Cleaning',('Deduper',url_for('deduper_page'))), # ('Boilerplate Cleaner',url_for('boilerplate_page'))),
         ('Dashboards', ('Tableau Export',url_for('tableau_export_page'))),
         ('Connectors', ('Reddit by Time', url_for('reddit_by_time_page')),
                        ('Reddit by Name', url_for('reddit_by_name_page')))]
@@ -333,23 +333,20 @@ def term_utils_ignore():
     cli = connect_to_client(url)
     return jsonify(ignore_terms(cli, terms))
 
-#@app.route('/deduper_page')
-#def deduper_page():
-#    return render_template('dedupe.html', urls=session['apps_to_show'])
+@app.route('/deduper_page')
+def deduper_page():
+    return render_template('dedupe.html', urls=session['apps_to_show'])
 
-#@app.route('/dedupe')
-#def dedupe_util():
-#    url = request.args.get('url', 0, type=str)
-#    api_url, acct, proj = parse_url(url)
-#    copy = (request.args.get('copy') == 'true')
-#    print(copy)
-#    recalc = (request.args.get('recalc') == 'true')
-#    reconcile = request.args.get('reconcile')
-#    cli = LuminosoClient.connect('{}/projects/{}/{}'.format(api_url, acct, proj),
-#                                 username=session['username'],
-#                                 password=session['password'])
-#    return jsonify(dedupe(acct=acct, proj=proj, cli=cli,
-#            recalc=recalc, reconcile_func=reconcile, copy=copy))
+@app.route('/dedupe')
+def dedupe_util():
+    url = request.args.get('url', 0, type=str)
+    api_url, proj = parse_url(url)
+    copy = (request.args.get('copy') == 'true')
+    recalc = (request.args.get('recalc') == 'true')
+    reconcile = request.args.get('reconcile')
+    cli = LuminosoClient.connect('{}/projects/{}'.format(api_url, proj))
+
+    return jsonify(dedupe(cli, recalc=recalc, reconcile_func=reconcile, copy=copy))
 
 # Qualtrics routes
 
