@@ -1,36 +1,40 @@
 import sys
 import time
-from se_code.deduper import Deduper
+from se_code.deduper import Deduper,__retain_shortest,__retain_longest
+from luminoso_api import V5LuminosoClient as LuminosoClient
 
-def __get_token(cli):
-    cli2 = cli.change_path('/')
-    return cli2.get('/user/tokens/')[0]['token']
+#def __get_token(cli):
+#    cli2 = cli.change_path('/')
+#    return cli2.get('/user/tokens/')[0]['token']
 
-def __retain_shortest(docs):
-    return sorted(docs, key = lambda d: len(d['text']))[0]
-
-def __retain_longest(docs):
-    return sorted(docs, key = lambda d: len(d['text']))[-1]
-
-def dedupe(acct, proj, cli, recalc=True, reconcile_func=None, copy=False):
+def dedupe(cli, recalc=True, reconcile_func=None, copy=False):
     if copy:
-        new_proj = cli.post('copy')
-    initial_count = len(cli.get('docs/ids'))
+        copy_info = cli.post('copy')
+        cli = cli.client_for_path("/projects/"+copy_info['project_id'])
+
+        print("Waiting for copy to complete.")
+        cli.wait_for_build()
+        print("Copy/Build done.")
+
+    initial_count = cli.get('/')['document_count']
+
     if reconcile_func == 'shortest':
         reconcile_func = __retain_shortest
     elif reconcile_func == 'longest':
         reconcile_func = __retain_longest
     else:
         reconcile_func = None
-    token = __get_token(cli)
+        
     if initial_count > 40000:
-        deduper = Deduper(acct=acct, proj=proj, token=token,
+        deduper = Deduper(cli, token=token,
                     split_amt=40000, reconcile_func=reconcile_func)
     else:
-        deduper = Deduper(acct=acct, proj=proj, token=token,
-                    reconcile_func=reconcile_func)
+        deduper = Deduper(cli, reconcile_func=reconcile_func)
     num_deleted = deduper.dedupe()
-    url = 'https://analytics.luminoso.com/explore.html?account='+acct+'&projectId='+proj
-    while recalc and cli.get('jobs'):
-        time.sleep(1)
+
+    p_info = cli.get('/')
+    url = 'https://analytics.luminoso.com/app/projects/{}/{}/highlights'.format(p_info['account_id'],p_info['project_id'])
+   
+    if recalc:
+        cli.wait_for_build()
     return {'num':num_deleted, 'url':url}
