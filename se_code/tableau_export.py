@@ -2,7 +2,7 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 from se_code.conjunctions_disjunctions import get_new_results
 from se_code.subset_key_terms import subset_key_terms, create_skt_table
-from se_code.score_drivers import get_as, get_all_docs, get_driver_fields, create_drivers_table, create_sdot_table, get_first_date_field, get_date_field_by_name
+from se_code.score_drivers import get_as, get_all_docs, get_driver_fields, create_drivers_table, create_sdot_table, get_first_date_field, get_date_field_by_name, get_best_subset_fields, get_fieldvalues_for_fieldname, create_drivers_with_subsets_table
 from scipy.stats import linregress
 
 import csv
@@ -66,7 +66,9 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day
                     subset_counts[m['name']][v['value']] = v['count']
 
     skt = subset_key_terms(client, subset_counts, len(docs), skt_limit)
+    
     driver_fields = get_driver_fields(client)
+    
     themes = client.get('concepts', concept_selector={'type': 'suggested',
                                                       'num_clusters': themes,
                                                       'num_cluster_concepts': theme_terms})
@@ -538,7 +540,10 @@ def main():
     #parser.add_argument('-trends', '--trend_tables', default=False, action='store_true', help="Do not generate trends_table and trendingterms_table")
     parser.add_argument('-skt', '--skt_table', default=False, action='store_true',help="Do not generate skt_tables")
     parser.add_argument('-drive', '--drive', default=False, action='store_true',help="Do not generate driver_table")
-    parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="Do not generate drivers_table with saved/top concepts")
+    parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="If generating drivers_table do so with saved/top concepts as well as auto concepts")
+    parser.add_argument('--driver_subset', default=False, action='store_true', help="Do not generate score drivers by subset")
+    parser.add_argument('--driver_subset_fields', default=None, help='Which subsets to include in score driver by subset. Default = All with < 200 unique values. Samp: "field1,field2"')
+    
     parser.add_argument('-sentiment', '--sentiment', default=False, action='store_true', help="Do not generate sentiment for top concepts")
     parser.add_argument('--sdot', action='store_true', help="Calculate over time")
     parser.add_argument('--sdot_end',default=None, help="Last date to calculate sdot MM/DD/YYYY - algorithm works moving backwards in time.")
@@ -548,7 +553,8 @@ def main():
     args = parser.parse_args()
     
     root_url, api_url, acct, proj = parse_url(args.project_url)
-        
+    print("starting subset drivers - topics={}".format(args.topic_drive))
+    
     if args.token:
         client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count), token=args.token)
     else:
@@ -557,6 +563,12 @@ def main():
     # get the docs no matter what because later data needs the metadata_map
     doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata, themes, sentiment=not args.sentiment)
 
+    ui_project_url = root_url + '/app/projects/' + acct + '/' + proj
+
+    if not args.driver_subset:
+        driver_table = create_drivers_with_subsets_table(client, driver_fields, args.topic_drive, ui_project_url, args.driver_subset_fields)
+        write_table_to_csv(driver_table, 'subset_drivers_table.csv', encoding=args.encoding)
+ 
     if not args.doc:
         write_table_to_csv(doc_table, 'doc_table.csv', calc_keys=True, encoding=args.encoding)
         write_table_to_csv(xref_table, 'xref_table.csv', calc_keys=True, encoding=args.encoding)
@@ -593,10 +605,8 @@ def main():
         skt_table = create_skt_table(client, skt)
         write_table_to_csv(skt_table, 'skt_table.csv', encoding=args.encoding)
 
-    ui_project_url = root_url + '/app/projects/' + acct + '/' + proj
-
     if not args.drive:
-        driver_table = create_drivers_table(client, driver_fields, not args.topic_drive, ui_project_url)
+        driver_table = create_drivers_table(client, driver_fields, args.topic_drive, ui_project_url)
         write_table_to_csv(driver_table, 'drivers_table.csv', encoding=args.encoding)
     
     if not args.sentiment:
