@@ -99,6 +99,7 @@ def create_skt_table(client, skt):
         text_1 = ''
         text_2 = ''
         text_3 = ''
+        # excel has a max doc length of 32k
         if text_length == 1:
             text_1 = doc_texts[0]
         elif text_length == 2:
@@ -115,9 +116,9 @@ def create_skt_table(client, skt):
                           'p_value': p,
                           'exact_matches': t['exact_match_count'],
                           'conceptual_matches': t['match_count'] - t['exact_match_count'],
-                          'Text 1': text_1,
-                          'Text 2': text_2,
-                          'Text 3': text_3,
+                          'Text 1': text_1[:32766],
+                          'Text 2': text_2[:32766],
+                          'Text 3': text_3[:32766],
                           'total_matches': t['match_count']})
     return skt_table
 
