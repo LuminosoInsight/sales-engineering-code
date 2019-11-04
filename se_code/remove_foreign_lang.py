@@ -39,6 +39,10 @@ def remove_foreign_lang(client,lang_code,threshold=.4):
         except ValueError:
             bad_doc_ids.append(doc['doc_id'])
             continue
+        except cld2.error:
+            continue
+        except Error:
+            continue
         if (details[0][1] != lang_code) or (details[0][1] == lang_code and (not isReliable or (details[0][2] - details[1][2] <= (threshold * 100)))):
                 bad_doc_ids.append(doc['doc_id'])
     delete_docs(client,bad_doc_ids)
