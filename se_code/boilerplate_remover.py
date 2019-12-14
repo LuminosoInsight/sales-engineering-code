@@ -1,16 +1,37 @@
-from lumi_science.text_readers import get_reader
-from luminoso_api.json_stream import open_json_or_csv_somehow
+from luminoso_api import LuminosoClient
 from collections import defaultdict
-import argparse
-import itertools
-import json
-import re
-
+from math import floor, ceil
+import argparse, time, json, re
 
 SEPARATOR = '¶'
 GAP = '___'
 DEFAULT_TOKENS_TO_SCAN = 1000000
 
+def get_all_docs(client):
+    docs = []
+    while True:
+        new_docs = client.get('docs/', limit=5000, offset=len(docs))['result']
+        if new_docs:
+            docs.extend(new_docs)
+        else:
+            return docs
+
+def chunks(l, n):
+    n = max(1, n)
+    return [l[i:i + n] for i in range(0, len(l), n)]
+
+def create_new_proj( name, lang, docs):
+    # filter out all but text, title and metadata
+    docs = [{'text':d['text'],'title':d['title'],'metadata':d['metadata']} for d in docs]
+
+    client = LuminosoClient.connect('projects/')
+    proj_id = client.post(name=name,language=lang)['project_id']
+    client = client.client_for_path(proj_id)
+    for doc in chunks(docs, 10000):
+        client.post('upload',docs = doc)
+    client.post('build')
+    client.wait_for_build()
+    return client
 
 def get_ngrams(seq, window_size):
     """
@@ -19,7 +40,6 @@ def get_ngrams(seq, window_size):
     """
     return [((i, i + window_size), seq[i:(i + window_size)])
             for i in range(len(seq) - window_size + 1)]
-
 
 class SpaceSplittingReader:
     '''
@@ -50,60 +70,46 @@ class SpaceSplittingReader:
         return [(self.normalize(m.group()), None, (m.start(), m.end()))
                 for m in self.WORD_RE.finditer(text)]
 
-
 class BPDetector(object):
-    def __init__(self, reader='ssr', window_size=7, bp_replacement=SEPARATOR,
+    def __init__(self, lumi_token, proj, window_size=7, bp_replacement=SEPARATOR,
                  threshold=6, use_gaps=True):
         """
         A BPDetector is an object designed to go through large amounts of text
         and replace the repeated phrases with a single word indicating a
         stock phrase. Its initialization arguments are:
-
-            * reader
-
-                The text reader used to break the sentence apart into words. By
-                default, it uses the SpaceSplittingReader defined for exactly
-                this purpose; the name of any other reader can be specified
-                instead.
-
             * window_size
-
                 The minimum number of words a phrase has to have in order to be
                 boilerplate. Defaults to 7. If this is set too high, it may miss
                 things, but if it's set too low, it'll catch common phrases
                 like "this is" or "he did not" or the like.
-
             * bp_replacement
-
                 The text to use for the stock phrase replacement, which may
                 contain "%d" where the number for the phrase should go. By
                 default, this is the reader's hard punctuation marker.
-
             * use_gaps
-
                 Whether to allow boilerplate phrases to contain gaps: a single
                 word out of each sequence of `window_size` boilerplate words
                 will be allowed to vary instead of matching exactly, but phrases
                 with gaps will have to match more often.
-
             * threshold
-
                 The number of times a phrase has to appear in the tokens that are
                 scanned to be considered boilerplate.
-
         Another way to create a BPDetector is to load it from a JSON file with
         `BPDetector.load_data(filename)`.
         """
-        self.reader_name = reader
-        if reader == 'ssr':
-            self.reader = SpaceSplittingReader()
-        else:
-            self.reader = get_reader(reader)
+        self.reader_name = 'ssr'
+        self.reader = SpaceSplittingReader()
         self.counts = defaultdict(float)
         self.gap_fillers = defaultdict(set)
         self.boilerplate = set()
         self.window_size = window_size
         self.use_gaps = use_gaps
+        
+        if lumi_token and len(lumi_token)>0:
+            self.client = LuminosoClient.connect('projects/{}'.format(proj), token=lumi_token)
+        else:
+            self.client = LuminosoClient.connect('projects/{}'.format(proj))
+
         if bp_replacement is None:
             try:
                 bp_replacement = reader.HARD_PUNCT[0]
@@ -111,27 +117,32 @@ class BPDetector(object):
                 bp_replacement = '¶'
         self.bp_replacement = bp_replacement
         self.threshold = threshold
+        self.project_info = self.client.get("/")
 
-    def train(self, docs, tokens_to_scan=DEFAULT_TOKENS_TO_SCAN, verbose=False):
+    def train(self, docs, tokens_to_scan=DEFAULT_TOKENS_TO_SCAN, verbose=False):#, redis, tokens_to_scan=DEFAULT_TOKENS_TO_SCAN, verbose=False):
         """
         Scan through a sequence of documents, counting their n-grams of length
         `self.window_size`, including versions with gaps in them if appropriate.
         The ones that occur often enough will go into the boilerplate set.
         """
+        ###NOTE: If there are fewer than DEFAULT_TOKENS_TO_SCAN tokens in the corpus,
+        #        then the progress meter will be off.
         n_tokens = 0
         prev_proportion = 0
         for doc in docs:
             n_tokens += self.collect_ngrams_from_doc(doc)
             if n_tokens >= tokens_to_scan:
-                if verbose:
-                    print('[100%] Collecting ngrams.')
                 break
             if verbose:
                 proportion = n_tokens * 100 // tokens_to_scan
                 if proportion > prev_proportion:
-                    print('[%d%%] Collecting ngrams.' % proportion, end='\r')
+                    print('[%d%%] Collecting ngrams' % proportion, end='\r')
+                    #redis.publish('boilerplate', '[%d%%] Collecting ngrams' % proportion)
                     prev_proportion = proportion
 
+        if verbose:
+            print('[100%] Collecting ngrams')
+            #redis.publish('boilerplate', '[100%] Collecting ngrams')
         self._find_bp_in_ngrams()
 
     def collect_ngrams_from_doc(self, doc):
@@ -202,7 +213,6 @@ class BPDetector(object):
         """
         Find n-grams of this list of tokenized words that match known
         boilerplate sequences, and combine them into possibly longer sequences.
-
         Returns tuples of ((start, end), seq), indicating the sequences that
         were matched (with gaps indicated) and their indices in the list.
         """
@@ -239,7 +249,6 @@ class BPDetector(object):
         """
         Transform a document in place, removing sequences of boilerplate from
         its text.
-
         Return the spans of character indices that were removed.
         """
         # Remember what the original text was
@@ -311,7 +320,7 @@ class BPDetector(object):
         obj._find_bp_in_ngrams()
         return obj
 
-    def handle_docs(self, docs, output, verbose=False):
+    def handle_docs(self, docs, output, print_every_x, verbose=False):#, redis, print_every_x, verbose=False):
         """
         Remove boilerplate from a sequence of documents, modifying them
         in place. If verbose=True, every 10000th document will be displayed
@@ -322,8 +331,9 @@ class BPDetector(object):
             for doc in docs:
                 count += 1
                 removed_spans = self.remove_boilerplate(doc)
+                #redis.publish('boilerplate', '[Printing sample documents]')
                 print(json.dumps(doc, ensure_ascii=False), file=out)
-                if verbose and count % 10000 == 0:
+                if verbose and count % print_every_x == 0:
                     text_to_show = doc['original_text']
                     for start, end in removed_spans:
                         text_to_show = (
@@ -331,13 +341,12 @@ class BPDetector(object):
                             + highlight(text_to_show[start:end])
                             + text_to_show[end:]
                         )
-                    print('Document %d: %s' % (count, text_to_show))
+                    #redis.publish('boilerplate', 'Document %d: %s <br><br>' % (count, text_to_show))
 
-    def run(self, input, output, train=False, output_ngrams=None, verbose=False,
-            tokens_to_scan=DEFAULT_TOKENS_TO_SCAN):
+    def run(self, sample_docs=10, train=False, output_ngrams=None,
+            verbose=False, tokens_to_scan=DEFAULT_TOKENS_TO_SCAN):
         """
         Run a sequence of operations for fixing boilerplate in a file.
-
         - If `train` is True, learn boilerplate by reading `tokens_to_scan` tokens
           from the input. (Otherwise, the boilerplate ngrams must be set some
           other way, such as by loading them from a file.)
@@ -345,18 +354,20 @@ class BPDetector(object):
         - Iterate through the input file, removing boilerplate and writing the
           results to an output file.
         """
-        docs = open_json_or_csv_somehow(input)
+        time_ms = str(time.time()).replace('.','')
+        output_f = time_ms+'_output.json'
+        docs = get_all_docs(self.client)
+        print_every_x = floor(len(docs)/sample_docs)
         if train:
-            docs, train_docs = itertools.tee(docs)
-            self.train(train_docs, tokens_to_scan=tokens_to_scan, verbose=verbose)
+            #docs, train_docs = itertools.tee(docs)
+            self.train(docs, tokens_to_scan=tokens_to_scan, verbose=verbose)
         if output_ngrams:
             self.save_data(output_ngrams)
-
         if not self.counts:
             raise RuntimeError("No boilerplate data has been loaded.")
 
-        self.handle_docs(docs, output, verbose=verbose)
-
+        self.handle_docs(docs, output_f, print_every_x=print_every_x, verbose=verbose)
+        return docs
 
 def add_gap(words):
     """
@@ -367,59 +378,79 @@ def add_gap(words):
         gapped = words[:gap_slot] + (GAP,) + words[gap_slot + 1:]
         yield gapped, words[gap_slot]
 
-
 def highlight(text):
     """
     Wrap text in an "ANSI escape" that makes it display in red.
-
     Future work might involve outputting results in HTML so we can show them
     on a Web page.
     """
-    return '\x1b[91m{%s}\x1b[39m' % text
-
+    return '<span style="color:red">{%s}</span>' % text
 
 def main():
-    """
-    Handle options for using this boilerplate detector at the command line.
-    """
-    parser = argparse.ArgumentParser()
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('-i', '--input-ngrams', type=str, metavar='FILENAME',
-                       help="An existing JSON file of boilerplate ngrams to apply")
-    group.add_argument('-o', '--output-ngrams', type=str, metavar='FILENAME',
-                       help="A file to write boilerplate ngrams to, so they can be reused")
-    parser.add_argument('-t', '--threshold', type=int,
-                        help="The minimum number of occurrences of an n-gram to remove")
-    parser.add_argument('-e', '--exact', action='store_true',
-                        help="Boilerplate matches must be exact (no gaps that may vary)")
-    parser.add_argument('-s', '--scan', type=int, default=1000000,
-                        help="Number of tokens to learn ngrams from (default 1,000,000)")
-    parser.add_argument('-q', '--quiet', action='store_true',
-                        help="Don't print progress and examples while running")
-    parser.add_argument('input', help='A JSON stream or CSV file of input documents')
-    parser.add_argument('output', help='A JSON stream of output documents')
+    parser = argparse.ArgumentParser(
+        description='Remove boilerplate from a project'
+    )
+    parser.add_argument(
+        'project_id',
+        help="The ID of the project"
+        )
+    parser.add_argument(
+        'name',
+        help="Name of the new project to be created after boilerplate is removed"
+        )
+    parser.add_argument(
+        '-lt', '--lumi_token',
+        help='Luminoso user token'
+        )
+    parser.add_argument(
+        '-a', '--api_url',
+        help='URL of Luminoso API endpoint (https://eu-analytics.luminoso.com/api/v4)'
+        )
+    parser.add_argument(
+        '-t', '--threshold',
+        help='Minimum number of times a "phrase" must be used before it is considered '
+        'boilerplate.',
+        default=6
+        )
+    parser.add_argument(
+        '-w', '--window_size',
+        help="Size of window of text to search for boilerplate",
+        default=7
+        )
+    parser.add_argument(
+        '-g', '--use_gaps',
+        help="Use gaps to find multiple permutations of boilerplate",
+        default=True, action="store_false"
+        )
+    parser.add_argument(
+        '-tr', '--train',
+        help="Train the model",
+        default=True, action="store_false"
+        )
+    parser.add_argument(
+        '-s', '--sample_docs',
+        help="Number of sample docs to display",
+        default=10
+        )
+    parser.add_argument(
+        '-to', '--tokens_to_scan',
+        help="Number of tokens to scan through to find boilerplate",
+        default=1000000
+        )
+    parser.add_argument(
+        '-v', '--verbose',
+        help="Run the script verbosely",
+        default=False, action='store_true'
+        )
     args = parser.parse_args()
-
-    # Create a BPDetector with either the defaults or its saved values
-    if args.input_ngrams:
-        bp = BPDetector.load_data(args.input_ngrams)
-    else:
-        bp = BPDetector()
-
-    # Override the threshold if asked
-    if args.threshold:
-        bp.threshold = args.threshold
-
-    # Set use_gaps based on the --exact parameter
-    bp.use_gaps = (not args.exact)
-
-    bp.run(input=args.input, output=args.output,
-           output_ngrams=args.output_ngrams,
-           train=(not args.input_ngrams),
-           tokens_to_scan=args.scan,
-           verbose=(not args.quiet))
-
-
+    
+    bp = BPDetector(args.lumi_token, args.project_id)
+    new_docs = bp.run(sample_docs=args.sample_docs,
+            train=args.train,
+            tokens_to_scan=args.tokens_to_scan,
+            verbose=args.verbose,
+            output_ngrams=None)
+    create_new_proj(args.name, bp.project_info['language'], new_docs)
+    
 if __name__ == '__main__':
     main()
-
