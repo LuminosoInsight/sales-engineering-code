@@ -4,7 +4,7 @@ import click
 import numpy as np
 from lumi_science.sentiment import SentimentScorer
 from lumi_science.text_readers import get_reader
-from luminoso_api import LuminosoClient
+from luminoso_api import V5LuminosoClient as LuminosoClient
 from sentiment_topics import SentimentTopics
 
 
@@ -30,7 +30,7 @@ def create_domain_sentiment_list(sentiment_topics, output_filename, n_results):
 
     sent_terms = pos_terms + neg_terms
     client = sentiment_topics.client
-    language = client.get(fields=['language'])['language']
+    language = client.get()['language']
     sentiment_scorer = SentimentScorer(language=language)
 
     # ----- Create and save a list of domain sentiment terms -----
@@ -68,14 +68,14 @@ def assign_sentiment_scores_n_sim(sent_terms, client, sentiment_scorer):
     a sentiment axis).
     """
     for term in sent_terms:
-        sim_terms = client.get(
-            'terms/search', terms=json.dumps([term['term']]),
-            limit=200)['search_results']
+        sim_terms = client.get('concepts', concept_selector={'type': 'related',
+                                                             'search_concept': {'texts': [term['name']]},
+                                                             'limit': 200})['result']
         similar_terms = []
-        for result, matching_strength in sim_terms:
-            sentiment_score = sentiment_scorer.term_sentiment(result['term'])
+        for result in sim_terms:
+            sentiment_score = sentiment_scorer.term_sentiment(result['exact_term_ids'][0])
             if sentiment_score != 0:
-                similar_terms.append((sentiment_score, matching_strength))
+                similar_terms.append((sentiment_score, result['match_score'])
         similar_terms = similar_terms[:5]
 
         if similar_terms:
@@ -152,14 +152,13 @@ def save_terms(output_filename, sent_terms, language):
 
 
 @click.command()
-@click.argument('account_id')
 @click.argument('project_id')
 @click.argument('output-file-name')
-@click.option('--api', default='https://analytics.luminoso.com/api/v4/projects')
+@click.option('--api', default='https://analytics.luminoso.com/api/v5/projects')
 @click.option('--n-terms', default=1000)
 @click.option('--n-results', default=100)
-def main(account_id, project_id, output_file_name, api, n_terms, n_results):
-    client = LuminosoClient.connect('{}/{}/{}'.format(api, account_id, project_id))
+def main(project_id, output_file_name, api, n_terms, n_results):
+    client = LuminosoClient.connect('{}/{}'.format(api, project_id))
     sentiment_topics = SentimentTopics(client, n_terms, n_results * 2)
     create_domain_sentiment_list(sentiment_topics, output_file_name, n_results)
 

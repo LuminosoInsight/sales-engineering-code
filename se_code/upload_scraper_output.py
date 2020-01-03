@@ -6,26 +6,23 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 DATE_FORMAT = '%b %d, %Y'
 TARGET_DATE_FORMAT = '%m/%d/%y'
 
-def read_table_to_docs(table, field='pros'):
+def read_table_to_docs(table):
     '''
     Given a table read from a file, format the contents into Luminoso
     compatible documents
     '''
+    fields = {'pros': 5, 
+              'cons': 0, 
+              'advice': 0}
     docs = []
-    if field == 'pros': 
-        field_score = 5
-    else:
-        field_score = 0
     for t in table:
-        row = {}
         score = int(t['score_Star Rating'])
         position = t['employeeStatus'].split('-')[-1].strip()
         if 'anonymous' in position.lower():
             position = 'Employee'
         status = t['employeeStatus'].split('Employee')[0].strip()
-        row['title'] = '%s %s gave %d Stars' % (status, position, score)
+        title = '%s %s gave %d Stars' % (status, position, score)
         #row['title'] = '%d stars - %s' % (score, t['employeeStatus'])
-        row['text'] = t['%sText' % field]
         metadata = []
         try:
             if t['date_Date'] != 'null':
@@ -54,9 +51,6 @@ def read_table_to_docs(table, field='pros'):
                              'name': 'CEO Approval', 
                              'value': t['string_CEO Approval'].split('of')[0].strip()})
         metadata.append({'type': 'string', 
-                         'name': 'Field', 
-                         'value': field})
-        metadata.append({'type': 'string', 
                          'name': 'Employee Status', 
                          'value': t['employeeStatus'].split('-')[0].strip()})
         metadata.append({'type': 'string', 
@@ -65,14 +59,20 @@ def read_table_to_docs(table, field='pros'):
         metadata.append({'type': 'score', 
                          'name': 'Star Rating', 
                          'value': score})
-        metadata.append({'type': 'score', 
-                         'name': 'Quasi-NPS', 
-                         'value': score + field_score})
-        row['metadata'] = metadata
-        docs.append(row)
+        for f in fields:
+            row = {}
+            row['title'] = title
+            row['text'] = t['%sText' % f]
+            row['metadata'] = [{'type': 'score',
+                                'name': 'Quasi-NPS',
+                                'value': score + fields[f]},
+                               {'type': 'string',
+                                'name': 'Text Field',
+                                'value': f}]
+            row['metadata'].extend(metadata)
+            docs.append(row)
     docs = [d for d in docs if d['text'].strip() != '' and d['text'] != 'null']
     return docs
-
 
 
 def convert_docs_to_csv(docs):
@@ -96,13 +96,11 @@ def convert_docs_to_csv(docs):
 
 
 
-def write_all_uploads_to_csvs(filename, pro_docs, con_docs, docs, 
+def write_all_uploads_to_csvs(filename, docs, 
                               encoding='utf-8'):
     '''
     Writes the upload-ready documents to CSVs as a backup
     '''
-    write_pros = convert_docs_to_csv(pro_docs)
-    write_cons = convert_docs_to_csv(con_docs)
     write_total = convert_docs_to_csv(docs)
     
     root = filename.split('.csv')[0]
@@ -112,22 +110,14 @@ def write_all_uploads_to_csvs(filename, pro_docs, con_docs, docs,
         for k in d:
             if k not in fields:
                 fields.append(k)
-    with open(root + '_pros.csv', 'w', encoding=encoding, newline='') as f:
-        writer = csv.DictWriter(f, fields)
-        writer.writeheader()
-        writer.writerows(write_pros)
-    with open(root + '_cons.csv', 'w', encoding=encoding, newline='') as f:
-        writer = csv.DictWriter(f, fields)
-        writer.writeheader()
-        writer.writerows(write_cons)
-    with open(root + '_combined.csv', 'w', encoding=encoding, newline='') as f:
+    with open(root + '_docs.csv', 'w', encoding=encoding, newline='') as f:
         writer = csv.DictWriter(f, fields)
         writer.writeheader()
         writer.writerows(write_total)
         
         
         
-def upload_docs_to_projects(pro_docs, con_docs, docs, filename,
+def upload_docs_to_projects(docs, filename,
                             account_id=None, token=None, 
                             api_root='https://analytics.luminoso.com/api/v5'):
     '''
@@ -140,40 +130,20 @@ def upload_docs_to_projects(pro_docs, con_docs, docs, filename,
         client = LuminosoClient.connect('%s/projects/' % api_root, token=token)
     name = filename.split('.csv')[0].split('/')[-1]
     if account_id:
-        pro_proj_id = client.post(name=name + ' Pros', 
-                                  language='en', 
-                                  account_id=account_id)['project_id']
-        con_proj_id = client.post(name=name + ' Cons', 
-                                  language='en', 
-                                  account_id=account_id)['project_id']
-        total_proj_id = client.post(name=name + ' Combined', 
+        total_proj_id = client.post(name=name + ' All Docs', 
                                     language='en', 
                                     account_id=account_id)['project_id']
     else:
-        pro_proj_id = client.post(name=name + ' Pros', 
-                                  language='en')['project_id']
-        con_proj_id = client.post(name=name + ' Cons', 
-                                  language='en')['project_id']
         total_proj_id = client.post(name=name + ' Combined', 
                                     language='en')['project_id']
-    pro_client = client.client_for_path(pro_proj_id)
-    pro_client.post('upload', docs=pro_docs)
-    con_client = client.client_for_path(con_proj_id)
-    con_client.post('upload', docs=con_docs)
     total_client = client.client_for_path(total_proj_id)
     total_client.post('upload', docs=docs)
-    pro_client.post('build')
-    con_client.post('build')
     total_client.post('build')
-    pro_client.wait_for_build()
-    con_client.wait_for_build()
     total_client.wait_for_build()
     
     url_root = api_root.split('api')[0] + 'app/projects/'
-    account = pro_client.get()['account_id']
-    print('Pros project: %s' % (url_root + account + '/' + pro_client.get()['project_id']))
-    print('Cons project: %s' % (url_root + account + '/' + con_client.get()['project_id']))
-    print('Combined project: %s' % (url_root + account + '/' + total_client.get()['project_id']))
+    account = total_client.get()['account_id']
+    print('Completed project: %s' % (url_root + account + '/' + total_client.get()['project_id']))
 
     
     
@@ -200,17 +170,14 @@ def main():
         reader = csv.DictReader(f)
         table = [row for row in reader]
     
-    pro_docs = read_table_to_docs(table, field='pros')
-    con_docs = read_table_to_docs(table, field='cons')
-    docs = [d for d in pro_docs]
-    docs.extend(con_docs)
+    docs = read_table_to_docs(table)
     
     if args.save:
-        write_all_uploads_to_csvs(args.filename, pro_docs, con_docs, docs, 
+        write_all_uploads_to_csvs(args.filename, docs, 
                                   encoding=args.encoding)
     
     if not args.upload:
-        upload_docs_to_projects(pro_docs, con_docs, docs, args.filename,
+        upload_docs_to_projects(docs, args.filename,
                             token=args.token, account_id=args.account_id,
                             api_root=args.api_root)
     

@@ -27,6 +27,8 @@ def main():
     )
     parser.add_argument('project_url_1', help="The full URL of the first project to compare with diff analysis.")
     parser.add_argument('project_url_2', help="The full URL of the second project to compare with diff analysis.")
+    parser.add_argument('-t1', '--token1', default=None, help="User authentication token for first Daylight project")
+    parser.add_argument('-t2', '--token2', default=None, help="User authentication token for second Daylight project")
     parser.add_argument('-l', '--limit', type=int, default=500, help="number of concepts to download from projects.")
     parser.add_argument('-f1', '--filename_1', default='baseline_term_counts_export.csv', help="Name of file to write first project's output to.")
     parser.add_argument('-f2', '--filename_2', default='new_data_term_counts_export.csv', help="Name of file to write second project's output to.")
@@ -37,26 +39,19 @@ def main():
         print("Files must be of CSV format and filenames must include '.csv' extension")
         return
     
-    #root_1 = '/'.join(args.project_url_1.strip('/').split('/')[:-4]).strip('/')
     root_1 = args.project_url_1.split('/app')[0]
     project_1_id = args.project_url_1.strip('/').split('/')[-1]
-    #root_2 = '/'.join(args.project_url_2.strip('/').split('/')[:-4]).strip('/')
     root_2 = args.project_url_2.split('/app')[0]
     project_2_id = args.project_url_2.strip('/').split('/')[-1]
     
-    count = 0
-    token = input('Daylight Token: ')
-    while count < 3:
-        try:
-            client_1 = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (root_1, project_1_id), token=token)
-            client_2 = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (root_2, project_2_id), token=token)
-            break
-        except:
-            token = input('Invalid credentials, please re-enter Daylight Token: ')
-            count += 1
-    if count >= 3:
-        print('Credentials invalid, unable to login. Exiting...')
-        return
+    if args.token1:
+        client_1 = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (root_1, project_1_id), token=args.token1)
+    else:
+        client_1 = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (root_1, project_1_id))
+    if args.token2:
+        client_2 = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (root_2, project_2_id), token=args.token2)
+    else:
+        client_2 = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (root_2, project_2_id))
     
     match_counts_1 = client_1.get('concepts/match_counts', concept_selector={'type': 'top', 'limit': int(args.limit)})
     match_counts_2 = client_2.get('concepts/match_counts', concept_selector={'type': 'top', 'limit': int(args.limit)})

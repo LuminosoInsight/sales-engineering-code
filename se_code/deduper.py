@@ -1,7 +1,14 @@
+import argparse
 from itertools import chain
 from sklearn.feature_extraction.text import TfidfVectorizer
-from luminoso_api import LuminosoClient
+from luminoso_api import V5LuminosoClient as LuminosoClient
 from networkx import Graph, connected_components
+
+def __retain_shortest(docs):
+    return sorted(docs, key = lambda d: len(d['text']))[0]
+
+def __retain_longest(docs):
+    return sorted(docs, key = lambda d: len(d['text']))[-1]
 
 class Deduper(object):
     """ This class is initialized by pointing it at a project. It then downloads
@@ -24,13 +31,13 @@ class Deduper(object):
         that takes a list of document dictionaries, and returns a single document
         dictionary to be retained in the project. """
 
-    def __init__(self, acct, proj, token, split_amt=10**10, reconcile_func=None, thresh=0.95):
+    def __init__(self, client, split_amt=10**10, reconcile_func=None, thresh=0.95):
         """ split_amt is the number of docs per batch  """
         self.thresh = thresh
         self.reconcile_func = reconcile_func
         self.split_amt = split_amt
-        self.cli = LuminosoClient.connect('/projects/'+acct+'/'+proj, token=token)
-
+        self.cli = client
+        
     def intervals(self, maximum, interval):
         """ Creates intervals of size 'interval' up to maximum """
         return [(i, min(i + interval, maximum)) for i in range(0, maximum, interval)]
@@ -45,7 +52,7 @@ class Deduper(object):
         offset = 0
         docs = []
         while True:
-            batch = self.cli.get('docs', limit=limit, offset=offset)
+            batch = self.cli.get('docs', limit=limit, offset=offset)['result']
             docs.extend(batch)
             if len(batch) < limit:
                 return docs
@@ -98,7 +105,7 @@ class Deduper(object):
         if n_docs > 50000 and self.split_amt > n_docs:
             print("""WARNING: This script may fail due to memory constraints.
             If it does, then re-run with split_amt parameter set at 40000 or lower.""")
-        
+    
         for i,batch in enumerate(batches):
             print("Starting batch " + str(i+1) + " of " + str(len(batches)))
 
@@ -114,7 +121,7 @@ class Deduper(object):
             print("Finished identifying duplicates")
 
             # get duplicates and near-duplicates and reconcile them.
-            dupe_ids = [batch[i]['_id'] for i in chain(*dupe_sets)]
+            dupe_ids = [batch[i]['doc_id'] for i in chain(*dupe_sets)]
 
             dupes_to_retain = []
             for dupe_set in dupe_sets:
@@ -123,22 +130,86 @@ class Deduper(object):
 
             # send delete request to delete all dupes. Partitioned due to URI limitations.
             for d in self.chunks(dupe_ids, 100):
-                self.cli.delete('/docs', ids=d)
+                self.cli.post('/docs/delete', doc_ids=d)
             print("Finished deleting duplicates from project \n")
 
-            # need to remove the _id field otherwise it will get deleted
+            # need to remove the doc_id field otherwise it will get deleted
             # upon recalc (if it's the same as one of the deleted docs,
             # which it often is depending on the reconcile function).
             for d in dupes_to_retain:
-                if '_id' in d:
-                    del d['_id']
+                if 'doc_id' in d:
+                    del d['doc_id']
 
-            # upload the dupes we have chosen to keep
-            self.cli.upload('docs', dupes_to_retain)
+            if (len(dupes_to_retain)>0):
+                print("d0={}".format(dupes_to_retain[0]))
+                # upload the dupes we have chosen to keep
+                self.cli.post('docs', docs=dupes_to_retain)
 
             #calculate number deleted
             num_deleted = len(dupe_ids) - len(dupes_to_retain)
         
         print("Deduping finished. Project is now recalculating.")
-        self.cli.post('docs/recalculate')
+        self.cli.post('build')
+
         return num_deleted
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Dedupe documents from a project'
+    )
+    parser.add_argument('project_url', help="The complete URL of the Analytics project")
+    parser.add_argument('-t', '--token', default=None, help="Authentication Token for Daylight")
+    parser.add_argument('-copy', '--copy', action='store_true', help="Use a copy of the project")
+    parser.add_argument('-func', '--func', default='None', help="Reconcile function to use [shortest,longest,None]")
+    args = parser.parse_args()
+    
+    project_url = args.project_url.strip('/')
+    api_url = project_url.split('/app')[0].strip() + '/api/v5'
+    project_id = project_url.split('/')[6].strip()
+    workspace_id = project_url.split('/')[5].strip()
+    
+    print("opening client: {}  - {}/{}".format(api_url,project_id,workspace_id))
+    if args.token:
+        client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/'), project_id), token=args.token)
+    else:
+        client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/'), project_id))
+    
+    
+    print("prjinfo={}".format(client.get('/')))
+    #print('Getting Docs...')
+    #docs = get_all_docs(client)
+
+    print('Dedupe starting...')
+    if args.copy:
+        copy_info = client.post('copy')
+        client = client.client_for_path("/projects/"+copy_info['project_id'])
+
+        print("Waiting for copy to complete.")
+        client.wait_for_build()
+        print("Done.")
+
+    initial_count = client.get('/')['document_count']
+
+    if args.func == 'shortest':
+        reconcile_func = __retain_shortest
+    elif args.func == 'longest':
+        reconcile_func = __retain_longest
+    else:
+        reconcile_func = None
+
+    if initial_count > 40000:
+        deduper = Deduper(client,split_amt=40000, reconcile_func=reconcile_func)
+    else:
+        deduper = Deduper(client, reconcile_func=reconcile_func)
+    num_deleted = deduper.dedupe()
+
+    p_info = client.get('/')
+    url = 'https://analytics.luminoso.com/app/projects/{}/{}/highlights'.format(p_info['account_id'],p_info['project_id'])
+    
+    client.wait_for_build()
+    print("num deleted:{}, url:{}".format(num_deleted,url))
+
+    return {'num':num_deleted, 'url':url}
+
+if __name__ == '__main__':
+    main()

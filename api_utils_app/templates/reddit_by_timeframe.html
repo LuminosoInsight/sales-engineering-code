@@ -1,0 +1,87 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+  <div class="page-header"><p>
+    <h1>Create Daylight project from Reddit posts</h1>
+  </div>
+
+  <div id="content">
+    <form action="{{ url_for('reddit_by_time') }}" method='post'>
+      <div>
+        <h4>Post Selection Criteria</h4>
+        <div class="form-group row">
+          <div class="col-sm-10">
+            <input type="text" name="subreddit" class="form-control" placeholder="Subreddit to Search In" required>
+          </div>
+        </div>
+        <div class="form-group row">
+          <label class="col-sm-1 col-form-label" for="start_date">Start Date</label>
+          <div class="col-sm-10">
+            <input type="date" id="start" name="start_date" required>
+            <input type="time" name="start_time" required>
+          </div>
+        </div>
+
+        <br>
+
+        <fieldset class="form-group">
+          <div class="row">
+            <label class="col-form-label col-sm-1 pt-0">Sort By</label>
+            <div class="col-sm-10">
+              {% for i in range(types|length) %}
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="type" id={{ types[i] }} value={{ types[i] }} {{'checked' if loop.first}}>
+                  <label class="form-check-label" for="{{ types[i] }}">
+                    {{ types[i] }}
+                  </label>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="form-group">
+          <div class="row">
+            <label class="col-form-label col-sm-1 pt-0">From</label>
+            <div class="col-sm-10">
+              {% for i in range(periods|length) %}
+                <div class="form-check">
+                <input class="form-check-input" type="radio" name="period" id={{ periods[i] }} value={{ periods[i] }} {{ 'checked' if loop.first }}>
+                <label class="form-check-label" for="{{ periods[i] }}">
+                  {{ periods[i] }}
+                </label>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </fieldset>
+
+      </div>
+
+      <br>
+
+      <div>
+        <div class="form-group row">
+          <div class="col-sm-10">
+            <input class="btn btn-lg btn-primary btn-block" type="submit" value="Create CSV"/>
+          </div>
+        </div>
+      </div>
+
+      <br>
+      <span id="errorLogin">
+         {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+      </span>
+    </form>
+
+  </div>
+
+  {% if created_project %}
+  <div>
+    <h3>Check <a href={{created_project['web_url']}}>here</a> for your completed project...</h3>
+    <br>
+  </div>
+  {% endif %}
+
+{% endblock %}
