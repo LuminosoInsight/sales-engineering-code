@@ -14,7 +14,7 @@ from se_code.conjunctions_disjunctions import get_new_results, get_current_resul
 from random import randint
 from reddit_utilities import get_reddit_api, get_posts_from_past, get_posts_by_name, get_docs_from_comments, write_to_csv
 
-from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, get_first_date_field, get_date_field_by_name
+from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, get_first_date_field, get_date_field_by_name, create_drivers_with_subsets_table
 from subset_utilities import search_subsets, calc_metadata_vectors
 from se_code.create_train_test_split import create_train_test
 
@@ -139,6 +139,9 @@ def tableau_export():
     themes_on = (request.form.get('themes') == 'on')
     skt_on = (request.form.get('skt') == 'on')
     drivers_on = (request.form.get('drivers') == 'on')
+    driver_subsets = (request.form.get('driver_subsets') == 'on')
+    driver_subset_fields = request.form['driver_subset_fields'].strip()
+
     #trends = (request.form.get('trends') == 'on')
     sentiment = (request.form.get('sentiment') == 'on')
     topic_drive = (request.form.get('topic_drive') == 'on')
@@ -193,7 +196,11 @@ def tableau_export():
     if drivers_on:
         driver_table = create_drivers_table(client, driver_fields, topic_drive)
         write_table_to_csv(driver_table, foldername+'drivers_table.csv')
-    
+
+    if driver_subsets:
+        driver_table = create_drivers_with_subsets_table(client, driver_fields, topic_drive,subset_fields=driver_subset_fields)
+        write_table_to_csv(driver_table, 'subset_drivers_table.csv')
+     
     if sdot_on:
         print("SDOT {},{},{},{}".format(sdot_end,sdot_iterations,sdot_range_type,sdot_date_field_name))
 

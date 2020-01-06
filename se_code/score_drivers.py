@@ -92,6 +92,29 @@ def last_day_prior_month(dt):
     dt_new = dt.replace(day=1)
     return dt_new - timedelta(days=1)
 
+def get_best_subset_fields(client, metadata=None):
+    if metadata == None:
+        metadata = client.get('/metadata/')['result']
+    field_names = []
+    for md in metadata:
+        if 'values' in md:
+            if len(md['values'])<200:
+                field_names.append(md['name'])
+            else:
+                print("Score driver subsets: Too many values in field_name: {}".format(md['name']))
+    return field_names
+
+def get_fieldvalues_for_fieldname(client, field_name, metadata=None):
+    if metadata == None:
+        metadata = client.get('/metadata/')['result']
+    field_names = [d['name'] for d in metadata]
+    if field_name in field_names:
+        return [[item['value']] for item in [d['values'] for d in metadata if d['name']==field_name][0]]
+    else:
+        print ("Invalid field name:"+field_name)
+        print ("Fieldnames: "+str(field_names))
+        return 
+    
 def create_one_table(client, field, topic_drive, root_url='',filter=""):
     '''
     Create tabulation of ScoreDrivers output, complete with doc counts, example docs, scores and driver clusters
@@ -112,7 +135,7 @@ def create_one_table(client, field, topic_drive, root_url='',filter=""):
             row = {}
             row['driver'] = driver['name']
             row['type'] = 'saved'
-            row['subset'] = field
+            row['driver_field'] = field
             row['impact'] = driver['impact']
             row['related_terms'] = driver['texts']
             row['doc_count'] = driver['exact_match_count']
@@ -131,13 +154,15 @@ def create_one_table(client, field, topic_drive, root_url='',filter=""):
             row['example_doc'] = ''
             row['example_doc2'] = ''
             row['example_doc3'] = ''
+            # excel has a max csv cell length of 32767       
             if len(docs) >= 1:
-                row['example_doc'] = docs[0]['text']
+                row['example_doc'] = docs[0]['text'][:32700]
             if len(docs) >= 2:
-                row['example_doc2'] = docs[1]['text']
+                row['example_doc2'] = docs[1]['text'][:32700]
             if len(docs) >= 3:
-                row['example_doc3'] = docs[2]['text']
+                row['example_doc3'] = docs[2]['text'][:32700]
             driver_table.append(row)
+
 
         if len(filter)>0:
             score_drivers = client.get('concepts/score_drivers', score_field=field,
@@ -149,7 +174,7 @@ def create_one_table(client, field, topic_drive, root_url='',filter=""):
             row = {}
             row['driver'] = driver['name']
             row['type'] = 'top'
-            row['subset'] = field
+            row['driver_field'] = field
             row['impact'] = driver['impact']
             row['related_terms'] = driver['texts']
             row['doc_count'] = driver['exact_match_count']
@@ -168,12 +193,13 @@ def create_one_table(client, field, topic_drive, root_url='',filter=""):
             row['example_doc'] = ''
             row['example_doc2'] = ''
             row['example_doc3'] = ''
+            # excel has a max csv cell length of 32767
             if len(docs) >= 1:
-                row['example_doc'] = docs[0]['text']
+                row['example_doc'] = docs[0]['text'][:32700]
             if len(docs) >= 2:
-                row['example_doc2'] = docs[1]['text']
+                row['example_doc2'] = docs[1]['text'][:32700]
             if len(docs) >= 3:
-                row['example_doc3'] = docs[2]['text']
+                row['example_doc3'] = docs[2]['text'][:32700]
             
             driver_table.append(row)
 
@@ -186,7 +212,7 @@ def create_one_table(client, field, topic_drive, root_url='',filter=""):
         row = {}
         row['driver'] = driver['name']
         row['type'] = 'auto_found'
-        row['subset'] = field
+        row['driver_field'] = field
         row['impact'] = driver['impact']
         row['related_terms'] = driver['texts']
         row['doc_count'] = driver['exact_match_count']
@@ -205,31 +231,112 @@ def create_one_table(client, field, topic_drive, root_url='',filter=""):
         row['example_doc'] = ''
         row['example_doc2'] = ''
         row['example_doc3'] = ''
+        # excel has a max csv cell length of 32767
         if len(docs) >= 1:
-            row['example_doc'] = docs[0]['text']
+            row['example_doc'] = docs[0]['text'][:32700]
         if len(docs) >= 2:
-            row['example_doc2'] = docs[1]['text']
+            row['example_doc2'] = docs[1]['text'][:32700]
         if len(docs) >= 3:
-            row['example_doc3'] = docs[2]['text']
+            row['example_doc3'] = docs[2]['text'][:32700]   
         driver_table.append(row)
 
     return driver_table
 
 def create_one_sdot_table(client, field, topic_drive, root_url, filter):
-    print("{}:{} sdot thread starting".format(filter[0]['maximum'],field))
+    print("{}:{} sdot starting".format(filter[0]['maximum'],field))
 
     driver_table = create_one_table(client, field, topic_drive, root_url,filter)
     for d in driver_table:
         d['end_date'] = filter[0]['maximum']
-    print("{}:{} sdot thread done data len={}".format(filter[0]['maximum'],field,len(driver_table)))
+    print("{}:{} sdot done data len={}".format(filter[0]['maximum'],field,len(driver_table)))
     return driver_table
 
-def create_drivers_table(client, driver_fields, topic_drive, root_url='',filter=""):
+def create_drivers_table(client, driver_fields, topic_drive, root_url='',filter="", subset_name=None, subset_value=None):
     all_tables = []
     for field in driver_fields:
+        # print("create_driver: {}, {}, {}, {}".format(field, topic_drive, root_url, filter))
         table = create_one_table(client, field, topic_drive, root_url, filter)
+        # print("resp_len {}: {}".format(field,len(table)))
         all_tables.extend(table)
+    
+    if subset_name != None:
+        for ti in all_tables:
+            ti['subset_name'] = subset_name
+            ti['subset_value'] = subset_value
+
     return all_tables
+
+'''
+def create_drivers_with_subsets_table(client, driver_fields, topic_drive, subset_fields=None):
+
+    metadata = client.get('/metadata/')['result']
+
+    # if the user specifies the list of subsets to process
+    if subset_fields == None:
+        subset_fields = get_best_subset_fields(client, metadata=metadata)
+    else:
+        subset_fields = subset_fields.split(",")
+
+    # process score drivers by subset
+    driver_table = []
+
+    for field_name in subset_fields:
+        field_values = get_fieldvalues_for_fieldname(client, field_name, metadata=metadata)
+        print("{}: field_values = {}".format(field_name,field_values))
+        for field_value in field_values:
+            print("score driver for subset [{}:{}]".format(field_name,field_value[0]))
+            filter = [{"name":field_name,
+                        "values":field_value}]
+            sd_data = create_drivers_table(client,driver_fields,topic_drive,filter=filter, subset_name=field_name, subset_value=field_value[0])
+
+            driver_table.extend(sd_data)
+            if len(sd_data)>0:
+                print("[{}:{}] complete".format(sd_data[0]['subset_name'],sd_data[0]['subset_value']))
+            else:
+                print("[{}] complete".format(field_name))
+
+    return driver_table
+'''
+
+def create_drivers_with_subsets_table(client, driver_fields, topic_drive, root_url='', subset_fields=None):
+    futures = []
+
+    metadata = client.get('/metadata/')['result']
+
+    # if the user specifies the list of subsets to process
+    if subset_fields == None or len(subset_fields)==0:
+        subset_fields = get_best_subset_fields(client, metadata=metadata)
+    else:
+        subset_fields = subset_fields.split(",")
+
+    # process score drivers by subset
+    driver_table = []
+    threads_complete = 1
+    threads_started = 0
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+
+        for field_name in subset_fields:
+            field_values = get_fieldvalues_for_fieldname(client, field_name, metadata=metadata)
+            print("{}: field_values = {}".format(field_name,field_values))
+            for field_value in field_values:
+                #print("score driver for subset [{}:{}]".format(field_name,field_value[0]))
+                filter = [{"name":field_name,
+                            "values":field_value}]
+                print("filter={}".format(filter))
+                futures.append(executor.submit(create_drivers_table,client,driver_fields,topic_drive,root_url=root_url,filter=filter, subset_name=field_name, subset_value=field_value[0])) 
+                threads_started += 1
+
+        for future in concurrent.futures.as_completed(futures):
+            sd_data = future.result()
+            driver_table.extend(sd_data)
+            if len(sd_data)>0:
+                print("Thread [{} of {}] {}:{} complete. len={}".format(threads_complete,threads_started,sd_data[0]['subset_name'],sd_data[0]['subset_value'],len(sd_data)))
+            else:
+                print("Thread [{} of {}] complete. len=0".format(threads_complete,threads_started))
+            threads_complete += 1
+    
+    return driver_table
 
 def create_sdot_table(client, driver_fields, date_field_info, end_date, iterations, range_type, topic_drive, root_url='', docs=None):
 
@@ -349,6 +456,8 @@ def main():
     parser.add_argument('--sdot_iterations',default=7, help="Number of over time samples")
     parser.add_argument('--sdot_range',default=None, help="Size of each sample: M,W,D. If none given, range type will be calculated for best fit")
     parser.add_argument('--sdot_date_field',default=None,help="The name of the date field. If none, the first date field will be used")
+    parser.add_argument('--subset', default=False, action='store_true', help="Include score drivers by subset")
+    parser.add_argument('--subset_fields', default=None, help='Which subsets to include. Default = All with < 200 unique values. Samp: "field1,field2"')
     args = parser.parse_args()
     
     project_url = args.project_url.strip('/')
@@ -360,13 +469,13 @@ def main():
         client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/'), project_id), token=args.token)
     else:
         client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/'), project_id))
-        
+
     #print('Getting Docs...')
     #docs = get_all_docs(client)
 
     print('Getting Drivers...')
     driver_fields = get_driver_fields(client)
-    
+    print("driver_fields={}".format(driver_fields))
     if bool(args.sdot):
         print("Calculating sdot")
 
@@ -386,6 +495,11 @@ def main():
 
     driver_table = create_drivers_table(client, driver_fields, args.topic_drivers)
     write_table_to_csv(driver_table, 'drivers_table.csv', encoding=args.encoding)
-    
+
+    # find score drivers by subset
+    if bool(args.subset):
+        driver_table = create_drivers_with_subsets_table(client, driver_fields, args.topic_drivers,subset_fields=args.subset_fields)
+        write_table_to_csv(driver_table, 'subset_drivers_table.csv', encoding=args.encoding)
+     
 if __name__ == '__main__':
     main()
