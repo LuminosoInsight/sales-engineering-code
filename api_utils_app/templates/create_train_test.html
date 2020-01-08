@@ -1,0 +1,30 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+	<div class="page-header"><p>
+       <h1>Split a csv file into training and test data</h1>
+  </div>
+
+     
+  <div id="content">
+    <h3>Split a classification list into training and test</h3>
+    <form action="{{ url_for('create_train_test_util') }}" method='post' >
+      <input type="text" name="read_file" class="form-control" value="input.csv" required autofocus>
+      <input type="text" name="output_train" class="form-control" value="output_train.csv" required>
+      <input type="text" name="output_test" class="form-control" value="output_test.csv" required>
+      <input type="text" name="encoding" class="form-control" value="utf-8-sig" required>
+      <input type="text" name="split_size" class="form-control" value="0.3" required>
+      <input type="text" name="text_index" class="form-control" value="text" required>
+      <input type="text" name="label_index" class="form-control" value="label" required>
+
+      <input class="btn btn-lg btn-primary btn-block" type="submit" value="Split"/>
+
+      <br>
+      <span id="errorLogin">
+          {% if error %}<p class=error><strong>Error:</strong> {{ error }}{% endif %}
+      </span>
+    </form>
+  </div>
+
+{% endblock %}
