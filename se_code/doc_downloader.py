@@ -9,7 +9,41 @@ def get_all_docs(client):
             docs.extend(new_docs['result'])
         else:
             return docs
-        
+  
+def search_all_doc_ids(client, concepts):
+    docs = []
+    while True:
+        new_docs = client.get('docs', search={"texts": concepts}, fields=["doc_id"], limit=25000, offset=len(docs))
+        if new_docs['result']:
+            docs.extend([d['doc_id'] for d in new_docs['result']])
+        else:
+            return docs
+      
+def add_relations(client,docs):
+    # get the list of saved concepts
+    concept_selector = {"type": "saved"}
+    saved_concepts = client.get('concepts', concept_selector=concept_selector)['result']
+    
+    for sc in saved_concepts:
+        sc['docs_ids'] = search_all_doc_ids(client,sc['texts'])
+
+    # loop through each doc and list of saved concepts finding if the doc is in that search result
+    # add metadata for it's yes/no relation to each saved concept
+    # if it is not associated with any saved concept, mark it as an outlier
+    for d in docs:
+        in_none = True
+        for sc in saved_concepts:
+            if (d['doc_id'] in sc['docs_ids']):
+                in_none = False
+                v = 'yes'
+            else:
+                v = 'no'
+            d['metadata'].append({'name':sc['name'],'type':'string','value':v})
+        if in_none:
+            d['metadata'].append({'name':'doc_outlier','type':'string','value':'yes'})
+        else:
+            d['metadata'].append({'name':'doc_outlier','type':'string','value':'no'})
+
 def get_fields(docs):
     fields = []
     for doc in docs:
@@ -57,20 +91,30 @@ def main():
     parser.add_argument('-t', '--token', default=None, help="Daylight token")
     parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding type of the file to write to")
     parser.add_argument('-d', '--date_format', default='%Y-%m-%d', help="Format of timestamp")
+    parser.add_argument('-c', '--concept_relations', default=False, help="Add columns for saved concept relations and outliers")
     args = parser.parse_args()
     
     api_url = args.project_url.split('/app')[0]
     project_id = args.project_url.strip('/ ').split('/')[-1]
+
+    account_id = args.project_url.strip('/').split('/')[5]
+    project_id = args.project_url.strip('/').split('/')[6]
+    api_url = '/'.join(args.project_url.strip('/').split('/')[:3]).strip('/') + '/api/v5'
+    proj_apiv5 = '{}/projects/{}'.format(api_url, project_id)
+
     if args.token:
-        client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (api_url, project_id), token=args.token)
+        client = LuminosoClient.connect(url=proj_apiv5, token=args.token)
     else:
-        client = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (api_url, project_id))
+        client = LuminosoClient.connect(url=proj_apiv5)
     
     docs = get_all_docs(client)
+    if args.concept_relations:
+        add_relations(client,docs)
     fields = get_fields(docs)
     docs, field_names = format_subsets(docs, fields, args.date_format)
     write_to_csv(args.filename, docs, field_names, encoding=args.encoding)
     
+
     
 if __name__ == '__main__':
     main()
