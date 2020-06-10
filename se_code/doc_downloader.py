@@ -13,9 +13,9 @@ def get_all_docs(client):
 def search_all_doc_ids(client, concepts):
     docs = []
     while True:
-        new_docs = client.get('docs', search={"texts": concepts}, fields=["doc_id"], limit=25000, offset=len(docs))
+        new_docs = client.get('docs', search={"texts": concepts}, fields=["doc_id","match_score"], limit=25000, offset=len(docs))
         if new_docs['result']:
-            docs.extend([d['doc_id'] for d in new_docs['result']])
+            docs.extend({'doc_id':d['doc_id'],'match_score':d['match_score']} for d in new_docs['result'])
         else:
             return docs
       
@@ -25,7 +25,9 @@ def add_relations(client,docs):
     saved_concepts = client.get('concepts', concept_selector=concept_selector)['result']
     
     for sc in saved_concepts:
-        sc['docs_ids'] = search_all_doc_ids(client,sc['texts'])
+        sc['match_scores'] = search_all_doc_ids(client,sc['texts'])
+        sc['match_scores_by_id'] = {c['doc_id']:c['match_score'] for c in sc['match_scores']}
+        sc['docs_ids'] = [c['doc_id'] for c in sc['match_scores']]
 
     # loop through each doc and list of saved concepts finding if the doc is in that search result
     # add metadata for it's yes/no relation to each saved concept
@@ -36,9 +38,13 @@ def add_relations(client,docs):
             if (d['doc_id'] in sc['docs_ids']):
                 in_none = False
                 v = 'yes'
+                d['metadata'].append({'name':sc['name'],'type':'string','value':v})
+                d['metadata'].append({'name':sc['name']+' match_score','type':'number','value':sc['match_scores_by_id'][d['doc_id']]})
             else:
                 v = 'no'
-            d['metadata'].append({'name':sc['name'],'type':'string','value':v})
+                d['metadata'].append({'name':sc['name'],'type':'string','value':v})
+                d['metadata'].append({'name':sc['name']+' match_score','type':'number','value':0})
+        
         if in_none:
             d['metadata'].append({'name':'doc_outlier','type':'string','value':'yes'})
         else:
