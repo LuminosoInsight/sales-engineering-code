@@ -97,7 +97,7 @@ def main():
     parser.add_argument('-t', '--token', default=None, help="Daylight token")
     parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding type of the file to write to")
     parser.add_argument('-d', '--date_format', default='%Y-%m-%d', help="Format of timestamp")
-    parser.add_argument('-c', '--concept_relations', default=False, help="Add columns for saved concept relations and outliers")
+    parser.add_argument('-c', '--concept_relations', default=False, action='store_true', help="Add columns for saved concept relations and outliers")
     args = parser.parse_args()
     
     api_url = args.project_url.split('/app')[0]
