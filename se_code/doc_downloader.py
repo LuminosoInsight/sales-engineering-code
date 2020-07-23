@@ -34,12 +34,14 @@ def add_relations(client,docs):
     # if it is not associated with any saved concept, mark it as an outlier
     for d in docs:
         in_none = True
+        doc_concept_list = []
         for sc in saved_concepts:
             if (d['doc_id'] in sc['docs_ids']):
                 in_none = False
                 v = 'yes'
                 d['metadata'].append({'name':sc['name'],'type':'string','value':v})
                 d['metadata'].append({'name':sc['name']+' match_score','type':'number','value':sc['match_scores_by_id'][d['doc_id']]})
+                doc_concept_list.append(sc['name'])
             else:
                 v = 'no'
                 d['metadata'].append({'name':sc['name'],'type':'string','value':v})
@@ -47,8 +49,10 @@ def add_relations(client,docs):
         
         if in_none:
             d['metadata'].append({'name':'doc_outlier','type':'string','value':'yes'})
+            doc_concept_list.append("outlier")
         else:
             d['metadata'].append({'name':'doc_outlier','type':'string','value':'no'})
+        d['metadata'].append({'name':'concept_list','type':'string','value':','.join(doc_concept_list)})
 
 def get_fields(docs):
     fields = []
