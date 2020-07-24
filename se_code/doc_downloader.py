@@ -22,7 +22,7 @@ def search_all_doc_ids(client, concepts,match_type="both"):
         else:
             return docs
       
-def add_relations(client,docs,match_type="both"):
+def add_relations(client,docs,add_concept_relations=False,add_concept_list=False,match_type="both"):
     # get the list of saved concepts
     concept_selector = {"type": "saved"}
     saved_concepts = client.get('concepts', concept_selector=concept_selector)['result']
@@ -42,20 +42,24 @@ def add_relations(client,docs,match_type="both"):
             if (d['doc_id'] in sc['docs_ids']):
                 in_none = False
                 v = 'yes'
-                d['metadata'].append({'name':sc['name'],'type':'string','value':v})
-                d['metadata'].append({'name':sc['name']+' match_score','type':'number','value':sc['match_scores_by_id'][d['doc_id']]})
+                if add_concept_relations:
+                    d['metadata'].append({'name':sc['name'],'type':'string','value':v})
+                    d['metadata'].append({'name':sc['name']+' match_score','type':'number','value':sc['match_scores_by_id'][d['doc_id']]})
                 doc_concept_list.append(sc['name'])
             else:
                 v = 'no'
-                d['metadata'].append({'name':sc['name'],'type':'string','value':v})
-                d['metadata'].append({'name':sc['name']+' match_score','type':'number','value':0})
+                if add_concept_relations:
+                    d['metadata'].append({'name':sc['name'],'type':'string','value':v})
+                    d['metadata'].append({'name':sc['name']+' match_score','type':'number','value':0})
         
-        if in_none:
-            d['metadata'].append({'name':'doc_outlier','type':'string','value':'yes'})
-            doc_concept_list.append("outlier")
-        else:
-            d['metadata'].append({'name':'doc_outlier','type':'string','value':'no'})
-        d['metadata'].append({'name':'concept_list','type':'string','value':','.join(doc_concept_list)})
+        if add_concept_relations:
+            if in_none:
+                d['metadata'].append({'name':'doc_outlier','type':'string','value':'yes'})
+                doc_concept_list.append("outlier")
+            else:
+                d['metadata'].append({'name':'doc_outlier','type':'string','value':'no'})
+        if add_concept_list:
+            d['metadata'].append({'name':'concept_list','type':'string','value':','.join(doc_concept_list)})
 
 def get_fields(docs):
     fields = []
@@ -105,6 +109,7 @@ def main():
     parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding type of the file to write to")
     parser.add_argument('-d', '--date_format', default='%Y-%m-%d', help="Format of timestamp")
     parser.add_argument('-c', '--concept_relations', default=False, action='store_true', help="Add columns for saved concept relations and outliers")
+    parser.add_argument('-l', '--concept_list', default=False, action='store_true', help="Add columns for saved concept relations and outliers")
     parser.add_argument('-m', '--match_type', default='both', help="For concept relations use exact, conceptual or both when searching")
     args = parser.parse_args()
     
@@ -122,8 +127,8 @@ def main():
         client = LuminosoClient.connect(url=proj_apiv5)
     
     docs = get_all_docs(client)
-    if args.concept_relations:
-        add_relations(client,docs,match_type=args.match_type)
+    if args.concept_relations or args.concept_list:
+        add_relations(client,docs,args.concept_relations,args.concept_list,match_type=args.match_type)
     fields = get_fields(docs)
     docs, field_names = format_subsets(docs, fields, args.date_format)
     write_to_csv(args.filename, docs, field_names, encoding=args.encoding)
