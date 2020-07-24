@@ -10,22 +10,25 @@ def get_all_docs(client):
         else:
             return docs
   
-def search_all_doc_ids(client, concepts):
+def search_all_doc_ids(client, concepts,match_type="both"):
     docs = []
     while True:
-        new_docs = client.get('docs', search={"texts": concepts}, fields=["doc_id","match_score"], limit=25000, offset=len(docs))
+        if "both" in match_type:
+            new_docs = client.get('docs', search={"texts": concepts}, fields=["doc_id","match_score"], limit=25000, offset=len(docs))
+        else:
+            new_docs = client.get('docs', search={"texts": concepts}, fields=["doc_id","match_score"], limit=25000, offset=len(docs),match_type=match_type)
         if new_docs['result']:
             docs.extend({'doc_id':d['doc_id'],'match_score':d['match_score']} for d in new_docs['result'])
         else:
             return docs
       
-def add_relations(client,docs):
+def add_relations(client,docs,match_type="both"):
     # get the list of saved concepts
     concept_selector = {"type": "saved"}
     saved_concepts = client.get('concepts', concept_selector=concept_selector)['result']
     
     for sc in saved_concepts:
-        sc['match_scores'] = search_all_doc_ids(client,sc['texts'])
+        sc['match_scores'] = search_all_doc_ids(client,sc['texts'],match_type=match_type)
         sc['match_scores_by_id'] = {c['doc_id']:c['match_score'] for c in sc['match_scores']}
         sc['docs_ids'] = [c['doc_id'] for c in sc['match_scores']]
 
@@ -102,6 +105,7 @@ def main():
     parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding type of the file to write to")
     parser.add_argument('-d', '--date_format', default='%Y-%m-%d', help="Format of timestamp")
     parser.add_argument('-c', '--concept_relations', default=False, action='store_true', help="Add columns for saved concept relations and outliers")
+    parser.add_argument('-m', '--match_type', default='both', help="For concept relations use exact, conceptual or both when searching")
     args = parser.parse_args()
     
     api_url = args.project_url.split('/app')[0]
@@ -119,7 +123,7 @@ def main():
     
     docs = get_all_docs(client)
     if args.concept_relations:
-        add_relations(client,docs)
+        add_relations(client,docs,match_type=args.match_type)
     fields = get_fields(docs)
     docs, field_names = format_subsets(docs, fields, args.date_format)
     write_to_csv(args.filename, docs, field_names, encoding=args.encoding)
