@@ -9,7 +9,7 @@ def get_all_docs(client):
             docs.extend(new_docs['result'])
         else:
             return docs
-  
+
 def search_all_doc_ids(client, concepts,match_type="both"):
     docs = []
     while True:
@@ -21,17 +21,22 @@ def search_all_doc_ids(client, concepts,match_type="both"):
             docs.extend({'doc_id':d['doc_id'],'match_score':d['match_score']} for d in new_docs['result'])
         else:
             return docs
-      
+
 def add_relations(client,docs,add_concept_relations=False,add_concept_list=False,match_type="both"):
     # get the list of saved concepts
     concept_selector = {"type": "saved"}
     saved_concepts = client.get('concepts', concept_selector=concept_selector)['result']
-    
+
     for sc in saved_concepts:
         sc['match_scores'] = search_all_doc_ids(client,sc['texts'],match_type=match_type)
         sc['match_scores_by_id'] = {c['doc_id']:c['match_score'] for c in sc['match_scores']}
         sc['docs_ids'] = [c['doc_id'] for c in sc['match_scores']]
 
+    # filter out metadata that matches our current saved concepts
+    clist = [sc['name'] for sc in saved_concepts]
+    for d in docs:
+        d['metadata'] = [md for md in d['metadata'] if md['name'] not in clist]
+        
     # loop through each doc and list of saved concepts finding if the doc is in that search result
     # add metadata for it's yes/no relation to each saved concept
     # if it is not associated with any saved concept, mark it as an outlier
@@ -51,7 +56,7 @@ def add_relations(client,docs,add_concept_relations=False,add_concept_list=False
                 if add_concept_relations:
                     d['metadata'].append({'name':sc['name'],'type':'string','value':v})
                     d['metadata'].append({'name':sc['name']+' match_score','type':'number','value':0})
-        
+
         if add_concept_relations:
             if in_none:
                 d['metadata'].append({'name':'doc_outlier','type':'string','value':'yes'})
@@ -91,14 +96,14 @@ def format_subsets(docs, fields, date_format):
             del doc['metadata']
     field_names.extend(list(set(subsets)))
     return docs, field_names
-    
+
 def write_to_csv(filename, docs, field_names, encoding='utf-8'):
     with open(filename, 'w', encoding=encoding) as f:
         writer = csv.DictWriter(f, field_names)
         writer.writeheader()
         writer.writerows(docs)
     print('Wrote %d docs to %s' % (len(docs), filename))
-        
+
 def main():
     parser = argparse.ArgumentParser(
         description='Download documents from an Analytics project and write to CSV.'
@@ -112,7 +117,7 @@ def main():
     parser.add_argument('-l', '--concept_list', default=False, action='store_true', help="Add columns for saved concept relations and outliers")
     parser.add_argument('-m', '--match_type', default='both', help="For concept relations use exact, conceptual or both when searching")
     args = parser.parse_args()
-    
+
     api_url = args.project_url.split('/app')[0]
     project_id = args.project_url.strip('/ ').split('/')[-1]
 
@@ -125,15 +130,15 @@ def main():
         client = LuminosoClient.connect(url=proj_apiv5, token=args.token)
     else:
         client = LuminosoClient.connect(url=proj_apiv5)
-    
+
     docs = get_all_docs(client)
     if args.concept_relations or args.concept_list:
         add_relations(client,docs,args.concept_relations,args.concept_list,match_type=args.match_type)
     fields = get_fields(docs)
     docs, field_names = format_subsets(docs, fields, args.date_format)
     write_to_csv(args.filename, docs, field_names, encoding=args.encoding)
-    
 
-    
+
+
 if __name__ == '__main__':
     main()
