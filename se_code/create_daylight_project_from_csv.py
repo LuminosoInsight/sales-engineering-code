@@ -5,7 +5,8 @@ import datetime, getpass, time, json, os, csv
 import numpy, pack64
 
 '''
-Create a Luminoso Daylight project from a CSV file. Usefull if the file is too large for UI
+Create a Luminoso Daylight project from a CSV file. Usefull if the file is too 
+large for UI or building without the UI for things like search_enhancement
 
 '''
 
@@ -13,11 +14,10 @@ def write_documents(client,docs):
     offset = 0
     while offset<len(docs):
         end = min(len(docs),offset+1000)
-        print("offs={},  end={},  len={}".format(offset,end,len(docs)))
         result = client.post('upload', docs=docs[offset:end])
         offset = end
 
-def create_project(client, input_file, project_name, account_id, keyword_expansion_terms=None, max_len=0):
+def create_project(client, input_file, project_name, account_id, keyword_expansion_terms=None, max_len=0, skip_sentiment_build=False):
     
     block_size = 5000
 
@@ -82,20 +82,23 @@ def create_project(client, input_file, project_name, account_id, keyword_expansi
         docs.append(new_doc)
 
         if len(docs)>=block_size:
-            print("Uploading {} documents at {}".format(len(docs),i))
+            print("Uploading {} documents".format(len(docs)))
             write_documents(client_prj, docs)
 
             docs = []
     
     if len(docs)>0:
-        print("Uploading {} documents at {}".format(len(docs),i))
+        print("Uploading {} documents".format(len(docs)))
         write_documents(client_prj, docs)
     
+    sentiment_configuration = {"type":"full"}
+    if (skip_sentiment_build):
+        sentiment_configuration = {"type":"none"}
+
     print("Done uploading. Starting build")
     if keyword_expansion_terms:
 
         keyword_expansion_filter = []
-        print("expans terms={}".format(keyword_expansion_terms))
         for entry in keyword_expansion_terms.split("|"):
             field_and_val = entry.split("=")
             print("fv {}".format(field_and_val))
@@ -107,9 +110,13 @@ def create_project(client, input_file, project_name, account_id, keyword_expansi
                                 "filter":keyword_expansion_filter}
         print("keyword filter = {}".format(keyword_expansion_dict))
 
-        client_prj.post("build",keyword_expansion=keyword_expansion_dict)
+        client_prj.post("build",
+                keyword_expansion=keyword_expansion_dict, 
+                sentiment_configuration=sentiment_configuration)
     else:
-        client_prj.post('build')
+        client_prj.post('build', sentiment_configuration=sentiment_configuration)
+    
+    print("Build started")
 
     return client_prj
 
@@ -119,11 +126,13 @@ def main():
     )
     parser.add_argument('input_file', help="CSV file with project data")
     parser.add_argument('-n', '--project_name', default="", required=True, help="New project name")
-    parser.add_argument('-a', '--account_id', default="", required=True, help="Luminoso account ID")
+    parser.add_argument('-a', '--account_id', default="", required=False, help="Luminoso account ID")
     parser.add_argument('-u', '--api_url', default='https://daylight.luminoso.com/api/v5/projects/', help='The host url. Default=https://daylight.luminoso.com/api/v5/projects/')
-    parser.add_argument('-t', '--token', default="", help="Enter your Daylight token")
+    parser.add_argument('-t', '--token', default=None, help="Enter your Daylight token")
     parser.add_argument('-k', '--keyword_expansion_terms', default=None, required=False, help="field list of metadata field=data,data to expand. search_doc_type=primary,primary2|search_doc_type2=secondary")
     parser.add_argument('-m', '--max_text_length', default="0", required=False, help="The maximum length to limit text fields")
+    parser.add_argument('-s', '--skip_sentiment_build', action="store_true", default=False, help="Allows the build to skip the sentiment build")
+    parser.add_argument('-w', '--wait_for_build_complete', action="store_true", default=False, help="Wait for the build to complete")
     args = parser.parse_args()
     
     project_name = args.project_name
@@ -134,16 +143,29 @@ def main():
 
     api_url = args.api_url
 
+    # get the default account id if none given
+    if len(account_id)==0:
+        # use the v5 url to build the v4 url
+        urllist = api_url.strip('/').split('/')
+        api_urlv4 = "/".join(urllist[0:3])+"/api/v4"
 
-    if len(token)>0:
-        client = LuminosoClient.connect(url=api_url,
+        # connect to luminoso and get the client info
+        clientv4 =  LuminosoClient.connect(url=api_urlv4,
                                         token=token)
-    else:
-         client = LuminosoClient.connect(url=api_url)    
+        profile = clientv4.get("/user/profile/")
+        if not profile['error']:
+            account_id = profile["result"]["default_account"]
+        else:
+            print("error retrieving account_id: {}".format(profile['error']))
 
-    client_prj = create_project(client, input_file, project_name, account_id, keyword_expansion_terms=args.keyword_expansion_terms, max_len=max_len)
+    # connect to v5 api
+    client = LuminosoClient.connect(url=api_url, token=token)
 
-    client_prj.wait_for_build()
+    client_prj = create_project(client, input_file, project_name, account_id, keyword_expansion_terms=args.keyword_expansion_terms, max_len=max_len, skip_sentiment_build=args.skip_sentiment_build)
+
+    if (args.wait_for_build_complete):
+        print("waiting for build to complete...")
+        client_prj.wait_for_build()
 
 if __name__ == '__main__':
     main()
