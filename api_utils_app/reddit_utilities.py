@@ -171,3 +171,22 @@ def write_to_csv(filename, docs, fields):
         writer = csv.DictWriter(f, fields)
         writer.writeheader()
         writer.writerows(docs)
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Export data to Tableau compatible CSV files.'
+    )
+    parser.add_argument('--request_type', default="name", help="Type of reddit request default=name.  Possible values: [name,date]")
+    parser.add_argument('subreddit_name', help="Enter the subreddit name")
+    parser.add_argument('post_names', help="Enter the post reddit name")
+    args = parser.parse_args()
+
+    request_type = args.request_type
+    subreddit_name = args.subreddit_name
+    post_names = args.post_names
+
+    reddit = get_reddit_api()
+
+
+if __name__ == '__main__':
+    main()
