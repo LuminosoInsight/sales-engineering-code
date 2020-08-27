@@ -1,4 +1,4 @@
-import praw, re, csv
+import praw, re, csv, argparse
 
 from ftfy import fix_text
 
@@ -107,7 +107,7 @@ def create_metadata(document, meta_type, name, value):
     #    'name': name,
     #    'value': value
     #})
-    document['%s_%s' % (meta_type, name)] = value 
+    document['%s_%s' % (meta_type, name)] = value
 
 
 def get_docs_from_comments(posts, reddit):
@@ -171,3 +171,25 @@ def write_to_csv(filename, docs, fields):
         writer = csv.DictWriter(f, fields)
         writer.writeheader()
         writer.writerows(docs)
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Export data to Tableau compatible CSV files.'
+    )
+    parser.add_argument('--request_type', default="name", help="Type of reddit request default=name.  Possible values: [name,date]")
+    parser.add_argument('subreddit_name', help="Enter the subreddit name")
+    parser.add_argument('post_names', help="Enter the post reddit name")
+    args = parser.parse_args()
+
+    request_type = args.request_type
+    subreddit_name = args.subreddit_name
+    post_names = args.post_names
+
+    fields = ['text', 'title', 'date_Post Date', 'string_Author Name', 'string_Comment Type', 'string_Thread', 'string_Reddit Post', ]
+    reddit = get_reddit_api()
+    posts = get_posts_by_name(reddit, subreddit_name, post_names)
+    docs = get_docs_from_comments(posts, reddit)
+    write_to_csv('%s docs.csv' % subreddit_name, docs, fields)
+
+if __name__ == '__main__':
+    main()
