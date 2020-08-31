@@ -24,12 +24,15 @@ def main():
     parser = argparse.ArgumentParser(
         description="List users on an onsite installation account."
     )
-    parser.add_argument("token", help="The API token used to access the host")
+    parser.add_argument(
+        "token",
+        help="The API token used to access the host. This needs to from an account with account_manage privilege",
+    )
 
     parser.add_argument(
         "-u",
         "--host_url",
-        help="Luminoso API endpoint (https://analytics.luminoso.com)",
+        help="Luminoso host (https://analytics.luminoso.com)",
         required=True,
     )
     parser.add_argument("-a", "--account_id", help="Account ID to list the users under")
