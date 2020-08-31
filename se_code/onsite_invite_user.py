@@ -7,17 +7,21 @@
 #     The second (-a -e -p) will send an invite to a single user.
 #
 
-from luminoso_api import LuminosoClient
+from luminoso_api import V4LuminosoClient as LuminosoClient
 import argparse
 import csv
 
 # function to invite a user to join a specific account
 def invite_user(client, account_id, email, account_permissions):
-    users_on_acct = client.get("/{}/users/".format(account_id))['result']
+    users_on_acct = client.get("/{}/users/".format(account_id))
     if email in users_on_acct["members"].keys():
         print("user {} exists - IGNORED".format(email))
     else:
-        client.post("/{}/invite/".format(account_id), permissions=account_permissions, email=email)
+        client.post(
+            "/{}/invite/".format(account_id),
+            permissions=account_permissions,
+            email=email,
+        )
         print("email=" + email + "  account=" + account_id + " - INVITED")
 
 
@@ -33,7 +37,7 @@ def main():
         "-u",
         "--host_url",
         help="Luminoso API endpoint (https://daylight.luminoso.com)",
-        required = True
+        required=True,
     )
     parser.add_argument(
         "-c",

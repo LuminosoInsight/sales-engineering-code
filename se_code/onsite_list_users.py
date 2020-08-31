@@ -2,8 +2,7 @@
 #
 # This script lists the users on an onsite image for a given account id
 #
-
-from luminoso_api import LuminosoClient
+from luminoso_api import V4LuminosoClient as LuminosoClient
 import argparse
 import csv
 import json

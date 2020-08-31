@@ -4,7 +4,7 @@
 # onsite image.
 #
 
-from luminoso_api import LuminosoClient
+from luminoso_api import V4LuminosoClient as LuminosoClient
 import argparse
 import csv
 import json
