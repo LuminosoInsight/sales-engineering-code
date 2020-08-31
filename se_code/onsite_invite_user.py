@@ -10,6 +10,7 @@
 from luminoso_api import V4LuminosoClient as LuminosoClient
 import argparse
 import csv
+import os
 
 # function to invite a user to join a specific account
 def invite_user(client, account_id, email, account_permissions):
@@ -32,7 +33,13 @@ def main():
         + "There are two ways to run this script using -c with csv list of email address "
         + "or using -a -e -p options to add a single user."
     )
-    parser.add_argument("token", help="The API token used to access the host")
+    parser.add_argument(
+        "-t",
+        "--token",
+        help="The API token used to access the host. Or use environment variable LUMINOSO_TOKEN",
+        default=None,
+    )
+
     parser.add_argument(
         "-u",
         "--host_url",
@@ -65,6 +72,13 @@ def main():
     # list of argument keys to use to verify proper usage
     arglist = [k for k, i in vars(args).items() if i != None]
 
+    # process the token from either command line, env or tokens.json
+    token = args.token
+    if not token:
+        token = None
+    if "LUMINOSO_TOKEN" in os.environ:
+        token = os.environ["LUMINOSO_TOKEN"]
+
     # there are two ways to run this script, in batch with a csv file
     # which is this option below
     if args.csv_file != None:
@@ -79,7 +93,10 @@ def main():
 
         # connect to the Luminoso Daylight onsite service
         api_url = args.host_url + "/api/v4"
-        client = LuminosoClient.connect(api_url + "/accounts/", token=args.token)
+        if not token:
+            client = LuminosoClient.connect(api_url + "/accounts/")
+        else:
+            client = LuminosoClient.connect(api_url + "/accounts/", token=token)
 
         # iterate the csv and invite each user
         for acct in table:
@@ -96,8 +113,11 @@ def main():
 
         # connect to the Luminoso Daylight onsite service
         api_url = args.host_url + "/api/v4"
-        client = LuminosoClient.connect(api_url + "/accounts/", token=args.token)
-
+        if not token:
+            print("no token given...")
+            client = LuminosoClient.connect(api_url + "/accounts/")
+        else:
+            client = LuminosoClient.connect(api_url + "/accounts/", token=token)
         # invite the user
         perm = args.permissions.split(",")
         invite_user(client, args.account_id, args.email, perm)

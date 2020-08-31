@@ -6,10 +6,11 @@ from luminoso_api import V4LuminosoClient as LuminosoClient
 import argparse
 import csv
 import json
+import os
 
 # function to list users
 def list_users(client, account_id):
-    users_on_acct = client.get("/accounts/{}/users/".format(account_id))["result"]
+    users_on_acct = client.get("/accounts/{}/users/".format(account_id))
     print(users_on_acct)
     print()
     all_users = users_on_acct["guests"]
@@ -24,8 +25,10 @@ def main():
         description="List users on an onsite installation account."
     )
     parser.add_argument(
-        "token",
-        help="The API token used to access the host. This needs to from an account with account_manage privilege",
+        "-t",
+        "--token",
+        help="The API token used to access the host. Or use environment variable LUMINOSO_TOKEN",
+        default=None,
     )
 
     parser.add_argument(
@@ -43,10 +46,16 @@ def main():
 
     args = parser.parse_args()
 
-    api_v4 = args.host_url + "/api/v4/"
+    # process the token from either command line, env or tokens.json
+    token = args.token
+    if not token:
+        token = None
+    if "LUMINOSO_TOKEN" in os.environ:
+        token = os.environ["LUMINOSO_TOKEN"]
 
     # connect to the Luminoso Daylight onsite service
-    client = LuminosoClient.connect(api_v4, token=args.token)
+    api_v4 = args.host_url + "/api/v4/"
+    client = LuminosoClient.connect(api_v4, token=token)
 
     # list the users
     users_on_account = list_users(client, args.account_id)
