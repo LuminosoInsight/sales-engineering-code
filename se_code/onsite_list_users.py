@@ -4,9 +4,9 @@
 #
 from luminoso_api import V4LuminosoClient as LuminosoClient
 import argparse
-import csv
 import json
 import os
+
 
 # function to list users
 def list_users(client, account_id):

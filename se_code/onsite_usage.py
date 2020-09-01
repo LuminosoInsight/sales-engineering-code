@@ -7,8 +7,8 @@
 from luminoso_api import V4LuminosoClient as LuminosoClient
 import argparse
 import csv
-import json
 import os
+
 
 # function to list usage on all accounts
 def get_usage_list(client):
