@@ -25,19 +25,16 @@ def main():
         description="List users on an onsite installation account."
     )
     parser.add_argument(
+        "host_url",
+        help="Luminoso host (https://analytics.luminoso.com)",
+    )
+    parser.add_argument("account_id", help="Account ID to list the users under")
+    parser.add_argument(
         "-t",
         "--token",
         help="The API token used to access the host. Or use environment variable LUMINOSO_TOKEN",
         default=None,
     )
-
-    parser.add_argument(
-        "-u",
-        "--host_url",
-        help="Luminoso host (https://analytics.luminoso.com)",
-        required=True,
-    )
-    parser.add_argument("-a", "--account_id", help="Account ID to list the users under")
     parser.add_argument(
         "-o",
         "--output_file",

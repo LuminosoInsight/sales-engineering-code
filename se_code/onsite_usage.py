@@ -48,7 +48,7 @@ def main():
     )
 
     parser.add_argument(
-        "-u", "--host_url", help="Luminoso host (https://daylight.luminoso.com/)"
+        "host_url", help="Luminoso host (e.g. https://daylight.luminoso.com/)"
     )
 
     parser.add_argument(
