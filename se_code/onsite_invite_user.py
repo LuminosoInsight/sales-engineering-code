@@ -12,6 +12,7 @@ import argparse
 import csv
 import os
 
+
 # function to invite a user to join a specific account
 def invite_user(client, account_id, email, account_permissions):
     users_on_acct = client.get("/{}/users/".format(account_id))
@@ -33,6 +34,12 @@ def main():
         + "There are two ways to run this script using -c with csv list of email address "
         + "or using -a -e -p options to add a single user."
     )
+
+    parser.add_argument(
+        "host_url",
+        help="Luminoso API endpoint (e.g., https://daylight.luminoso.com)",
+    )
+
     parser.add_argument(
         "-t",
         "--token",
@@ -40,37 +47,36 @@ def main():
         default=None,
     )
 
-    parser.add_argument(
-        "-u",
-        "--host_url",
-        help="Luminoso API endpoint (https://daylight.luminoso.com)",
-        required=True,
-    )
-    parser.add_argument(
+    csv_group = parser.add_argument_group(title='arguments for using a CSV')
+    csv_group.add_argument(
         "-c",
         "--csv_file",
-        help="The csv file that holds rows [email,account_id,permissions]. Use this to add multiple users or -u,-p,-a for an individual user",
+        help="The csv file that holds rows [email,account_id,permissions]."
     )
-    parser.add_argument(
-        "-a", "--account_id", help="Account ID to add the account under"
+    csv_group.add_argument(
+        "--encoding", default="utf-8-sig", help="Encoding type of the file to read from"
     )
-    parser.add_argument(
+
+    single_group = parser.add_argument_group(title='arguments for adding a single user')
+    single_group.add_argument(
+        "-a", "--account_id", help="Account ID to add the user under"
+    )
+    single_group.add_argument(
         "-e",
         "--email",
         help="Email address to user for the account name and invite. User will receive an email explaining how to setup an account",
     )
-    parser.add_argument(
+    single_group.add_argument(
         "-p",
         "--permissions",
         help='Permission(s) to give an individual user comma separated: "read,write,create"',
     )
-    parser.add_argument(
-        "--encoding", default="utf-8-sig", help="Encoding type of the file to read from"
-    )
     args = parser.parse_args()
 
-    # list of argument keys to use to verify proper usage
-    arglist = [k for k, i in vars(args).items() if i != None]
+    csv_file = args.csv_file
+    account_id = args.account_id
+    email = args.email
+    permissions = args.permissions
 
     # process the token from either command line, env or tokens.json
     token = args.token
@@ -78,49 +84,30 @@ def main():
         token = None
     if "LUMINOSO_TOKEN" in os.environ:
         token = os.environ["LUMINOSO_TOKEN"]
+    client = LuminosoClient.connect(args.host_url, token=token)
+    accounts_client = client.change_path("/accounts/")
 
-    # there are two ways to run this script, in batch with a csv file
-    # which is this option below
-    if args.csv_file != None:
-        input_data = "./onsite_add_users.csv"
+    if all(arg is None for arg in (csv_file, account_id, email, permissions)):
+        parser.error('You must specify either a CSV file or an account ID,'
+                     ' email, and permissions.')
 
-        if any(key in arglist for key in ["account_id", "email", "permissions"]):
-            print("WARNING: Single user invite args -a,-e,-p ignored for csv read")
-
-        with open(input_data, encoding=args.encoding) as f:
-            reader = csv.DictReader(f)
-            table = [row for row in reader]
-
-        # connect to the Luminoso Daylight onsite service
-        api_url = args.host_url + "/api/v4"
-        if not token:
-            client = LuminosoClient.connect(api_url + "/accounts/")
-        else:
-            client = LuminosoClient.connect(api_url + "/accounts/", token=token)
-
-        # iterate the csv and invite each user
+    if csv_file is not None:
+        if account_id is not None or email is not None or permissions is not None:
+            parser.error('When specifying a CSV file, the options for adding'
+                         ' a single user cannot be specified.')
+        with open(csv_file, encoding=args.encoding) as f:
+            table = list(csv.DictReader(f))
         for acct in table:
             perm = acct["permissions"].split(",")
-            invite_user(client, acct["account_id"], acct["email"], perm)
+            invite_user(accounts_client, acct["account_id"], acct["email"],
+                        perm)
+
     else:
-        # option two, invite a single user
-
-        # make sure all three options are specified (-a -e -p)
-        if not all(key in arglist for key in ["account_id", "email", "permissions"]):
-            print(
-                "ERROR: to invite a single user, you must have all three options -a -e -p"
-            )
-
-        # connect to the Luminoso Daylight onsite service
-        api_url = args.host_url + "/api/v4"
-        if not token:
-            print("no token given...")
-            client = LuminosoClient.connect(api_url + "/accounts/")
-        else:
-            client = LuminosoClient.connect(api_url + "/accounts/", token=token)
-        # invite the user
-        perm = args.permissions.split(",")
-        invite_user(client, args.account_id, args.email, perm)
+        if account_id is None or email is None or permissions is None:
+            parser.error('When inviting a single user, account ID and email'
+                         ' and permissions must all be specified.')
+        perm = permissions.split(",")
+        invite_user(accounts_client, account_id, email, perm)
 
 
 if __name__ == "__main__":

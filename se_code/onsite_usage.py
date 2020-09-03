@@ -7,8 +7,8 @@
 from luminoso_api import V4LuminosoClient as LuminosoClient
 import argparse
 import csv
-import json
 import os
+
 
 # function to list usage on all accounts
 def get_usage_list(client):
@@ -48,7 +48,7 @@ def main():
     )
 
     parser.add_argument(
-        "-u", "--host_url", help="Luminoso host (https://daylight.luminoso.com/)"
+        "host_url", help="Luminoso host (e.g. https://daylight.luminoso.com/)"
     )
 
     parser.add_argument(
