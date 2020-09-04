@@ -54,16 +54,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('project_url', help="The URL of the project to analyze")
     parser.add_argument('lang_code', default='en', help="The 2 character language code to retain ex. en, fr")
-    parser.add_argument('-t', '--token', default=None, help="Authentication token for Daylight")
     parser.add_argument('--threshold', default=.4, type=float, help="Minimum threshold for desired language (ex .95 for 95%%)")
     args = parser.parse_args()
     
     api_url = args.project_url.split('/app')[0]
     project_id = args.project_url.strip('/ ').split('/')[-1]
-    if args.token:
-        client = LuminosoClient.connect(url='{}/api/v5/projects/{}/'.format(api_url, project_id), token=args.token)
-    else:
-        client = LuminosoClient.connect(url='{}/api/v5/projects/{}/'.format(api_url, project_id))
+    client = LuminosoClient.connect(url='{}/api/v5/projects/{}/'.format(api_url, project_id))
     remove_foreign_lang(client,args.lang_code,args.threshold)
     
 if __name__ == '__main__':

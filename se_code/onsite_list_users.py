@@ -30,12 +30,6 @@ def main():
     )
     parser.add_argument("account_id", help="Account ID to list the users under")
     parser.add_argument(
-        "-t",
-        "--token",
-        help="The API token used to access the host. Or use environment variable LUMINOSO_TOKEN",
-        default=None,
-    )
-    parser.add_argument(
         "-o",
         "--output_file",
         help="The json output file to use [example=onsite_usage_output.json]",
@@ -43,16 +37,9 @@ def main():
 
     args = parser.parse_args()
 
-    # process the token from either command line, env or tokens.json
-    token = args.token
-    if not token:
-        token = None
-    if "LUMINOSO_TOKEN" in os.environ:
-        token = os.environ["LUMINOSO_TOKEN"]
-
     # connect to the Luminoso Daylight onsite service
     api_v4 = args.host_url + "/api/v4/"
-    client = LuminosoClient.connect(api_v4, token=token)
+    client = LuminosoClient.connect(api_v4)
 
     # list the users
     users_on_account = list_users(client, args.account_id)

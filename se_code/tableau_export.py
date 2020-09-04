@@ -24,7 +24,7 @@ def parse_url(url):
     project_id = url.strip('/ ').split('/')[-1]
     return root_url, api_root, account_id, project_id
    
-def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day', themes=7, theme_terms=4, token=None):
+def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day', themes=7, theme_terms=4):
 
     '''
     Extract relevant data from Luminoso project
@@ -34,14 +34,10 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day
     :param interval: The appropriate time interval for trending ('day', 'week', 'month', 'year')
     :param themes: Number of themes to calculate
     :param theme_terms: Number of terms to represent each theme
-    :param token: Authentication token
     :return: Return lists of dictionaries containing project data
     '''
     print('Extracting Lumi data...')
-    if token:
-        client = LuminosoClient.connect('{}/projects/{}'.format(api_url, project), token=token)
-    else:
-        client = LuminosoClient.connect('{}/projects/{}'.format(api_url, project))
+    client = LuminosoClient.connect('{}/projects/{}'.format(api_url, project))
     
     docs = get_all_docs(client)
     
@@ -524,7 +520,6 @@ def main():
         description='Export data to Tableau compatible CSV files.'
     )
     parser.add_argument('project_url', help="The URL of the Daylight project to export from")
-    parser.add_argument('-t', '--token', default=None, help="Enter your Daylight token")
     parser.add_argument('-c', '--concept_count', default=20, help="The number of top concepts to pull from the project")
     parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding of the file to write to")
     #parser.add_argument('-s', '--saved_and_top', default=False, action='store_true', help="Track saved concepts and top concepts in doc_term_table")
@@ -555,10 +550,7 @@ def main():
     root_url, api_url, acct, proj = parse_url(args.project_url)
     print("starting subset drivers - topics={}".format(args.topic_drive))
     
-    if args.token:
-        client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count), token=args.token)
-    else:
-        client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count))
+    client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count))
 
     # get the docs no matter what because later data needs the metadata_map
     doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata, themes, sentiment=not args.sentiment)

@@ -110,7 +110,6 @@ def main():
     )
     parser.add_argument('project_url', help="The URL of the project to analyze")
     parser.add_argument('filename', help="Name of CSV file to write project documents to")
-    parser.add_argument('-t', '--token', default=None, help="Daylight token")
     parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding type of the file to write to")
     parser.add_argument('-d', '--date_format', default='%Y-%m-%d', help="Format of timestamp")
     parser.add_argument('-c', '--concept_relations', default=False, action='store_true', help="Add columns for saved concept relations and outliers")
@@ -126,10 +125,7 @@ def main():
     api_url = '/'.join(args.project_url.strip('/').split('/')[:3]).strip('/') + '/api/v5'
     proj_apiv5 = '{}/projects/{}'.format(api_url, project_id)
 
-    if args.token:
-        client = LuminosoClient.connect(url=proj_apiv5, token=args.token)
-    else:
-        client = LuminosoClient.connect(url=proj_apiv5)
+    client = LuminosoClient.connect(url=proj_apiv5)
 
     docs = get_all_docs(client)
     if args.concept_relations or args.concept_list:

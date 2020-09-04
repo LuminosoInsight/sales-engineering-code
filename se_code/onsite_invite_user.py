@@ -40,13 +40,6 @@ def main():
         help="Luminoso API endpoint (e.g., https://daylight.luminoso.com)",
     )
 
-    parser.add_argument(
-        "-t",
-        "--token",
-        help="The API token used to access the host. Or use environment variable LUMINOSO_TOKEN",
-        default=None,
-    )
-
     csv_group = parser.add_argument_group(title='arguments for using a CSV')
     csv_group.add_argument(
         "-c",
@@ -78,13 +71,7 @@ def main():
     email = args.email
     permissions = args.permissions
 
-    # process the token from either command line, env or tokens.json
-    token = args.token
-    if not token:
-        token = None
-    if "LUMINOSO_TOKEN" in os.environ:
-        token = os.environ["LUMINOSO_TOKEN"]
-    client = LuminosoClient.connect(args.host_url, token=token)
+    client = LuminosoClient.connect(args.host_url)
     accounts_client = client.change_path("/accounts/")
 
     if all(arg is None for arg in (csv_file, account_id, email, permissions)):

@@ -37,16 +37,12 @@ def main():
     )
     parser.add_argument('project_url', help="URL of the project to ignore terms in")
     parser.add_argument('merge_into_text', help="Text of the Concept to merge the following concepts into")
-    parser.add_argument('-t', '--token', default=None, help="Authentication token for your Daylight account")
     parser.add_argument('-m', '--merge_from_text', default=None, help="Text to roll into merge_text in project")
     parser.add_argument('-f', '--filename', default=None, help="Name of the file to read list of text to merge")
     args = parser.parse_args()
     
     endpoint = parse_url(args.project_url)
-    if args.token:
-        client = LuminosoClient.connect(endpoint, token=args.token)
-    else:
-        client = LuminosoClient.connect(endpoint)
+    client = LuminosoClient.connect(endpoint)
 
     if args.merge_into_text and args.merge_from_text:
         term_manage = merge_single_text(args.merge_from_text, args.merge_into_text, client)

@@ -155,17 +155,13 @@ def main():
     )
     parser.add_argument('project_url', help="The complete URL of the Analytics project")
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset, default 20")
-    parser.add_argument('-t', '--token', default=None, help="Authentication token for Daylight")
     parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding type of the file to write to")
     args = parser.parse_args()
     
     project_url = args.project_url.strip('/')
     api_url = project_url.split('/app')[0].strip() + '/api/v5'
     project_id = project_url.split('/')[-1].strip()
-    if args.token:
-        client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/ '), project_id), token=args.token)
-    else:
-        client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/ '), project_id))
+    client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/ '), project_id))
     docs = get_all_docs(client)
     subset_counts = {}
     for d in docs:

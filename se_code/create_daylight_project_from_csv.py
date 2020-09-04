@@ -128,7 +128,6 @@ def main():
     parser.add_argument('-n', '--project_name', default="", required=True, help="New project name")
     parser.add_argument('-a', '--account_id', default="", required=False, help="Luminoso account ID")
     parser.add_argument('-u', '--api_url', default='https://daylight.luminoso.com/api/v5/projects/', help='The host url. Default=https://daylight.luminoso.com/api/v5/projects/')
-    parser.add_argument('-t', '--token', default=None, help="Enter your Daylight token")
     parser.add_argument('-k', '--keyword_expansion_terms', default=None, required=False, help="field list of metadata field=data,data to expand. search_doc_type=primary,primary2|search_doc_type2=secondary")
     parser.add_argument('-m', '--max_text_length', default="0", required=False, help="The maximum length to limit text fields")
     parser.add_argument('-s', '--skip_sentiment_build', action="store_true", default=False, help="Allows the build to skip the sentiment build")
@@ -138,7 +137,6 @@ def main():
     project_name = args.project_name
     input_file = args.input_file
     account_id = args.account_id
-    token = args.token
     max_len = int(args.max_text_length)
 
     api_url = args.api_url
@@ -150,8 +148,7 @@ def main():
         api_urlv4 = "/".join(urllist[0:3])+"/api/v4"
 
         # connect to luminoso and get the client info
-        clientv4 =  LuminosoClient.connect(url=api_urlv4,
-                                        token=token)
+        clientv4 =  LuminosoClient.connect(url=api_urlv4)
         profile = clientv4.get("/user/profile/")
         if not profile['error']:
             account_id = profile["result"]["default_account"]
@@ -159,7 +156,7 @@ def main():
             print("error retrieving account_id: {}".format(profile['error']))
 
     # connect to v5 api
-    client = LuminosoClient.connect(url=api_url, token=token)
+    client = LuminosoClient.connect(url=api_url)
 
     client_prj = create_project(client, input_file, project_name, account_id, keyword_expansion_terms=args.keyword_expansion_terms, max_len=max_len, skip_sentiment_build=args.skip_sentiment_build)
 
