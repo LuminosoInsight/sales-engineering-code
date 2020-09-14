@@ -32,7 +32,6 @@ def main():
         description='Download all docs from a luminoso project, calculate which saved concepts each doc is aligned to and create a new project with them'
     )
     parser.add_argument('project_url', help="The URL of the project to analyze")
-    parser.add_argument('-t', '--token', default=None, help="Daylight token")
     args = parser.parse_args()
     
     api_url = args.project_url.split('/app')[0]
@@ -43,10 +42,7 @@ def main():
     api_url = '/'.join(args.project_url.strip('/').split('/')[:3]).strip('/') + '/api/v5'
     proj_apiv5 = '{}/projects/{}'.format(api_url, project_id)
 
-    if args.token:
-        client = LuminosoClient.connect(url=proj_apiv5, token=args.token)
-    else:
-        client = LuminosoClient.connect(url=proj_apiv5)
+    client = LuminosoClient.connect(url=proj_apiv5)
     root_client = client.client_for_path("/")
 
     print("Reading documents")

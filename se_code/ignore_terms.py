@@ -45,16 +45,12 @@ def main():
         description='Ignore terms from a project.'
     )
     parser.add_argument('project_url', help="URL of the project to ignore terms in")
-    parser.add_argument('-t', '--token', default=None, help="Authentication token for your Daylight account")
     parser.add_argument('-i', '--ignore_term', default=None, help="Term to ignore in project")
     parser.add_argument('-f', '--filename', default=None, help="Name of the file to read list of terms to ignore from")
     args = parser.parse_args()
     
     endpoint = parse_url(args.project_url)
-    if args.token:
-        client = LuminosoClient.connect(endpoint, token=args.token)
-    else:
-        client = LuminosoClient.connect(endpoint)
+    client = LuminosoClient.connect(endpoint)
         
     if args.ignore_term:
         ignore = ignore_single_term(args.ignore_term, client)

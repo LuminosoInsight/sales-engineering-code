@@ -71,7 +71,7 @@ class SpaceSplittingReader:
                 for m in self.WORD_RE.finditer(text)]
 
 class BPDetector(object):
-    def __init__(self, lumi_token, proj, window_size=7, bp_replacement=SEPARATOR,
+    def __init__(self, proj, window_size=7, bp_replacement=SEPARATOR,
                  threshold=6, use_gaps=True):
         """
         A BPDetector is an object designed to go through large amounts of text
@@ -105,10 +105,7 @@ class BPDetector(object):
         self.window_size = window_size
         self.use_gaps = use_gaps
         
-        if lumi_token and len(lumi_token)>0:
-            self.client = LuminosoClient.connect('projects/{}'.format(proj), token=lumi_token)
-        else:
-            self.client = LuminosoClient.connect('projects/{}'.format(proj))
+        self.client = LuminosoClient.connect('projects/{}'.format(proj))
 
         if bp_replacement is None:
             try:
@@ -399,10 +396,6 @@ def main():
         help="Name of the new project to be created after boilerplate is removed"
         )
     parser.add_argument(
-        '-lt', '--lumi_token',
-        help='Luminoso user token'
-        )
-    parser.add_argument(
         '-a', '--api_url',
         help='URL of Luminoso API endpoint (https://eu-analytics.luminoso.com/api/v4)'
         )
@@ -444,7 +437,7 @@ def main():
         )
     args = parser.parse_args()
     
-    bp = BPDetector(args.lumi_token, args.project_id)
+    bp = BPDetector(args.project_id)
     new_docs = bp.run(sample_docs=args.sample_docs,
             train=args.train,
             tokens_to_scan=args.tokens_to_scan,

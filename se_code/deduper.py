@@ -158,7 +158,6 @@ def main():
         description='Dedupe documents from a project'
     )
     parser.add_argument('project_url', help="The complete URL of the Analytics project")
-    parser.add_argument('-t', '--token', default=None, help="Authentication Token for Daylight")
     parser.add_argument('-copy', '--copy', action='store_true', help="Use a copy of the project")
     parser.add_argument('-func', '--func', default='None', help="Reconcile function to use [shortest,longest,None]")
     args = parser.parse_args()
@@ -169,10 +168,7 @@ def main():
     workspace_id = project_url.split('/')[5].strip()
     
     print("opening client: {}  - {}/{}".format(api_url,project_id,workspace_id))
-    if args.token:
-        client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/'), project_id), token=args.token)
-    else:
-        client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/'), project_id))
+    client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/'), project_id))
     
     
     print("prjinfo={}".format(client.get('/')))

@@ -41,13 +41,6 @@ def main():
     parser = argparse.ArgumentParser(description="List usage on an onsite image ")
 
     parser.add_argument(
-        "-t",
-        "--token",
-        help="The API token used to access the host. Or use environment variable LUMINOSO_TOKEN",
-        default=None,
-    )
-
-    parser.add_argument(
         "host_url", help="Luminoso host (e.g. https://daylight.luminoso.com/)"
     )
 
@@ -59,16 +52,9 @@ def main():
     )
     args = parser.parse_args()
 
-    # process the token from either command line, env or tokens.json
-    token = args.token
-    if not token:
-        token = None
-    if "LUMINOSO_TOKEN" in os.environ:
-        token = os.environ["LUMINOSO_TOKEN"]
-
     # connect to the Luminoso Daylight onsite service
     api_url = args.host_url + "/api/v4/"
-    client = LuminosoClient.connect(api_url, token=token)
+    client = LuminosoClient.connect(api_url)
 
     # list the accounts
     usage_csv = get_usage_list(client)

@@ -8,16 +8,12 @@ def main():
     parser.add_argument('filename', help="Full name of the file containing topic definitions, including the extension. Must be CSV or JSON.")
     parser.add_argument('project_url', help="Full URL of the project to load the topics into.")
     parser.add_argument('-d', '--delete', default=False, action="store_true", help="Whether to delete existing topics or not.")
-    parser.add_argument('-t', '--token', default=None, help="If Daylight token has not been saved to your machine, enter it here.")
     parser.add_argument('-e', '--encoding', default="utf-8", help="Encoding type of the files to read from")
     args = parser.parse_args()
     
     root_url = args.project_url.split('/app')[0]
     project_id = args.project_url.strip('/').split('/')[-1]
-    if args.token:
-        client = LuminosoClient.connect(url=root_url + '/api/v5/projects/' + project_id, token=args.token)
-    else:
-        client = LuminosoClient.connect(url=root_url + '/api/v5/projects/' + project_id)
+    client = LuminosoClient.connect(url=root_url + '/api/v5/projects/' + project_id)
     
     correct = False
     filename = args.filename

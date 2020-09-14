@@ -26,7 +26,7 @@ def dedupe(cli, recalc=True, reconcile_func=None, copy=False):
         reconcile_func = None
         
     if initial_count > 40000:
-        deduper = Deduper(cli, token=token,
+        deduper = Deduper(cli,
                     split_amt=40000, reconcile_func=reconcile_func)
     else:
         deduper = Deduper(cli, reconcile_func=reconcile_func)

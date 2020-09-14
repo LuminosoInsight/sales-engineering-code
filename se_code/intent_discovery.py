@@ -264,10 +264,7 @@ def save_doc_search_results(docs, intent_list, threshold=.5, encoding="utf-8"):
 def main(args):
     project_id = args.project_url.strip('/').split('/')[-1]
     api_url = args.project_url.split('/app')[0] + '/api/v5/'
-    if args.token:
-        client = LuminosoClient.connect(url=api_url, token=args.token)
-    else:
-        client = LuminosoClient.connect(url=api_url)
+    client = LuminosoClient.connect(url=api_url)
     client = client.client_for_path('/projects/{}'.format(project_id))
 
     print('Finding terms...')
@@ -301,11 +298,6 @@ if __name__ == '__main__':
     parser.add_argument(
         'project_url',
         help="URL of the project"
-        )
-    parser.add_argument(
-        '-k', '--token',
-        default=None,
-        help="Token to use to authenticate calls"
         )
     parser.add_argument(
         '-n', '--num_terms', default=1000, type=int,

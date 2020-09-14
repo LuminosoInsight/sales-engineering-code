@@ -118,16 +118,13 @@ def write_all_uploads_to_csvs(filename, docs,
         
         
 def upload_docs_to_projects(docs, filename,
-                            account_id=None, token=None, 
+                            account_id=None,
                             api_root='https://analytics.luminoso.com/api/v5'):
     '''
     Uploads Luminoso-compatible documents to 3 separate projects and prints
     their resulting URLs for easy access.
     '''
-    if not token:
-        client = LuminosoClient.connect('%s/projects/' % api_root)
-    else:
-        client = LuminosoClient.connect('%s/projects/' % api_root, token=token)
+    client = LuminosoClient.connect('%s/projects/' % api_root)
     name = filename.split('.csv')[0].split('/')[-1]
     if account_id:
         total_proj_id = client.post(name=name + ' All Docs', 
@@ -154,8 +151,6 @@ def main():
     parser.add_argument('filename', help="Name of the CSV file outputted by the scraper")
     parser.add_argument('-a', '--account_id', default=None, 
                         help="The ID of the account that will own the project, such as 'demo'")
-    parser.add_argument('-t', '--token', default=None,
-                        help="Authentication token for your Daylight user")
     parser.add_argument('-e', '--encoding', default='utf-8',
                         help="Encoding of the file to read from and write to.")
     parser.add_argument('-r', '--api_root', default='https://analytics.luminoso.com/api/v5',
@@ -178,7 +173,7 @@ def main():
     
     if not args.upload:
         upload_docs_to_projects(docs, args.filename,
-                            token=args.token, account_id=args.account_id,
+                            account_id=args.account_id,
                             api_root=args.api_root)
     
 if __name__ == '__main__':
