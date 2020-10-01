@@ -252,7 +252,8 @@ def create_doc_table(client, docs, metadata, suggested_concepts, sentiment=False
         if date_number == 0:
             row['doc_date 0'] = 0
         if sentiment:
-            row['sentiment_score'] = doc['sentiment_score']
+            row['sentiment'] = doc['sentiment']
+            row['sentiment_confidence'] = doc['sentiment_confidence']
         
         # add the them (cluster) data
         doc['fvector'] = [float(v) for v in unpack64(doc['vector'])]
