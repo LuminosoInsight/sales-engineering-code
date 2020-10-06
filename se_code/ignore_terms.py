@@ -24,7 +24,7 @@ def ignore_single_term(text, client):
     return ignore
 
 def read_csv_file(filename):
-    with open(filename) as f:
+    with open(filename, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         table = [row for row in reader]
     return([t['text'] for t in table])
