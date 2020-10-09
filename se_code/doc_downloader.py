@@ -73,7 +73,6 @@ def add_relations(
     saved_concepts = client.get("concepts", concept_selector=concept_selector)["result"]
     add_sentiment_to_saved_concepts(client, saved_concepts)
 
-    sentiment_texts = []
     for sc in saved_concepts:
         sc["match_scores"] = search_all_doc_ids(
             client, sc["texts"], match_type=match_type
@@ -82,7 +81,6 @@ def add_relations(
             c["doc_id"]: c["match_score"] for c in sc["match_scores"]
         }
         sc["docs_ids"] = [c["doc_id"] for c in sc["match_scores"]]
-        sentiment_texts
 
     # filter out metadata that matches our current saved concepts
     clist = [sc["name"] for sc in saved_concepts]
