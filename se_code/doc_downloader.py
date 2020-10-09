@@ -158,13 +158,7 @@ def get_fields(docs):
     fields = []
     for doc in docs:
         for key in doc:
-            if key in [
-                "text",
-                "title",
-                "metadata",
-                "sentiment",
-                "sentiment_confidence",
-            ]:
+            if key in ["text", "title", "metadata"]:
                 fields.append(key)
     fields = list(set(fields))
     return fields
@@ -198,14 +192,6 @@ def format_subsets(docs, fields, date_format):
                     ]
                 subsets.append("%s_%s" % (metadata["type"], metadata["name"]))
             del doc["metadata"]
-    if "sentiment" in fields:
-        for doc in docs:
-            # change the names of the sentiment fields so they import back into Daylight
-            doc["string_sentiment"] = doc["sentiment"]
-            doc["number_sentiment_confidence"] = doc["sentiment_confidence"]
-            del doc["sentiment"]
-            del doc["sentiment_confidence"]
-        field_names.extend(["string_sentiment", "number_sentiment_confidence"])
 
     field_names.extend(list(set(subsets)))
     return docs, field_names
