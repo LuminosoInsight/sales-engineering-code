@@ -43,27 +43,6 @@ def search_all_doc_ids(client, concepts, match_type="both"):
             return docs
 
 
-def get_saved_concepts_with_sentiment(client):
-    concept_selector = {"type": "saved"}
-    saved_concepts = client.get("concepts", concept_selector=concept_selector)["result"]
-
-    saved_concept_ids = [
-        {"saved_concept_id": c["saved_concept_id"]} for c in saved_concepts
-    ]
-    concept_selector = {"type": "specified", "concepts": saved_concept_ids}
-    saved_sentiments = client.get(
-        "concepts/sentiment", concept_selector=concept_selector
-    )
-    for sc, match_count in zip(saved_concepts, saved_sentiments["match_counts"]):
-        sc["sentiment_share"] = match_count["sentiment_share"]
-        # get the highest sentiment share and use that for sentiment
-        sc["sentiment"] = collections.Counter(
-            match_count["sentiment_share"]
-        ).most_common()[0][0]
-
-    return saved_concepts
-
-
 def add_relations(
     client,
     docs,
@@ -74,7 +53,14 @@ def add_relations(
     add_saved_concept_sentiment=False,
 ):
     # get the list of saved concepts with included sentiment
-    saved_concepts = get_saved_concepts_with_sentiment(client)
+    concept_selector = {"type": "saved"}
+    saved_concepts = client.get(
+        "concepts/sentiment", concept_selector=concept_selector
+    )["match_counts"]
+
+    # pre-calculate the top sentiment share
+    for sc in saved_concepts:
+        sc["sentiment"] = collections.Counter(sc["sentiment_share"]).most_common()[0][0]
 
     for sc in saved_concepts:
         search_results = search_all_doc_ids(client, sc["texts"], match_type=match_type)
