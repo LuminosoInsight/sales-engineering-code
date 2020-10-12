@@ -43,7 +43,10 @@ def search_all_doc_ids(client, concepts, match_type="both"):
             return docs
 
 
-def add_sentiment_to_saved_concepts(client, saved_concepts):
+def get_saved_concepts_with_sentiment(client):
+    concept_selector = {"type": "saved"}
+    saved_concepts = client.get("concepts", concept_selector=concept_selector)["result"]
+
     saved_concept_ids = [
         {"saved_concept_id": c["saved_concept_id"]} for c in saved_concepts
     ]
@@ -58,6 +61,8 @@ def add_sentiment_to_saved_concepts(client, saved_concepts):
             match_count["sentiment_share"]
         ).most_common()[0][0]
 
+    return saved_concepts
+
 
 def add_relations(
     client,
@@ -68,19 +73,15 @@ def add_relations(
     add_match_score=False,
     add_saved_concept_sentiment=False,
 ):
-    # get the list of saved concepts
-    concept_selector = {"type": "saved"}
-    saved_concepts = client.get("concepts", concept_selector=concept_selector)["result"]
-    add_sentiment_to_saved_concepts(client, saved_concepts)
+    # get the list of saved concepts with included sentiment
+    saved_concepts = get_saved_concepts_with_sentiment(client)
 
     for sc in saved_concepts:
-        sc["match_scores"] = search_all_doc_ids(
-            client, sc["texts"], match_type=match_type
-        )
+        search_results = search_all_doc_ids(client, sc["texts"], match_type=match_type)
         sc["match_scores_by_id"] = {
-            c["doc_id"]: c["match_score"] for c in sc["match_scores"]
+            c["doc_id"]: c["match_score"] for c in search_results
         }
-        sc["docs_ids"] = [c["doc_id"] for c in sc["match_scores"]]
+        sc["docs_ids"] = [c["doc_id"] for c in search_results]
 
     # filter out metadata that matches our current saved concepts
     clist = [sc["name"] for sc in saved_concepts]
@@ -154,47 +155,46 @@ def add_relations(
             )
 
 
-def get_fields(docs):
-    fields = []
-    for doc in docs:
-        for key in doc:
-            if key in ["text", "title", "metadata"]:
-                fields.append(key)
-    fields = list(set(fields))
-    return fields
+# flatten the doc structure for csv export
+def flatten_docs(docs, date_format):
 
+    # dict for sorting the names once the values have been changed to have lumi types
+    field_name_dict = {
+        fn: fn for fn in [md["name"] for d in docs for md in d["metadata"]]
+    }
 
-def format_subsets(docs, fields, date_format):
-    docs = [{k: v for k, v in d.items() if k in fields} for d in docs]
-    subsets = []
-    field_names = ["text"]
-    if "title" in fields:
-        field_names.append("title")
-    if "metadata" in fields:
-        for doc in docs:
-            for metadata in doc["metadata"]:
-                if metadata["type"] == "date":
-                    try:
-                        doc[
-                            "%s_%s" % (metadata["type"], metadata["name"])
-                        ] = datetime.datetime.fromtimestamp(
-                            int(metadata["value"])
-                        ).strftime(
-                            date_format
-                        )
-                    except ValueError:
-                        doc["%s_%s" % (metadata["type"], metadata["name"])] = (
-                            "%s" % metadata["value"]
-                        )
-                else:
-                    doc["%s_%s" % (metadata["type"], metadata["name"])] = metadata[
-                        "value"
-                    ]
-                subsets.append("%s_%s" % (metadata["type"], metadata["name"]))
-            del doc["metadata"]
+    flat_docs = []
+    for d in docs:
+        flat_doc = {"text": d["text"], "title": d["title"]}
 
-    field_names.extend(list(set(subsets)))
-    return docs, field_names
+        for md in d["metadata"]:
+            # add the type to the field name for export
+            md_name = "%s_%s" % (md["type"], md["name"])
+
+            # save the luminoso name for this for later sorting
+            field_name_dict[md["name"]] = md_name
+
+            if md["type"] == "date":
+                try:
+                    flat_doc[md_name] = datetime.datetime.fromtimestamp(
+                        int(md["value"])
+                    ).strftime(date_format)
+                except ValueError:
+                    flat_doc[md_name] = "%s" % md["value"]
+            else:
+                flat_doc[md_name] = md["value"]
+
+        flat_docs.append(flat_doc)
+
+        field_names = ["text", "title"]
+        field_names.extend(
+            {
+                k: v
+                for k, v in sorted(field_name_dict.items(), key=lambda item: item[0])
+            }.values()
+        )
+
+    return field_names, flat_docs
 
 
 def write_to_csv(filename, docs, field_names, encoding="utf-8"):
@@ -265,7 +265,7 @@ def main():
         args.concept_list
         or args.match_score
         or args.concept_relations_sentiment
-        or args.match_type != None
+        or args.match_type is not None
     ) and (not args.concept_relations):
         parser.error("-l, -mt, -ms, -s all require -c")
 
@@ -297,21 +297,8 @@ def main():
             add_match_score=args.match_score,
             add_saved_concept_sentiment=args.concept_relations_sentiment,
         )
-    fields = get_fields(docs)
-    docs, field_names = format_subsets(docs, fields, args.date_format)
 
-    # need a better sort to the field names
-    field_name_dict = {
-        fn: fn.replace("string_", "")
-        .replace("number_", "")
-        .replace("score_", "")
-        .replace("text", "1text")
-        .replace("title", "1title")
-        for fn in field_names
-    }
-    field_names = {
-        k: v for k, v in sorted(field_name_dict.items(), key=lambda item: item[1])
-    }.keys()
+    field_names, docs = flatten_docs(docs, args.date_format)
 
     write_to_csv(args.filename, docs, field_names, encoding=args.encoding)
 
