@@ -140,13 +140,12 @@ def add_relations(
 def flatten_docs(docs, date_format):
 
     # dict for sorting the names once the values have been changed to have lumi types
-    field_name_dict = {
-        fn: fn for fn in [md["name"] for d in docs for md in d["metadata"]]
-    }
+    field_name_dict = {}
 
     flat_docs = []
     for d in docs:
         flat_doc = {"text": d["text"], "title": d["title"]}
+        names_to_values = collections.defaultdict(set)
 
         for md in d["metadata"]:
             # add the type to the field name for export
@@ -157,23 +156,24 @@ def flatten_docs(docs, date_format):
 
             if md["type"] == "date":
                 try:
-                    flat_doc[md_name] = datetime.datetime.fromtimestamp(
+                    value = datetime.datetime.fromtimestamp(
                         int(md["value"])
                     ).strftime(date_format)
                 except ValueError:
-                    flat_doc[md_name] = "%s" % md["value"]
+                    value = "%s" % md["value"]
             else:
-                flat_doc[md_name] = md["value"]
+                value = str(md["value"])
+            names_to_values[md_name].add(value)
 
+        for name, values in names_to_values.items():
+            flat_doc[name] = '|'.join(values)
         flat_docs.append(flat_doc)
 
-        field_names = ["text", "title"]
-        field_names.extend(
-            {
-                k: v
-                for k, v in sorted(field_name_dict.items(), key=lambda item: item[0])
-            }.values()
-        )
+    field_names = ["text", "title"]
+    field_names.extend(
+        [v for k, v
+         in sorted(field_name_dict.items(), key=lambda item: item[0])]
+    )
 
     return field_names, flat_docs
 
