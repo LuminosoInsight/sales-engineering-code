@@ -53,21 +53,18 @@ def add_relations(
     add_saved_concept_sentiment=False,
 ):
     # get the list of saved concepts with included sentiment
-    concept_selector = {"type": "saved"}
     saved_concepts = client.get(
-        "concepts/sentiment", concept_selector=concept_selector
+        "concepts/sentiment", concept_selector={"type": "saved"}
     )["match_counts"]
 
     # pre-calculate the top sentiment share
     for sc in saved_concepts:
         sc["sentiment"] = collections.Counter(sc["sentiment_share"]).most_common()[0][0]
 
-    for sc in saved_concepts:
         search_results = search_all_doc_ids(client, sc["texts"], match_type=match_type)
         sc["match_scores_by_id"] = {
             c["doc_id"]: c["match_score"] for c in search_results
         }
-        sc["docs_ids"] = [c["doc_id"] for c in search_results]
 
     # filter out metadata that matches our current saved concepts
     clist = [sc["name"] for sc in saved_concepts]
@@ -75,18 +72,17 @@ def add_relations(
         d["metadata"] = [md for md in d["metadata"] if md["name"] not in clist]
 
     # loop through each doc and list of saved concepts finding if the doc is in that search result
-    # add metadata for it's yes/no relation to each saved concept
+    # add metadata for its yes/no relation to each saved concept
     # if it is not associated with any saved concept, mark it as an outlier
     for d in docs:
         in_none = True
         doc_concept_list = []
         for sc in saved_concepts:
-            if d["doc_id"] in sc["docs_ids"]:
+            if d["doc_id"] in sc["match_scores_by_id"]:
                 in_none = False
-                v = "yes"
                 if add_concept_relations:
                     d["metadata"].append(
-                        {"name": sc["name"], "type": "string", "value": v}
+                        {"name": sc["name"], "type": "string", "value": "yes"}
                     )
                     if add_match_score:
                         d["metadata"].append(
@@ -107,10 +103,9 @@ def add_relations(
                         }
                     )
             else:
-                v = "no"
                 if add_concept_relations:
                     d["metadata"].append(
-                        {"name": sc["name"], "type": "string", "value": v}
+                        {"name": sc["name"], "type": "string", "value": "no"}
                     )
                     if add_match_score:
                         d["metadata"].append(
@@ -145,13 +140,12 @@ def add_relations(
 def flatten_docs(docs, date_format):
 
     # dict for sorting the names once the values have been changed to have lumi types
-    field_name_dict = {
-        fn: fn for fn in [md["name"] for d in docs for md in d["metadata"]]
-    }
+    field_name_dict = {}
 
     flat_docs = []
     for d in docs:
         flat_doc = {"text": d["text"], "title": d["title"]}
+        names_to_values = collections.defaultdict(set)
 
         for md in d["metadata"]:
             # add the type to the field name for export
@@ -162,23 +156,24 @@ def flatten_docs(docs, date_format):
 
             if md["type"] == "date":
                 try:
-                    flat_doc[md_name] = datetime.datetime.fromtimestamp(
+                    value = datetime.datetime.fromtimestamp(
                         int(md["value"])
                     ).strftime(date_format)
                 except ValueError:
-                    flat_doc[md_name] = "%s" % md["value"]
+                    value = "%s" % md["value"]
             else:
-                flat_doc[md_name] = md["value"]
+                value = str(md["value"])
+            names_to_values[md_name].add(value)
 
+        for name, values in names_to_values.items():
+            flat_doc[name] = '|'.join(values)
         flat_docs.append(flat_doc)
 
-        field_names = ["text", "title"]
-        field_names.extend(
-            {
-                k: v
-                for k, v in sorted(field_name_dict.items(), key=lambda item: item[0])
-            }.values()
-        )
+    field_names = ["text", "title"]
+    field_names.extend(
+        [v for k, v
+         in sorted(field_name_dict.items(), key=lambda item: item[0])]
+    )
 
     return field_names, flat_docs
 
