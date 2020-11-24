@@ -313,7 +313,7 @@ def create_themes_table(client, suggested_concepts):
     for c in cluster_labels:
         # find related documents
         selector_docs = {'texts':cluster_labels[c]['name']}
-        search_docs = client.get('docs', search=selector_docs, limit=3, exact_only=True)['result']
+        search_docs = client.get('docs', search=selector_docs, limit=3, match_type='exact')['result']
         
         selector = [{'texts': [t]} for t in cluster_labels[c]['name']]
         count = 0
@@ -391,7 +391,7 @@ def create_sentiment_table(client, saved_concepts, top_concepts, root_url=''):
             srow['url'] = root_url+"/galaxy?suggesting=false&search="+urllib.parse.quote(" ".join(srow['texts']))
 
         # Use the driver term to find related documents
-        search_docs = client.get('docs', search={'texts': srow['texts']}, limit=3, exact_only=True)['result']
+        search_docs = client.get('docs', search={'texts': srow['texts']}, limit=3, match_type='exact')['result']
 
         srow['example_doc'] = ''
         srow['example_doc2'] = ''
