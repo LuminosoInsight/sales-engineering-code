@@ -144,7 +144,7 @@ def create_one_table(client, field, topic_drive, root_url='',filter=""):
                 row['url'] = root_url+"/galaxy?suggesting=false&search="+urllib.parse.quote(" ".join(driver['texts']))
 
             # Use the driver term to find related documents
-            search_docs = client.get('docs', search={'texts': driver['texts']}, limit=500, exact_only=True)
+            search_docs = client.get('docs', search={'texts': driver['texts']}, limit=500, match_type='exact')
 
             # Sort documents based on their association with the coefficient vector
             for doc in search_docs['result']:
@@ -183,7 +183,7 @@ def create_one_table(client, field, topic_drive, root_url='',filter=""):
                 row['url'] = root_url+"/galaxy?suggesting=false&search="+urllib.parse.quote(" ".join(driver['texts']))
 
             # Use the driver term to find related documents
-            search_docs = client.get('docs', search={'texts': driver['texts']}, limit=500, exact_only=True)
+            search_docs = client.get('docs', search={'texts': driver['texts']}, limit=500, match_type='exact')
 
             # Sort documents based on their association with the coefficient vector
             for doc in search_docs['result']:
@@ -221,7 +221,7 @@ def create_one_table(client, field, topic_drive, root_url='',filter=""):
             row['url'] = root_url+"/galaxy?suggesting=false&search="+urllib.parse.quote(" ".join(driver['texts']))
 
         # Use the driver term to find related documents
-        search_docs = client.get('docs', search={'texts': driver['texts']}, limit=500, exact_only=True)
+        search_docs = client.get('docs', search={'texts': driver['texts']}, limit=500, match_type='exact')
 
         # Sort documents based on their association with the coefficient vector
         for doc in search_docs['result']:
