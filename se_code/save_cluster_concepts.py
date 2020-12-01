@@ -1,6 +1,6 @@
 from luminoso_api import V5LuminosoClient as LuminosoClient
 
-import json, argparse, getpass
+import argparse
 
 
 def save_cluster_concepts(
@@ -61,9 +61,6 @@ def main():
     )
 
     args = parser.parse_args()
-    proj_id = args.project_url.strip('/ ').split('/')[-1]
-    proj_root = args.project_url.split('/app')[0]
-
     proj_id = args.project_url.strip('/').split('/')[6]
     proj_root = '/'.join(args.project_url.strip('/').split('/')[:3]).strip('/')
 

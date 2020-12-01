@@ -2,8 +2,6 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 import argparse
 import csv
 
-from doc_downloader import get_all_docs, search_all_doc_ids, add_relations
-
 
 def doc_count_by_concept_lists(
     client, concept_lists, match_type="both", field_names=["__ALL__"], field_limit=20
@@ -46,7 +44,7 @@ def doc_count_by_concept_lists(
 
                         for fv in m["values"]:
 
-                            if not "concept_doc_ids" in fv:
+                            if "concept_doc_ids" not in fv:
                                 fv["concept_doc_ids"] = {}
                                 fv["concept_doc_counts"] = {}
                             more_docs = True
@@ -82,7 +80,6 @@ def doc_count_by_concept_lists(
                                     )
                                 else:
                                     more_docs = False
-                            # fv['concept_doc_ids'][concept['name']] = docs
                             fv["concept_doc_counts"][concept["name"]] = len(docs)
                     elif "values" in m:
                         if "have_shown_limit" not in m:
@@ -95,7 +92,7 @@ def doc_count_by_concept_lists(
                     else:
                         if "have_shown_no_values" not in m:
                             print(
-                                "Ignoring field: {}. Type {} Does not have specific value list.".format(
+                                "Ignoring field: {}. Type {} does not have specific value list.".format(
                                     m["name"], m["type"]
                                 )
                             )
@@ -131,10 +128,6 @@ def main():
 
     args = parser.parse_args()
 
-    api_url = args.project_url.split("/app")[0]
-    project_id = args.project_url.strip("/ ").split("/")[-1]
-
-    #account_id = args.project_url.strip("/").split("/")[5]
     project_id = args.project_url.strip("/").split("/")[6]
     api_url = (
         "/".join(args.project_url.strip("/").split("/")[:3]).strip("/") + "/api/v5"
