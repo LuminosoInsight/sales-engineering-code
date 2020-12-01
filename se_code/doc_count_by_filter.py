@@ -1,5 +1,6 @@
 from luminoso_api import V5LuminosoClient as LuminosoClient
-import csv, json, datetime, time, argparse
+import argparse
+import csv
 
 from doc_downloader import get_all_docs, search_all_doc_ids, add_relations
 
