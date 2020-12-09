@@ -1,5 +1,8 @@
-from luminoso_api import V5LuminosoClient as LuminosoClient
 import argparse
+
+from luminoso_api import V5LuminosoClient as LuminosoClient
+from se_code.copy_shared_concepts import copy_shared_concepts
+
 
 def get_all_docs(client):
     '''
@@ -12,7 +15,8 @@ def get_all_docs(client):
             docs.extend(newdocs['result'])
         else:
             return docs
-        
+
+
 def copy_projects_to_accounts(all_projects, from_client, to_client, to_account):
     for from_project in all_projects:
         # Connect to project
@@ -20,23 +24,23 @@ def copy_projects_to_accounts(all_projects, from_client, to_client, to_account):
         print('Connected to project: ' +  from_project['name'])
         language = from_project['language']
 
-        # Copy topics & documents
-        from_topics = from_client_project.get('concepts/saved')
+        # get the docs and filter for new project
         from_docs = get_all_docs(from_client_project)
         from_docs = [{'text': d['text'],
-                  'title': d['title'],
-                  'metadata': d['metadata']} for d in from_docs]
+                      'title': d['title'],
+                      'metadata': d['metadata']} for d in from_docs]
+
         # Create a new project
         client = to_client.client_for_path('/projects')
-        to_project = client.post(name=from_project['name'],language=language,account_id=to_account)
-        to_project_client = client.client_for_path(to_project['project_id'])
-        to_project_client.post('upload', docs=from_docs)
-        for i, t in enumerate(from_topics):
-            to_project_client.post('concepts/saved', concepts=[{'name': t['name'],
-                                                               'color': t['color'],
-                                                               'texts': t['texts']}], position=i)
-        to_project_client.post('build')    
-        print('Copied project: ' +  from_project['name'])
+        to_project = client.post(name=from_project['name'], language=language, account_id=to_account)
+        to_client_project = client.client_for_path(to_project['project_id'])
+        to_client_project.post('upload', docs=from_docs)
+
+        # Copy shared concept lists
+        copy_shared_concepts(from_client_project, to_client_project)
+
+        to_client_project.post('build')    
+        print('Copied project: ' + from_project['name'])
         
         
 def main():
@@ -49,12 +53,17 @@ def main():
     
     from_api_url = args.from_url.split('/app')[0]
     to_api_url = args.to_url.split('/app')[0]
-    from_account = args.from_url.strip('/ ').split('/')[-1]
-    to_account = args.to_url.strip('/ ').split('/')[-1]
+
+    from_account = args.from_url.strip('/').split('/')[5]
+    to_account = args.to_url.strip('/').split('/')[5]
+
     from_client = LuminosoClient.connect(url=from_api_url + '/api/v5/projects')
     to_client = LuminosoClient.connect(url=to_api_url + '/api/v5/projects')
     all_projects = from_client.get()
     all_projects = [p for p in all_projects if p['account_id'] == from_account]
+    
+    all_projects = all_projects[0:2]  # DEBUG - delete this...!
+
     print('There are {} projects to be copied'.format(len(all_projects)))
     
     copy_projects_to_accounts(all_projects, from_client, to_client, to_account)
