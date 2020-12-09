@@ -1,7 +1,5 @@
 import unittest
 
-from api_utils_app.topic_utilities import copy_topics, del_topics, parse_url
-
 class TestUtilityFunctions(unittest.TestCase):
 
     def test_api_url1(self):

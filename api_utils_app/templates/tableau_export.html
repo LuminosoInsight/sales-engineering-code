@@ -3,12 +3,12 @@
 {% block content %}
 
 	<div class="page-header"><p>
-       <h1>Export all relevant CSVs from a project to use in Tableau</h1>
+       <h1>Export all relevant CSVs from a project to use in BI tools</h1>
   </div>
 
      
   <div id="content">
-    <h3>Export all relevant CSVs from a project to use in Tableau</h3>
+    <h3>Export all relevant CSVs from a project to use in BI tools</h3>
     <form action="{{ url_for('tableau_export') }}" method='post' >
       <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
       <input type="text" name="folder_name" class="form-control" placeholder="Folder to save CSVs to (Specify full path to folder e.g. ~/Documents/.../<FOLDER NAME>)" required>
@@ -23,7 +23,7 @@
       <input type="checkbox" name="drivers" checked="checked">Export score drivers table<br>
       <input type="checkbox" name="driver_subsets" checked="checked">Export score drivers with subsets table<br>
       <input type="text" name="driver_subset_fields" class="form-control" placeholder="Which fields (comma delimited) to user for subsets. Default=ALL">
-      <input type="checkbox" name="topic_drive">Included saved/top concepts as well as auto defined drivers<br>
+      <input type="checkbox" name="topic_drive">Included shared/top concepts as well as auto defined drivers<br>
       <input type="checkbox" name="sdot">Export score drivers over time<br>
       <div style="margin-left: 40px">
         End Date: <input type="text" name="sdot_end" class="form-control" placeholder="Last date to calculate sdot MM/DD/YYYY - algorithm works moving backwards in time. Will use maximum if not provided"><br>

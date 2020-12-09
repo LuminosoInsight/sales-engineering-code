@@ -6,7 +6,7 @@ import sys
 from flask import Flask, jsonify, render_template, request, session, url_for, Response
 from luminoso_api import LuminosoClient
 from pack64 import unpack64
-from topic_utilities import copy_topics, del_topics, parse_url
+from se_code.copy_shared_concepts import copy_shared_concepts, delete_shared_concepts
 from term_utilities import get_terms, ignore_terms, merge_terms
 from deduper_utilities import dedupe
 import numpy as np
@@ -14,7 +14,7 @@ from se_code.conjunctions_disjunctions import get_new_results, get_current_resul
 from random import randint
 from reddit_utilities import get_reddit_api, get_posts_from_past, get_posts_by_name, get_docs_from_comments, write_to_csv
 
-from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, get_first_date_field, get_date_field_by_name, create_drivers_with_subsets_table
+from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, get_first_date_field, get_date_field_by_name, create_drivers_with_subsets_table, parse_url
 from subset_utilities import search_subsets, calc_metadata_vectors
 from se_code.create_train_test_split import create_train_test
 
@@ -118,7 +118,9 @@ def tableau_export_page():
 @app.route('/tableau_export', methods=['POST'])
 def tableau_export():
     url = request.form['url'].strip()
-    api_url, proj = parse_url(url)
+    #api_url, proj = parse_url(url)
+    root_url, api_url, acct, proj = parse_url(url)
+    ui_project_url = root_url + '/app/projects/' + acct + '/' + proj
 
     foldername = request.form['folder_name'].strip()
     concept_count = request.form['term_count'].strip()
@@ -160,21 +162,21 @@ def tableau_export():
     if 'sdot_date_field_name' in request.form:
         sdot_date_field_name = request.form['sdot_date_field_name'].strip()
     
-    client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
+    client, docs, scl_match_counts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
 
     doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata, themes, sentiment=sentiment)
     write_table_to_csv(doc_table, foldername+'doc_table.csv',calc_keys=True)
     write_table_to_csv(xref_table, foldername+'xref_table.csv')
     
     if sentiment:
-        sentiment_table = create_sentiment_table(client, saved_concepts, concepts)
-        write_table_to_csv(sentiment_table, foldername+'sentiment.csv')
+        sentiment_table = create_sentiment_table(client, scl_match_counts, concepts)
+        write_table_to_csv(sentiment_table, foldername+'sentiment.csv', calc_keys=True)
 
     if term_table:
-        terms_table = create_terms_table(concepts, saved_concepts)
-        write_table_to_csv(terms_table, foldername+'terms_table.csv')
+        terms_table = create_terms_table(concepts, scl_match_counts)
+        write_table_to_csv(terms_table, foldername+'terms_table.csv', calc_keys=True)
     if doc_term:
-        doc_term_table = create_doc_term_table(docs, concepts, saved_concepts)
+        doc_term_table = create_doc_term_table(docs, concepts, scl_match_counts)
         write_table_to_csv(doc_term_table, foldername+'doc_term_table.csv')
     
     # if doc_topic:

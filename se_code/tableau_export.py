@@ -19,12 +19,15 @@ import urllib
 
 def parse_url(url):
     root_url = url.strip('/ ').split('/app')[0]
-    api_root = root_url + '/api/v5'
-    account_id = url.strip('/ ').split('/')[-2]
-    project_id = url.strip('/ ').split('/')[-1]
-    return root_url, api_root, account_id, project_id
-   
-def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day', themes=7, theme_terms=4):
+    api_url = root_url + '/api/v5'
+    
+    account_id = url.strip('/').split('/')[5]
+    project_id = url.strip('/').split('/')[6]
+
+    return root_url, api_url, account_id, project_id
+
+
+def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day', themes=7, theme_terms=4, cln=None):
 
     '''
     Extract relevant data from Luminoso project
@@ -34,17 +37,44 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day
     :param interval: The appropriate time interval for trending ('day', 'week', 'month', 'year')
     :param themes: Number of themes to calculate
     :param theme_terms: Number of terms to represent each theme
+    :param cln: Concept List Names a string of shared concept list names separated by |
     :return: Return lists of dictionaries containing project data
     '''
     print('Extracting Lumi data...')
     client = LuminosoClient.connect('{}/projects/{}'.format(api_url, project))
     
+    if cln:
+        concept_list_names = cln.split("|")
+        concept_lists_raw = client.get("concept_lists/")
+        concept_lists = [
+            cl for cl in concept_lists_raw if cl["name"] in concept_list_names
+        ]
+        if not concept_lists:
+            print(
+                "Error: must specify at least one saved concept list. Lists available: {}".format(
+                    [c["name"] for c in concept_lists_raw]
+                )
+            )
+            concept_lists = None
+    else:
+        concept_lists = client.get("concept_lists/")
+
     docs = get_all_docs(client)
     
     metadata = client.get('metadata')['result']
-    #saved_concepts = client.get('concepts/saved', include_science=True)
-    saved_concepts = client.get('concepts/match_counts',
-                                concept_selector={'type': 'saved'})['match_counts']
+    
+    #saved_concepts = client.get('concepts/match_counts',
+    #                            concept_selector={'type': 'saved'})['match_counts']
+    # saved_concepts is now moving to a deeper dictionary with the saved_concept name as the key
+    # and the data as the list of concepts.
+    # For naming purposes scl = shared_concept_list
+    scl_match_counts = {}
+    for clist in concept_lists:
+        concept_selector = {"type": "concept_list", "concept_list_id": clist['concept_list_id']}
+        clist_match_counts = client.get('concepts/match_counts',concept_selector=concept_selector)
+        clist_match_counts['concept_list_id'] = clist['concept_list_id']
+        scl_match_counts[clist['name']] = clist_match_counts
+
     concepts = client.get('concepts/match_counts', 
                           concept_selector={'type': 'top', 
                                             'limit': concept_count})['match_counts']
@@ -80,14 +110,15 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day
         if len(r['vector']) > 0:
             r['fvector'] =  [float(v) for v in unpack64(r['vector'])]
 
-    return client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes
+    return client, docs, scl_match_counts, concepts, metadata, driver_fields, skt, themes
 
 
-def create_doc_term_table(docs, concepts, saved_concepts):
+def create_doc_term_table(docs, concepts, scl_match_counts):
     '''
     Creates a tabulated format for the relationships between docs & terms
     :param docs: List of document dictionaries
     :param concepts: List of concept dictionaries
+    :param scl_match_counts: This list of matchcounts for each saved concept list (scl)
     :return: List of dicts containing doc_ids, related terms, score & whether an exact match was found
     '''
 
@@ -96,15 +127,16 @@ def create_doc_term_table(docs, concepts, saved_concepts):
     for c in concepts:
         for t in c['exact_term_ids']:
             if t not in concept_ids:
-                concept_ids[t] =  [(c['name'], 'top')]
+                concept_ids[t] =  [(c['name'], 'top', None)]
             else:
-                concept_ids[t].append((c['name'], 'top'))
-    for s in saved_concepts:
-        for t in s['exact_term_ids']:
-            if t not in concept_ids:
-                concept_ids[t] = [(s['name'], 'saved')]
-            else:
-                concept_ids[t].append((s['name'], 'saved'))
+                concept_ids[t].append((c['name'], 'top', None))
+    for scl_name, saved_concepts in scl_match_counts.items():
+        for s in saved_concepts['match_counts']:
+            for t in s['exact_term_ids']:
+                if t not in concept_ids:
+                    concept_ids[t] = [(s['name'], 'saved', scl_name)]
+                else:
+                    concept_ids[t].append((s['name'], 'saved', scl_name))
     
     doc_count = 0
     for doc in docs:
@@ -118,7 +150,8 @@ def create_doc_term_table(docs, concepts, saved_concepts):
                             doc_term_table.append({'doc_id': doc['doc_id'],
                                                    'term': n[0],
                                                    'exact_match': 1,
-                                                   'concept_type': n[1]})
+                                                   'concept_type': n[1],
+                                                   'saved_concept_list': n[2]})
         doc_count += 1
 
     return doc_term_table
@@ -272,10 +305,11 @@ def create_doc_table(client, docs, metadata, suggested_concepts, sentiment=False
     return doc_table, xref_table, metadata_map
 
 
-def create_terms_table(concepts, saved_concepts):
+def create_terms_table(concepts, scl_match_counts):
     '''
     Create a tabulation of top terms and their exact/total match counts
     :param concepts: List of concept dictionaries
+    :param scl_match_counts: Dictionary of match_counts for each saved concept list to process
     :return: List of terms, and match counts
     '''
 
@@ -288,18 +322,19 @@ def create_terms_table(concepts, saved_concepts):
         row['related_match_count'] = c['match_count'] - c['exact_match_count']
         row['concept_type'] = 'top'
         table.append(row)
-    for s in saved_concepts:
-        row = {}
-        row['term'] = s['name']
-        row['exact_match_count'] = s['exact_match_count']
-        row['related_match_count'] = s['match_count'] - s['exact_match_count']
-        row['concept_type'] = 'saved'
-        table.append(row)
+    for scl_name,saved_concepts in scl_match_counts.items():
+        for s in saved_concepts['match_counts']:
+            row = {}
+            row['term'] = s['name']
+            row['exact_match_count'] = s['exact_match_count']
+            row['related_match_count'] = s['match_count'] - s['exact_match_count']
+            row['concept_type'] = 'saved'
+            row['saved_concept_list'] = scl_name
+            table.append(row)
     return table
 
 
 def create_themes_table(client, suggested_concepts):
-    print('Creating themes table...')
     cluster_labels = {}
     themes = []
 
@@ -332,7 +367,7 @@ def create_themes_table(client, suggested_concepts):
     return themes      
 
 
-def create_sentiment_table(client, saved_concepts, top_concepts, root_url=''):
+def create_sentiment_table(client, scl_match_counts, top_concepts, root_url=''):
 
     # first get the default sentiment output with sentiment suggestions
     results = client.get('/concepts/sentiment/')['match_counts']
@@ -346,36 +381,17 @@ def create_sentiment_table(client, saved_concepts, top_concepts, root_url=''):
                                 'sentiment_share_negative':c['sentiment_share']['negative']
                                 } for c in results]
 
-    concept_selector = {"type": "saved"}
-    results_saved = client.get('/concepts/sentiment/',concept_selector=concept_selector)['match_counts']
-    results_saved
+    for scl_name,saved_concepts in scl_match_counts.items():
+        concept_selector = {"type": "concept_list", "concept_list_id": saved_concepts['concept_list_id']}
+        results_saved = client.get('/concepts/sentiment/',concept_selector=concept_selector)['match_counts']
+        results_saved
 
-    saved_names = [c['name'] for c in results_saved]
-
-    for c in results_saved:
-        row = { 'texts':c['texts'],
-                'name':c['name'],
-                'match_count':c['match_count'],
-                'concept_type': 'saved',
-                'exact_match_count':c['exact_match_count'],
-                'sentiment_share_positive':c['sentiment_share']['positive'],
-                'sentiment_share_neutral':c['sentiment_share']['neutral'],
-                'sentiment_share_negative':c['sentiment_share']['negative']
-                }
-
-        sentiment_match_counts.append(row)
-
-
-    concept_selector = {"type": "top", 'limit': 100}
-    results_top = client.get('/concepts/sentiment/',concept_selector=concept_selector)['match_counts']
-    results_top
-
-    for c in results_top:
-        if c['name'] not in saved_names:
+        for c in results_saved:
             row = { 'texts':c['texts'],
                     'name':c['name'],
                     'match_count':c['match_count'],
-                    'concept_type': 'top',
+                    'concept_type': 'saved',
+                    'saved_concept_list': scl_name,
                     'exact_match_count':c['exact_match_count'],
                     'sentiment_share_positive':c['sentiment_share']['positive'],
                     'sentiment_share_neutral':c['sentiment_share']['neutral'],
@@ -383,6 +399,24 @@ def create_sentiment_table(client, saved_concepts, top_concepts, root_url=''):
                     }
 
             sentiment_match_counts.append(row)
+
+
+    concept_selector = {"type": "top", 'limit': 100}
+    results_top = client.get('/concepts/sentiment/',concept_selector=concept_selector)['match_counts']
+    results_top
+
+    for c in results_top:
+        row = { 'texts':c['texts'],
+                'name':c['name'],
+                'match_count':c['match_count'],
+                'concept_type': 'top',
+                'exact_match_count':c['exact_match_count'],
+                'sentiment_share_positive':c['sentiment_share']['positive'],
+                'sentiment_share_neutral':c['sentiment_share']['neutral'],
+                'sentiment_share_negative':c['sentiment_share']['negative']
+                }
+
+        sentiment_match_counts.append(row)
 
     # add three sample documents to each row
     for srow in sentiment_match_counts:
@@ -523,17 +557,13 @@ def main():
     parser.add_argument('project_url', help="The URL of the Daylight project to export from")
     parser.add_argument('-c', '--concept_count', default=20, help="The number of top concepts to pull from the project")
     parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding of the file to write to")
-    #parser.add_argument('-s', '--saved_and_top', default=False, action='store_true', help="Track saved concepts and top concepts in doc_term_table")
+    parser.add_argument("-l", "--concept_list_names", default=None, help="The names of this shared concept lists separated by |. Default = ALL lists")
     parser.add_argument('-sktl', '--skt_limit', default=20, help="The max number of subset key terms to display per subset")
     parser.add_argument('-docs', '--doc', default=False, action='store_true', help="Do not generate doc_table")
     parser.add_argument('-terms', '--terms', default=False, action='store_true', help="Do not generate terms_table")
     parser.add_argument('-theme', '--themes', default=False, action='store_true', help="Do not generate themes_table")
     parser.add_argument('-dterm', '--doc_term', default=False, action='store_true', help="Do not generate doc_term_table")
-    #parser.add_argument('-tterm', '--term_topic', default=False, action='store_true', help="Do not generate term_topic_table")
-    #parser.add_argument('-dtopic', '--doc_topic', default=False, action='store_true', help="Do not generate doc_topic_table")
-    #parser.add_argument('-ttopic', '--topic_topic', default=False, action='store_true', help="Do not generate topic_topic_table")
     parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Do not generate doc_subset_table")
-    #parser.add_argument('-trends', '--trend_tables', default=False, action='store_true', help="Do not generate trends_table and trendingterms_table")
     parser.add_argument('-skt', '--skt_table', default=False, action='store_true',help="Do not generate skt_tables")
     parser.add_argument('-drive', '--drive', default=False, action='store_true',help="Do not generate driver_table")
     parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="If generating drivers_table do so with saved/top concepts as well as auto concepts")
@@ -550,8 +580,8 @@ def main():
     
     root_url, api_url, acct, proj = parse_url(args.project_url)
     print("starting subset drivers - topics={}".format(args.topic_drive))
-    
-    client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count))
+
+    client, docs, scl_match_counts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit), concept_count=int(args.concept_count), cln=args.concept_list_names)
 
     # get the docs no matter what because later data needs the metadata_map
     doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata, themes, sentiment=not args.sentiment)
@@ -567,29 +597,18 @@ def main():
         write_table_to_csv(xref_table, 'xref_table.csv', calc_keys=True, encoding=args.encoding)
     
     if not args.terms:
-        terms_table = create_terms_table(concepts, saved_concepts)
-        write_table_to_csv(terms_table, 'terms_table.csv', encoding=args.encoding)
+        terms_table = create_terms_table(concepts, scl_match_counts)
+        write_table_to_csv(terms_table, 'terms_table.csv', calc_keys=True, encoding=args.encoding)
         
     if not args.themes:
+        print('Creating themes table...')
         themes_table = create_themes_table(client, themes)
         write_table_to_csv(themes_table, 'themes_table.csv', encoding=args.encoding)
 
-    # Combines list of concepts and saved_concepts
+    # Combines list of concepts and saved concept lists
     if not args.doc_term:
-        doc_term_table = create_doc_term_table(docs, concepts, saved_concepts)
+        doc_term_table = create_doc_term_table(docs, concepts, scl_match_counts)
         write_table_to_csv(doc_term_table, 'doc_term_table.csv', encoding=args.encoding)
-    
-    #if not args.doc_topic:
-    #    doc_topic_table = create_doc_topic_table(docs, saved_concepts)
-    #    write_table_to_csv(doc_topic_table, 'doc_topic_table.csv', encoding=args.encoding)
-        
-    #if not args.topic_topic:
-    #    topic_topic_table = create_topic_topic_table(saved_concepts)
-    #    write_table_to_csv(topic_topic_table, 'topic_topic_table.csv', encoding=args.encoding)
-        
-    #if not args.term_topic:
-    #    term_topic_table = create_term_topic_table(concepts, saved_concepts)
-    #    write_table_to_csv(term_topic_table, 'term_topic_table.csv', encoding=args.encoding)
         
     if not args.doc_subset:
         doc_subset_table = create_doc_subset_table(docs, metadata_map)
@@ -603,8 +622,9 @@ def main():
         write_table_to_csv(driver_table, 'drivers_table.csv', encoding=args.encoding)
     
     if not args.sentiment:
-        sentiment_table = create_sentiment_table(client, saved_concepts, concepts, root_url=ui_project_url)
-        write_table_to_csv(sentiment_table, 'sentiment.csv', encoding=args.encoding)
+        print('Creating sentiment table...')
+        sentiment_table = create_sentiment_table(client, scl_match_counts, concepts, root_url=ui_project_url)
+        write_table_to_csv(sentiment_table, 'sentiment.csv', calc_keys=True, encoding=args.encoding)
     
     if bool(args.sdot):
 
@@ -621,11 +641,6 @@ def main():
 
         sdot_table = create_sdot_table(client, driver_fields, date_field_info, args.sdot_end, int(args.sdot_iterations), args.sdot_range, args.topic_drive, root_url=ui_project_url, docs=docs)
         write_table_to_csv(sdot_table, 'sdot_table.csv', encoding=args.encoding)
-
-    #if not args.trend_tables:
-    #    trends_table, trendingterms_table = create_trends_table(terms, docs)
-    #    write_table_to_csv(trends_table, 'trends_table.csv')
-    #    write_table_to_csv(trendingterms_table, 'trendingterms_table.csv')
 
 if __name__ == '__main__':
     main()

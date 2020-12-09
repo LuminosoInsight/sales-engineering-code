@@ -1,7 +1,7 @@
 from luminoso_api import V5LuminosoClient as LuminosoClient
 import csv, json, datetime, time, argparse
 
-from doc_downloader import get_all_docs, search_all_doc_ids, add_relations
+from se_code.doc_downloader import get_all_docs, search_all_doc_ids, add_relations
 
 def format_docs_for_upload(docs):
     new_docs = []
@@ -29,7 +29,7 @@ def create_and_build(root_client, old_project_info, docs):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Download all docs from a luminoso project, calculate which saved concepts each doc is aligned to and create a new project with them'
+        description='Download all docs from a luminoso project, calculate which shared concepts each doc is aligned to and create a new project with them'
     )
     parser.add_argument('project_url', help="The URL of the project to analyze")
     args = parser.parse_args()
