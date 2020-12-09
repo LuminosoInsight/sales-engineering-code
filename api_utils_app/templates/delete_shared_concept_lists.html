@@ -3,7 +3,7 @@
 {% block content %}
 
 	<div class="page-header"><p>
-       <h1>Delete all topics from project(s)</h1>
+       <h1>Delete all shared concept lists from project(s)</h1>
     </div>
 
       
@@ -13,7 +13,7 @@
 
       
       
-      <form action="{{ url_for('topic_utils_delete') }}" method='post'>
+      <form action="{{ url_for('concept_list_delete') }}" method='post'>
      
       	<input type="text" name="urls" class="form-control" placeholder="Analytics Project URL(s) (comma-separated if multiple)" required autofocus>
 

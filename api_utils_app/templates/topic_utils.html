@@ -3,13 +3,13 @@
 {% block content %}
 
 	<div class="page-header"><p>
-       <h1>Topic Utilities</h1>
+       <h1>Concept List Utilities</h1>
     </div>
 
-      <p class="lead">Copy topics from one project to another, or delete all topics from a project.</p>
+      <p class="lead">Copy concept lists from one project to another, or delete all concept lists from a project.</p>
       <div id="content">
-      <h3>Copy all topics from a project to other project(s)</h3>
-      <form action="{{ url_for('topic_utils_copy') }}" method='post' >
+      <h3>Copy all concept lists from a project to other project(s)</h3>
+      <form action="{{ url_for('concept_list_copy') }}" method='post' >
         
         
         <input type="text" name="account" class="form-control" placeholder="account ID: ie. admin" required autofocus>
@@ -25,8 +25,8 @@
 
 
       
-      <h3>Delete all topics from project(s)</h3>
-      <form action="{{ url_for('topic_utils_delete') }}" method='post'>
+      <h3>Delete all concept lists from project(s)</h3>
+      <form action="{{ url_for('concept_list_delete') }}" method='post'>
      
       	<input type="text" name="account" class="form-control" placeholder="account ID: ie. admin" required autofocus>
         <input type="text" name="pids" class="form-control" placeholder="project ID(s): e.g. s5kdh3, 34sdh3" required>

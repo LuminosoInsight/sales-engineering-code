@@ -20,28 +20,34 @@ red = redis.StrictRedis()
 
 
 def connect_to_client(url):
-    api_url, from_proj = parse_url(url)
-    
+    root_url, api_url, acct, proj = parse_url(url)
+
     client = LuminosoClient.connect_with_username_and_password(url=api_url,
                                                                username=session['username'],
                                                                password=session['password'])
-    client = client.client_for_path('projects/{}'.format(from_proj))
+    client = client.client_for_path('projects/{}'.format(proj))
     return client
+
 
 @app.route('/')
 def home():
     return render_template('login.html')
+
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
     session['username'] = request.form['username']
     session['password'] = request.form['password']
     session['apps_to_show'] = [
-        ('Topic',('Copy Topics',url_for('copy_topics_page')),('Delete Topics',url_for('delete_topics_page'))),
-        ('Term',('Merge Terms',url_for('term_merge_page')),('Ignore Terms',url_for('term_ignore_page'))),
-        ('Subsets',('Conceptual Subset Search',url_for('subset_search'))),
-        ('Cleaning',('Deduper',url_for('deduper_page')),('Create Train Test Split',url_for('create_train_test_page'))), # ('Boilerplate Cleaner',url_for('boilerplate_page'))),
-        ('Exports', ('BI Tool Export',url_for('bi_tool_export_page'))),
+        ('Concept List', ('Copy Concept Lists', url_for('copy_shared_concepts_page')), 
+                  ('Delete Concept Lists', url_for('delete_shared_concept_page'))),
+        ('Term', ('Merge Terms', url_for('term_merge_page')),
+                 ('Ignore Terms', url_for('term_ignore_page'))),
+        ('Subsets', ('Conceptual Subset Search', url_for('subset_search'))),
+        ('Cleaning', ('Deduper', url_for('deduper_page')),
+                     ('Create Train Test Split', url_for('create_train_test_page'))),
+                     # ('Boilerplate Cleaner',url_for('boilerplate_page'))),
+        ('Exports', ('BI Tool Export', url_for('bi_tool_export_page'))),
         ('Connectors', ('Reddit by Time', url_for('reddit_by_time_page')),
                        ('Reddit by Name', url_for('reddit_by_name_page')))]
     try:
@@ -80,8 +86,8 @@ def reddit_by_time():
     time_period = request.form['period']
     reddit = get_reddit_api()
     posts = get_posts_from_past(
-    reddit, subreddit_name, start_datetime, sort_type, time_period
-    )
+        reddit, subreddit_name, start_datetime, sort_type, time_period
+        )
     docs = get_docs_from_comments(posts, reddit)
     write_to_csv('%s docs.csv' % subreddit_name, docs, fields)
     SEARCH_TYPES = ['top', 'controversial', 'new']
@@ -164,7 +170,7 @@ def bi_tool_export():
     client, docs, scl_match_counts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
 
     doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata, themes, sentiment=sentiment)
-    write_table_to_csv(doc_table, foldername+'doc_table.csv',calc_keys=True)
+    write_table_to_csv(doc_table, foldername+'doc_table.csv', calc_keys=True)
     write_table_to_csv(xref_table, foldername+'xref_table.csv')
     
     if sentiment:
@@ -199,11 +205,11 @@ def bi_tool_export():
         write_table_to_csv(driver_table, foldername+'drivers_table.csv')
 
     if driver_subsets:
-        driver_table = create_drivers_with_subsets_table(client, driver_fields, topic_drive,subset_fields=driver_subset_fields)
+        driver_table = create_drivers_with_subsets_table(client, driver_fields, topic_drive, subset_fields=driver_subset_fields)
         write_table_to_csv(driver_table, 'subset_drivers_table.csv')
      
     if sdot_on:
-        print("SDOT {},{},{},{}".format(sdot_end,sdot_iterations,sdot_range_type,sdot_date_field_name))
+        print("SDOT {},{},{},{}".format(sdot_end, sdot_iterations, sdot_range_type, sdot_date_field_name))
 
         if len(sdot_date_field_name)==0:
             date_field_info = get_first_date_field(client, True)
@@ -212,7 +218,7 @@ def bi_tool_export():
                 return
         else:
             date_field_info = get_date_field_by_name(sdot_date_field_name)
-            if date_field_info == None:
+            if not date_field_info:
                 print("ERROR: no date field name: {}".format(sdot_date_field_name))
                 return
 
@@ -242,10 +248,10 @@ def subset_search():
             metadata_with_vects = client.get('/metadata')['result']
 
             if field:
-                metadata_with_vects = calc_metadata_vectors(client,metadata_with_vects,field)
+                metadata_with_vects = calc_metadata_vectors(client, metadata_with_vects, field)
             else:
-                field=None
-                metadata_with_vects = calc_metadata_vectors(client,metadata_with_vects)
+                field = None
+                metadata_with_vects = calc_metadata_vectors(client, metadata_with_vects)
         else:
             project = client.get()['name']
             question = request.form['text']
@@ -253,7 +259,7 @@ def subset_search():
             if request.form.get('include_docs'):
                 include_docs = True
 
-            result = search_subsets(client, [ question ],metadata_with_vects,field=field, sample_docs=include_docs)
+            result = search_subsets(client, [question], metadata_with_vects, field=field, sample_docs=include_docs)
 
             return render_template('subset_search.html',
                                    urls=session['apps_to_show'],
@@ -266,49 +272,60 @@ def subset_search():
     return render_template('subset_search.html', urls=session['apps_to_show'], project=project)
 
 
-@app.route('/topic_utils')
-def topic_utils():
-    return render_template('topic_utils.html', urls=session['apps_to_show'])
+@app.route('/concept_list_utils')
+def concept_list_utils():
+    return render_template('concept_list_utils.html', urls=session['apps_to_show'])
 
 
-@app.route('/topic_utils/copy', methods=['POST'])
-def topic_utils_copy():
-    #NOTE: Should add a checkbox for if the existing topics should be deleted first
+@app.route('/concept_list_utils/copy', methods=['POST'])
+def concept_list_utils_copy():
+    # NOTE: Should add a checkbox for if the existing concept lists should be deleted first
     url = request.form['url'].strip()
     to_delete = (request.form.get('delete') == 'on')
-    api_url, from_proj = parse_url(url)
-    client = connect_to_client(url)
-    client = client.client_for_path('/')
-    client = client.client_for_path('projects')
+    # parse the from url
+    froot_url, fapi_url, faccount_id, fproject_id = parse_url(url)
+
+    # api_url, from_proj = parse_url(url)
+    # client = connect_to_client(url)
+    # client = client.client_for_path('/')
+    # client = client.client_for_path('projects')
     dests = [url.strip() for url in request.form['dest_urls'].split(',')]
-    
+
+    from_client = LuminosoClient.connect(url='%s/projects/%s' % (fapi_url, fproject_id))
+
     for dest_proj in dests:
-        api_url, to_proj = parse_url(dest_proj)
+        # parse the to url
+        troot_url, tapi_url, taccount_id, tproject_id = parse_url(dest_proj)
+        to_client = LuminosoClient.connect(url='%s/projects/%s' % (tapi_url, tproject_id))
+
+        # api_url, to_proj = parse_url(dest_proj)
         if to_delete:
-            del_topics(connect_to_client(dest_proj))
-        copy_topics(
-            client,
-            from_proj=from_proj,
-            to_proj=to_proj
+            delete_shared_concepts(to_client)
+        copy_shared_concepts(
+            from_client,
+            to_client
         )
-    #NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
-    return render_template('copy_topics.html', urls=session['apps_to_show'])
+    
+    # NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
+    return render_template('copy_shared_concepts.html', urls=session['apps_to_show'])
 
 
-@app.route('/topic_utils/delete', methods=['POST'])
-def topic_utils_delete():
+@app.route('/concept_list_delete', methods=['POST'])
+def concept_list_delete():
     dests = [url.strip() for url in request.form['urls'].split(',')]
 
     for dest_proj in dests:
         client = connect_to_client(dest_proj)
-        del_topics(client)
-    #NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
-    return render_template('delete_topics.html', urls=session['apps_to_show'])
+        delete_shared_concepts(client)
+    
+    # NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
+    return render_template('delete_shared_concept_lists.html', urls=session['apps_to_show'])
 
 
 @app.route('/term_utils')
 def term_utils():
     return render_template('term_utils.html', urls=session['apps_to_show'])
+
 
 @app.route('/term_merge_page')
 def term_merge_page():
@@ -320,17 +337,17 @@ def term_ignore_page():
     return render_template('term_ignore.html', urls=session['apps_to_show'])
 
 
-@app.route('/copy_topics_page')
-def copy_topics_page():
-    return render_template('copy_topics.html', urls=session['apps_to_show'])
+@app.route('/copy_shared_concepts_page')
+def copy_shared_concepts_page():
+    return render_template('copy_shared_concepts.html', urls=session['apps_to_show'])
 
 
-@app.route('/delete_topics_page')
-def delete_topics_page():
-    return render_template('delete_topics.html', urls=session['apps_to_show'])
+@app.route('/delete_shared_concept_page')
+def delete_shared_concept_page():
+    return render_template('delete_shared_concept_lists.html', urls=session['apps_to_show'])
 
 
-@app.route('/term_utils/search', methods=['GET','POST'])
+@app.route('/term_utils/search', methods=['GET', 'POST'])
 def term_utils_search():
     url = request.args.get('url', 0, type=str).strip()
     cli = connect_to_client(url)
@@ -390,12 +407,12 @@ def create_train_test_util():
     
     return render_template('create_train_test.html', urls=session['apps_to_show'])
 
+
 ###
 # BEGIN Boilerplate code, some of which will be moved to separate file
 # note: may need to use the session['username'] to uniquely identify
 #       the pubsub messages for each user, if red is shared for all sessions.
 ###
-
 def event_stream():
     pubsub = red.pubsub()
     pubsub.subscribe('boilerplate')
