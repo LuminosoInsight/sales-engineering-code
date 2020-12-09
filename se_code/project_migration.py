@@ -61,8 +61,6 @@ def main():
     to_client = LuminosoClient.connect(url=to_api_url + '/api/v5/projects')
     all_projects = from_client.get()
     all_projects = [p for p in all_projects if p['account_id'] == from_account]
-    
-    all_projects = all_projects[0:2]  # DEBUG - delete this...!
 
     print('There are {} projects to be copied'.format(len(all_projects)))
     
