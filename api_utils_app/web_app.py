@@ -9,7 +9,7 @@ from reddit_utilities import get_reddit_api, get_posts_from_past, get_posts_by_n
 from term_utilities import get_terms, ignore_terms, merge_terms
 from se_code.copy_shared_concepts import copy_shared_concepts, delete_shared_concepts
 from se_code.create_train_test_split import create_train_test
-from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, get_first_date_field, get_date_field_by_name, create_drivers_with_subsets_table, parse_url
+from se_code.bi_tool_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, get_first_date_field, get_date_field_by_name, create_drivers_with_subsets_table, parse_url
 from subset_utilities import search_subsets, calc_metadata_vectors
 
 # Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
@@ -41,7 +41,7 @@ def login():
         ('Term',('Merge Terms',url_for('term_merge_page')),('Ignore Terms',url_for('term_ignore_page'))),
         ('Subsets',('Conceptual Subset Search',url_for('subset_search'))),
         ('Cleaning',('Deduper',url_for('deduper_page')),('Create Train Test Split',url_for('create_train_test_page'))), # ('Boilerplate Cleaner',url_for('boilerplate_page'))),
-        ('Dashboards', ('Tableau Export',url_for('tableau_export_page'))),
+        ('Exports', ('BI Tool Export',url_for('bi_tool_export_page'))),
         ('Connectors', ('Reddit by Time', url_for('reddit_by_time_page')),
                        ('Reddit by Name', url_for('reddit_by_name_page')))]
     try:
@@ -112,13 +112,13 @@ def reddit_by_name():
                            urls=session['apps_to_show'])
 
 
-@app.route('/tableau_export_page', methods=['GET'])
-def tableau_export_page():
-    return render_template('tableau_export.html', urls=session['apps_to_show'])
+@app.route('/bi_tool_export_page', methods=['GET'])
+def bi_tool_export_page():
+    return render_template('bi_tool_export.html', urls=session['apps_to_show'])
 
 
-@app.route('/tableau_export', methods=['POST'])
-def tableau_export():
+@app.route('/bi_tool_export', methods=['POST'])
+def bi_tool_export():
     url = request.form['url'].strip()
     root_url, api_url, acct, proj = parse_url(url)
     ui_project_url = root_url + '/app/projects/' + acct + '/' + proj
@@ -224,7 +224,7 @@ def tableau_export():
     #    write_table_to_csv(trends_table, foldername, 'trends_table.csv')
     #    write_table_to_csv(trendingterms_table, foldername, 'trendingterms_table.csv')
     
-    return render_template('tableau_export.html', urls=session['apps_to_show'])
+    return render_template('bi_tool_export.html', urls=session['apps_to_show'])
 
 
 @app.route('/subset_search', methods=['GET','POST'])

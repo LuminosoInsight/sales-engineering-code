@@ -544,7 +544,7 @@ def write_table_to_csv(table, filename, calc_keys=False, encoding='utf-8'):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Export data to Tableau compatible CSV files.'
+        description='Export data to Business Intelligence compatible CSV files.'
     )
     parser.add_argument('project_url', help="The URL of the Daylight project to export from")
     parser.add_argument('-c', '--concept_count', default=20, help="The number of top concepts to pull from the project")

@@ -1,6 +1,6 @@
 from luminoso_api import V5LuminosoClient as LuminosoClient
 
-from se_code.tableau_export import parse_url
+from se_code.bi_tool_export import parse_url
 
 import argparse
 
@@ -15,7 +15,8 @@ def delete_shared_concepts(client):
         print('{} shared concept lists deleted'.format(len(ids_to_delete)))
     else:
         print('No concept lists to delete')
-        
+
+
 def copy_shared_concepts(from_client, to_client, overwrite=False):
     concept_lists_from = from_client.get("concept_lists/")
     concept_list_to = to_client.get("concept_lists/")
