@@ -1,20 +1,13 @@
-from luminoso_api import V5LuminosoClient as LuminosoClient
-from pack64 import unpack64
-from se_code.conjunctions_disjunctions import get_new_results
-from se_code.subset_key_terms import subset_key_terms, create_skt_table
-from se_code.score_drivers import get_as, get_all_docs, get_driver_fields, create_drivers_table, create_sdot_table, get_first_date_field, get_date_field_by_name, get_best_subset_fields, get_fieldvalues_for_fieldname, create_drivers_with_subsets_table
-from scipy.stats import linregress
-
 import csv
-import json
-import time
-import sys
-import datetime
 import argparse
 import numpy as np
-import concurrent.futures
-import threading
 import urllib
+
+from luminoso_api import V5LuminosoClient as LuminosoClient
+from pack64 import unpack64
+# from se_code.conjunctions_disjunctions import get_new_results
+from se_code.subset_key_terms import subset_key_terms, create_skt_table
+from se_code.score_drivers import get_all_docs, get_driver_fields, create_drivers_table, create_sdot_table, get_first_date_field, get_date_field_by_name, create_drivers_with_subsets_table
 
 
 def parse_url(url):
@@ -27,7 +20,8 @@ def parse_url(url):
     return root_url, api_url, account_id, project_id
 
 
-def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day', themes=7, theme_terms=4, cln=None):
+def pull_lumi_data(project, api_url, skt_limit, concept_count=100, 
+                   interval='day', themes=7, theme_terms=4, cln=None):
 
     '''
     Extract relevant data from Luminoso project
@@ -63,7 +57,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day
     
     metadata = client.get('metadata')['result']
     
-    #saved_concepts = client.get('concepts/match_counts',
+    # saved_concepts = client.get('concepts/match_counts',
     #                            concept_selector={'type': 'saved'})['match_counts']
     # saved_concepts is now moving to a deeper dictionary with the saved_concept name as the key
     # and the data as the list of concepts.
@@ -83,8 +77,8 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day
     for m in metadata:
         if m['type'] == 'string':
             subset_counts[m['name']] = {}
-            if len(m['values'])>200:
-                print("Subset {} has {} (too many) values. Reducing to first 200 values.".format(m['name'],len(m['values'])))
+            if len(m['values']) > 200:
+                print("Subset {} has {} (too many) values. Reducing to first 200 values.".format(m['name'], len(m['values'])))
                 for v in m['values'][:200]:
                     subset_counts[m['name']][v['value']] = v['count']
             else:
@@ -108,7 +102,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100, interval='day
         # add the theme_id and unpack the vector
         r['theme_id'] = theme_id
         if len(r['vector']) > 0:
-            r['fvector'] =  [float(v) for v in unpack64(r['vector'])]
+            r['fvector'] = [float(v) for v in unpack64(r['vector'])]
 
     return client, docs, scl_match_counts, concepts, metadata, driver_fields, skt, themes
 
@@ -157,7 +151,7 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
     return doc_term_table
 
 
-#def create_doc_topic_table(docs, saved_concepts):
+# def create_doc_topic_table(docs, saved_concepts):
 #    '''
 #    Create a tabulation of docs and topics they're related to
 #    :param docs: List of document dictionaries
@@ -185,7 +179,7 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
 #    return doc_topic_table
 
 
-#def create_topic_topic_table(saved_concepts):
+# def create_topic_topic_table(saved_concepts):
 #    '''
 #    Create a tabulation of topic to topic relationships
 #    :param saved_concepts: List of saved concept dictionaries
@@ -204,7 +198,7 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
 #    return topic_topic_table
 
 
-#def create_term_topic_table(concepts, saved_concepts):
+# def create_term_topic_table(concepts, saved_concepts):
 #    '''
 #    Create a tabulation of topic to term relationships
 #    :param concepts: List of concept dictionaries
@@ -242,7 +236,8 @@ def create_doc_subset_table(docs, metadata_map):
     return doc_subset_table
 
 
-def create_doc_table(client, docs, metadata, suggested_concepts, sentiment=False):
+def create_doc_table(client, docs, metadata, suggested_concepts, 
+                     sentiment=False):
     '''
     Create a tabulation of documents and their related subsets & themes
     :param client: LuminosoClient object set to project path
@@ -263,7 +258,8 @@ def create_doc_table(client, docs, metadata, suggested_concepts, sentiment=False
     for i, m in enumerate(string_metadata):
         metadata_map[m['name']] = 'Subset %d' % (i + len(numeric_metadata))
     for i, m in enumerate(date_metadata):
-        metadata_map[m['name']] = 'Subset %d' % (i + len(numeric_metadata) + len(date_metadata))
+        metadata_map[m['name']] = 'Subset %d' % (i + len(numeric_metadata) +
+                                                 len(date_metadata))
 
     doc_table = []
         
@@ -275,7 +271,7 @@ def create_doc_table(client, docs, metadata, suggested_concepts, sentiment=False
         for m in doc['metadata']:
             if m['type'] == 'date':
                 row['doc_date %d' % date_number] = '%s %s' % (m['value'].split('T')[0], 
-                                                              m['value'].split('T')[1].split('.')[0])
+                    m['value'].split('T')[1].split('.')[0])
                 date_number += 1
             row[metadata_map[m['name']]] = m['value']
         if date_number == 0:
@@ -322,7 +318,7 @@ def create_terms_table(concepts, scl_match_counts):
         row['related_match_count'] = c['match_count'] - c['exact_match_count']
         row['concept_type'] = 'top'
         table.append(row)
-    for scl_name,saved_concepts in scl_match_counts.items():
+    for scl_name, saved_concepts in scl_match_counts.items():
         for s in saved_concepts['match_counts']:
             row = {}
             row['term'] = s['name']
@@ -347,7 +343,7 @@ def create_themes_table(client, suggested_concepts):
         
     for c in cluster_labels:
         # find related documents
-        selector_docs = {'texts':cluster_labels[c]['name']}
+        selector_docs = {'texts': cluster_labels[c]['name']}
         search_docs = client.get('docs', search=selector_docs, limit=3, match_type='exact')['result']
         
         selector = [{'texts': [t]} for t in cluster_labels[c]['name']]
@@ -371,35 +367,34 @@ def create_sentiment_table(client, scl_match_counts, top_concepts, root_url=''):
 
     # first get the default sentiment output with sentiment suggestions
     results = client.get('/concepts/sentiment/')['match_counts']
-    sentiment_match_counts = [{ 'texts':c['texts'],
-                                'name':c['name'],
-                                'concept_type':'sentiment_suggestions',
-                                'match_count':c['match_count'],
-                                'exact_match_count':c['exact_match_count'],
-                                'sentiment_share_positive':c['sentiment_share']['positive'],
-                                'sentiment_share_neutral':c['sentiment_share']['neutral'],
-                                'sentiment_share_negative':c['sentiment_share']['negative']
-                                } for c in results]
+    sentiment_match_counts = [{'texts':c['texts'],
+                               'name':c['name'],
+                               'concept_type':'sentiment_suggestions',
+                               'match_count':c['match_count'],
+                               'exact_match_count':c['exact_match_count'],
+                               'sentiment_share_positive':c['sentiment_share']['positive'],
+                               'sentiment_share_neutral':c['sentiment_share']['neutral'],
+                               'sentiment_share_negative':c['sentiment_share']['negative']
+                               } for c in results]
 
-    for scl_name,saved_concepts in scl_match_counts.items():
+    for scl_name, saved_concepts in scl_match_counts.items():
         concept_selector = {"type": "concept_list", "concept_list_id": saved_concepts['concept_list_id']}
         results_saved = client.get('/concepts/sentiment/',concept_selector=concept_selector)['match_counts']
         results_saved
 
         for c in results_saved:
-            row = { 'texts':c['texts'],
-                    'name':c['name'],
-                    'match_count':c['match_count'],
-                    'concept_type': 'saved',
-                    'saved_concept_list': scl_name,
-                    'exact_match_count':c['exact_match_count'],
-                    'sentiment_share_positive':c['sentiment_share']['positive'],
-                    'sentiment_share_neutral':c['sentiment_share']['neutral'],
-                    'sentiment_share_negative':c['sentiment_share']['negative']
-                    }
+            row = {'texts':c['texts'],
+                   'name':c['name'],
+                   'match_count':c['match_count'],
+                   'concept_type': 'saved',
+                   'saved_concept_list': scl_name,
+                   'exact_match_count':c['exact_match_count'],
+                   'sentiment_share_positive':c['sentiment_share']['positive'],
+                   'sentiment_share_neutral':c['sentiment_share']['neutral'],
+                   'sentiment_share_negative':c['sentiment_share']['negative']
+                   }
 
             sentiment_match_counts.append(row)
-
 
     concept_selector = {"type": "top", 'limit': 100}
     results_top = client.get('/concepts/sentiment/',concept_selector=concept_selector)['match_counts']
@@ -438,9 +433,6 @@ def create_sentiment_table(client, scl_match_counts, top_concepts, root_url=''):
             srow['example_doc3'] = search_docs[2]['text']
 
     return sentiment_match_counts
-
-#def create_subset_sentiment_table(client, metadata):
-
 
 """
 

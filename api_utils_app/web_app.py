@@ -1,29 +1,23 @@
 import datetime
-import logging
 import redis
-import sys
 
-from flask import Flask, jsonify, render_template, request, session, url_for, Response
+from flask import Flask, jsonify, render_template, request, session, url_for
+
 from luminoso_api import LuminosoClient
-from pack64 import unpack64
-from se_code.copy_shared_concepts import copy_shared_concepts, delete_shared_concepts
-from term_utilities import get_terms, ignore_terms, merge_terms
 from deduper_utilities import dedupe
-import numpy as np
-from se_code.conjunctions_disjunctions import get_new_results, get_current_results
-from random import randint
 from reddit_utilities import get_reddit_api, get_posts_from_past, get_posts_by_name, get_docs_from_comments, write_to_csv
-
+from term_utilities import get_terms, ignore_terms, merge_terms
+from se_code.copy_shared_concepts import copy_shared_concepts, delete_shared_concepts
+from se_code.create_train_test_split import create_train_test
 from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, get_first_date_field, get_date_field_by_name, create_drivers_with_subsets_table, parse_url
 from subset_utilities import search_subsets, calc_metadata_vectors
-from se_code.create_train_test_split import create_train_test
 
-
-#Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
+# Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
 
 app = Flask(__name__)
 app.secret_key = 'secret_key_that_we_need_to_have_to_use_sessions'
 red = redis.StrictRedis()
+
 
 def connect_to_client(url):
     api_url, from_proj = parse_url(url)
@@ -60,9 +54,11 @@ def login():
         error = 'Invalid_credentials'
         return render_template('login.html', error=error)
 
+
 @app.route('/index')
 def index():
     return render_template('index.html', urls=session['apps_to_show'])
+
 
 @app.route('/reddit_by_time_page', methods=['GET'])
 def reddit_by_time_page():
@@ -71,6 +67,7 @@ def reddit_by_time_page():
     return render_template('reddit_by_timeframe.html', urls=session['apps_to_show'],
                            types=SEARCH_TYPES,
                            periods=SEARCH_PERIODS)
+
 
 @app.route('/reddit_by_time', methods=['POST'])
 def reddit_by_time():
@@ -94,10 +91,12 @@ def reddit_by_time():
                            types=SEARCH_TYPES,
                            periods=SEARCH_PERIODS)
 
+
 @app.route('/reddit_by_name_page', methods=['GET'])
 def reddit_by_name_page():
     return render_template('reddit_by_name.html', 
                            urls=session['apps_to_show'])
+
 
 @app.route('/reddit_by_name', methods=['POST'])
 def reddit_by_name():
@@ -111,14 +110,16 @@ def reddit_by_name():
     write_to_csv('%s docs.csv' % subreddit_name, docs, fields)
     return render_template('reddit_by_name.html', 
                            urls=session['apps_to_show'])
+
+
 @app.route('/tableau_export_page', methods=['GET'])
 def tableau_export_page():
     return render_template('tableau_export.html', urls=session['apps_to_show'])
 
+
 @app.route('/tableau_export', methods=['POST'])
 def tableau_export():
     url = request.form['url'].strip()
-    #api_url, proj = parse_url(url)
     root_url, api_url, acct, proj = parse_url(url)
     ui_project_url = root_url + '/app/projects/' + acct + '/' + proj
 
@@ -136,7 +137,6 @@ def tableau_export():
         
     term_table = (request.form.get('terms') == 'on')
     doc_term = (request.form.get('doc_term') == 'on')
-    #doc_topic = (request.form.get('doc_topic') == 'on')
     doc_subset = (request.form.get('doc_subset') == 'on')
     themes_on = (request.form.get('themes') == 'on')
     skt_on = (request.form.get('skt') == 'on')
@@ -144,7 +144,6 @@ def tableau_export():
     driver_subsets = (request.form.get('driver_subsets') == 'on')
     driver_subset_fields = request.form['driver_subset_fields'].strip()
 
-    #trends = (request.form.get('trends') == 'on')
     sentiment = (request.form.get('sentiment') == 'on')
     topic_drive = (request.form.get('topic_drive') == 'on')
     
@@ -266,9 +265,11 @@ def subset_search():
         
     return render_template('subset_search.html', urls=session['apps_to_show'], project=project)
 
+
 @app.route('/topic_utils')
 def topic_utils():
     return render_template('topic_utils.html', urls=session['apps_to_show'])
+
 
 @app.route('/topic_utils/copy', methods=['POST'])
 def topic_utils_copy():
@@ -293,6 +294,7 @@ def topic_utils_copy():
     #NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
     return render_template('copy_topics.html', urls=session['apps_to_show'])
 
+
 @app.route('/topic_utils/delete', methods=['POST'])
 def topic_utils_delete():
     dests = [url.strip() for url in request.form['urls'].split(',')]
@@ -303,6 +305,7 @@ def topic_utils_delete():
     #NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
     return render_template('delete_topics.html', urls=session['apps_to_show'])
 
+
 @app.route('/term_utils')
 def term_utils():
     return render_template('term_utils.html', urls=session['apps_to_show'])
@@ -311,23 +314,28 @@ def term_utils():
 def term_merge_page():
     return render_template('term_merge.html', urls=session['apps_to_show'])
 
+
 @app.route('/term_ignore')
 def term_ignore_page():
     return render_template('term_ignore.html', urls=session['apps_to_show'])
+
 
 @app.route('/copy_topics_page')
 def copy_topics_page():
     return render_template('copy_topics.html', urls=session['apps_to_show'])
 
+
 @app.route('/delete_topics_page')
 def delete_topics_page():
     return render_template('delete_topics.html', urls=session['apps_to_show'])
+
 
 @app.route('/term_utils/search', methods=['GET','POST'])
 def term_utils_search():
     url = request.args.get('url', 0, type=str).strip()
     cli = connect_to_client(url)
     return jsonify(get_terms(cli))
+
 
 @app.route('/term_utils/merge')
 def term_utils_merge():
@@ -336,6 +344,7 @@ def term_utils_merge():
     cli = connect_to_client(url)
     return jsonify(merge_terms(cli, terms))
 
+
 @app.route('/term_utils/ignore')
 def term_utils_ignore():
     url = request.args.get('url', 0, type=str).strip()
@@ -343,9 +352,11 @@ def term_utils_ignore():
     cli = connect_to_client(url)
     return jsonify(ignore_terms(cli, terms))
 
+
 @app.route('/deduper_page')
 def deduper_page():
     return render_template('dedupe.html', urls=session['apps_to_show'])
+
 
 @app.route('/dedupe')
 def dedupe_util():
@@ -358,9 +369,11 @@ def dedupe_util():
 
     return jsonify(dedupe(cli, recalc=recalc, reconcile_func=reconcile, copy=copy))
 
+
 @app.route('/create_train_test_page', methods=['GET'])
 def create_train_test_page():
     return render_template('create_train_test.html', urls=session['apps_to_show'])
+
 
 @app.route('/create_train_test_util', methods=['POST'])
 def create_train_test_util():

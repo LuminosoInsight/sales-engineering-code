@@ -4,6 +4,7 @@ from se_code.tableau_export import parse_url
 
 import argparse
 
+
 def delete_shared_concepts(client):
     scl = client.get('concept_lists/')
     ids_to_delete = [cl['concept_list_id'] for cl in scl]
@@ -46,6 +47,7 @@ def copy_shared_concepts(from_client, to_client, overwrite=False):
         
     print('Added {} concept lists, skipped {}, overwrote {}'.format(add_count, skip_count, overwrite_count))
 
+
 def main():
     parser = argparse.ArgumentParser(
         description='Copy shared concept lists from one project to another.'
@@ -67,7 +69,8 @@ def main():
         
     if args.delete:
         delete_shared_concepts(to_client)
-    copy_shared_concepts(from_client, to_client,args.overwrite)
-    
+    copy_shared_concepts(from_client, to_client, args.overwrite)
+
+
 if __name__ == '__main__':
     main()

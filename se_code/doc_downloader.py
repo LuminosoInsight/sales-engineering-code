@@ -1,5 +1,9 @@
+import argparse
+import collections
+import csv
+import datetime
+
 from luminoso_api import V5LuminosoClient as LuminosoClient
-import collections, csv, json, datetime, time, argparse
 
 
 def get_all_docs(client):
