@@ -1,0 +1,17 @@
+exclude se_code/boilerplate_remover.py
+exclude se_code/cleaning_utils.py
+exclude se_code/compalytics_demo.py.py
+exclude se_code/conjunctions_disjunctions.py
+exclude se_code/deduper.py
+exclude se_code/diff_analysis_exports.py
+exclude se_code/domain_specific_sentiment_list.py
+exclude se_code/fix_apostrophes.sh
+exclude se_code/fuzzy_logic.py
+exclude se_code/intent_discovery.py
+exclude se_code/merge_terms.py
+exclude se_code/remove_foreign_lang.py
+exclude se_code/science_sentiment_topics.py
+exclude se_code/stream-messages.py
+exclude se_code/topic_labeler.py
+exclude se_code/upload_heedzy_output.py
+exclude se_code/upload_scraper_output.py
