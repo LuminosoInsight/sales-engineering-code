@@ -30,7 +30,7 @@ setup(
             'lumi_onsite_usage = se_code.onsite_usage:main',
             'lumi_project_migration = se_code.project_migration:main',
             'lumi_score_drivers = se_code.score_drivers:main',
-            'lumi_bi_tools_export = se_code.bi_tools_export',
+            'lumi_bi_tool_export = se_code.bi_tool_export:main',
 
         ]},
 )
