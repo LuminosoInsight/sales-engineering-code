@@ -10,7 +10,7 @@
   <div id="content">
     <h3>Export all relevant CSVs from a project to use in BI tools</h3>
     <form action="{{ url_for('bi_tool_export') }}" method='post' >
-      <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" required autofocus>
+      <input type="text" name="url" class="form-control" placeholder="Daylight Project URL" required autofocus>
       <input type="text" name="folder_name" class="form-control" placeholder="Folder to save CSVs to (Specify full path to folder e.g. ~/Documents/.../<FOLDER NAME>)" required>
       <input type="number" name="term_count" class="form-control" placeholder="Number of top terms to pull from project (default 100)">
       <input type="number" name="skt_limit" class="form-control" placeholder="Max number of key terms to display per subset (default 20)"> 

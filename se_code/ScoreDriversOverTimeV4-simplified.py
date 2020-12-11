@@ -14,7 +14,7 @@
 # v4 added the use of a branch function to create the new project instead of creating a new project from scratch. This saves doc count.
 #
 # Sample Command Line:
-#    python ScoreDriversOverTimeV4-simplified.py -e 2018-05-25 -a https://eu-analytics.luminoso.com/api/v4 -r 16 -n 17 -o NoName c86f546w prdcj9gb
+#    python ScoreDriversOverTimeV4-simplified.py -e 2018-05-25 -a https://eu-daylight.luminoso.com/api/v4 -r 16 -n 17 -o NoName c86f546w prdcj9gb
 
 from luminoso_api import LuminosoClient
 import argparse

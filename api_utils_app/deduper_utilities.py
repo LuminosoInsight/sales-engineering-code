@@ -33,7 +33,7 @@ def dedupe(cli, recalc=True, reconcile_func=None, copy=False):
     num_deleted = deduper.dedupe()
 
     p_info = cli.get('/')
-    url = 'https://analytics.luminoso.com/app/projects/{}/{}/highlights'.format(p_info['account_id'],p_info['project_id'])
+    url = 'https://daylight.luminoso.com/app/projects/{}/{}/highlights'.format(p_info['account_id'],p_info['project_id'])
    
     if recalc:
         cli.wait_for_build()

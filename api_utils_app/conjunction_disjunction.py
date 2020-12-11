@@ -19,7 +19,7 @@ from se_code.fuzzy_logic import clamp, fuzzy_and, fuzzy_or, fuzzy_not, tanh_clam
 
 def connect(account_id, project_id):
     client = LuminosoClient.connect(
-        'https://analytics.luminoso.com/api/v4/projects/{}/{}'.format(account_id, project_id))
+        'https://daylight.luminoso.com/api/v4/projects/{}/{}'.format(account_id, project_id))
     return client
 
 

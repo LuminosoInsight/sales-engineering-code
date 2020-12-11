@@ -90,7 +90,7 @@ def write_upload_to_csv(filename, docs, encoding='utf-8'):
         
 def upload_docs_to_projects(docs, filename,
                             account_id=None,
-                            api_root='https://analytics.luminoso.com/api/v5'):
+                            api_root='https://daylight.luminoso.com/api/v5'):
     '''
     Uploads Luminoso-compatible documents to 3 separate projects and prints
     their resulting URLs for easy access.
@@ -124,7 +124,7 @@ def main():
                         help="The ID of the account that will own the project, such as 'demo'")
     parser.add_argument('-e', '--encoding', default='utf-8',
                         help="Encoding of the file to read from and write to.")
-    parser.add_argument('-r', '--api_root', default='https://analytics.luminoso.com/api/v5',
+    parser.add_argument('-r', '--api_root', default='https://daylight.luminoso.com/api/v5',
                         help="API Root for the Daylight environment to upload projects to")
     parser.add_argument('-s', '--save', default=False, action='store_true',
                         help="Whether or not to save upload files as a backup")

@@ -157,7 +157,7 @@ def main():
     parser = argparse.ArgumentParser(
         description='Dedupe documents from a project'
     )
-    parser.add_argument('project_url', help="The complete URL of the Analytics project")
+    parser.add_argument('project_url', help="The complete URL of the Daylight project")
     parser.add_argument('-copy', '--copy', action='store_true', help="Use a copy of the project")
     parser.add_argument('-func', '--func', default='None', help="Reconcile function to use [shortest,longest,None]")
     args = parser.parse_args()
@@ -200,7 +200,7 @@ def main():
     num_deleted = deduper.dedupe()
 
     p_info = client.get('/')
-    url = 'https://analytics.luminoso.com/app/projects/{}/{}/highlights'.format(p_info['account_id'],p_info['project_id'])
+    url = 'https://daylight.luminoso.com/app/projects/{}/{}/highlights'.format(p_info['account_id'],p_info['project_id'])
     
     client.wait_for_build()
     print("num deleted:{}, url:{}".format(num_deleted,url))

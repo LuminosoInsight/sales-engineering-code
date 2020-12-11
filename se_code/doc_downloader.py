@@ -192,7 +192,7 @@ def write_to_csv(filename, docs, field_names, encoding="utf-8"):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Download documents from an Analytics project and write to CSV."
+        description="Download documents from an Daylight project and write to CSV."
     )
     parser.add_argument("project_url", help="The URL of the project to analyze")
     parser.add_argument(

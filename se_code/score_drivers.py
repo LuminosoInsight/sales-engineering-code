@@ -447,7 +447,7 @@ def main():
     parser = argparse.ArgumentParser(
         description='Export Subset Key Terms and write to a file'
     )
-    parser.add_argument('project_url', help="The complete URL of the Analytics project")
+    parser.add_argument('project_url', help="The complete URL of the Daylight project")
     parser.add_argument('--topic_drivers', default=False, action='store_true', help="If set, will calculate drivers based on user-defined topics as well")
     parser.add_argument('--encoding', default='utf-8', help="Encoding type of the files to write to")
     parser.add_argument('--sdot', action='store_true', help="Calculate over time")

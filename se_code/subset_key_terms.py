@@ -153,7 +153,7 @@ def main():
     parser = argparse.ArgumentParser(
         description='Export Subset Key Terms and write to a file'
     )
-    parser.add_argument('project_url', help="The complete URL of the Analytics project")
+    parser.add_argument('project_url', help="The complete URL of the Daylight project")
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset, default 20")
     parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding type of the file to write to")
     args = parser.parse_args()

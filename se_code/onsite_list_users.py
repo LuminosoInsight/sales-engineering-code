@@ -26,7 +26,7 @@ def main():
     )
     parser.add_argument(
         "host_url",
-        help="Luminoso host (https://analytics.luminoso.com)",
+        help="Luminoso host (https://daylight.luminoso.com)",
     )
     parser.add_argument("account_id", help="Account ID to list the users under")
     parser.add_argument(

@@ -397,7 +397,7 @@ def main():
         )
     parser.add_argument(
         '-a', '--api_url',
-        help='URL of Luminoso API endpoint (https://eu-analytics.luminoso.com/api/v4)'
+        help='URL of Luminoso API endpoint (https://eu-daylight.luminoso.com/api/v4)'
         )
     parser.add_argument(
         '-t', '--threshold',
