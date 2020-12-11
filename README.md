@@ -3,8 +3,7 @@ Sales Engineering Code
 
 This repository holds code written by Luminosans outside the development
 team; it includes code that may be sent to clients, and code used internally
-for our own purposes. This code is considered unsupported and for demonstration
-purposes only.
+for our own purposes. This code is considered unsupported and for demonstration purposes only.
 
 ## Downloading the repository
 
@@ -13,11 +12,7 @@ To start you need to download the repository
 
 ## Creating a python virtual environment
 
-You will want to create a Python virtual enviroment. It isn't required, but it 
-will help manage dependencies between different projects or versions. Open a 
-Terminal, navigate to the place you want your environment to live. (Note: 
-you'll need to navigate here to start the environment, so don't bury it too 
-deep). It's probably best to just put it in the sales-engineering-code folder
+You will want to create a Python virtual enviroment. It isn't required, but it  will help manage dependencies between different projects or versions. Open a Terminal, navigate to the place you want your environment to live. (Note: you'll need to navigate here to start the environment, so don't bury it too deep). It's probably best to just put it in the sales-engineering-code folder
 
 1. Create the virtual environment (Python 3):
 
@@ -73,7 +68,7 @@ Once you have the .whl file you can run the following commands to setup the Lumi
 
 Once installed, the wheel included shortcuts to run any of the scripts without the python interpreter on the command line. For instance the customer can simply run.
 
-`lumi-doc-downloader --help`
+`lumi_doc_downloader --help`
 
 ## Change Procedures
 
@@ -88,16 +83,11 @@ installation command. If your code changes are not running correctly, try
 the export command.
 
 Files that you put in the `se_code` directory can be run directly via your
-favorite file-running procedure (ipython, for instance, has `%run <filename>`),
-and can also be imported via `import se_code.<filename>`. You can also make
-subdirectories of `se_code`; if you do, creating a blank `__init__.py` file in
-your subdirectory will allow the same kind of importing, i.e. `import se_code.<subdirectory>.<filename>`.
+favorite file-running procedure (ipython, for instance, has `%run <filename>`, and can also be imported via `import se_code.<filename>`. You can also make subdirectories of `se_code`; if you do, creating a blank `__init__.py` file in your subdirectory will allow the same kind of importing, i.e. `import se_code.<subdirectory>.<filename>`.
 
-However: please do not add files directly to the master branch of this
-repository! Instead, there are a few Git commands that will allow you to put
+However: please do not add files directly to the master branch of this repository! Instead, there are a few Git commands that will allow you to put
 things into a separate, not-yet-approved "branch", and then request that the
-development team review your code.  The basic procedure, annotated with numbers
-in brackets, is:
+development team review your code.  The basic procedure, annotated with numbers in brackets, is:
 
 ```
 [1] git checkout master
