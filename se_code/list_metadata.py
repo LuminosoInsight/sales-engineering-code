@@ -18,17 +18,13 @@ def main():
     client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/'), project_id))
 
     result = client.get('/metadata')['result']
+    print("name,type,unique_values")
     for md in result:
         if 'values' in md:
-            md['unique_values'] = len(md['values'])
+            unique_values = len(md['values'])
         else:
-            md['unique_values'] = 0
-
-    metadata = [{'name': md['name'], 'type': md['type'], 'unique_values': md['unique_values']} for md in result]
-
-    print("name,type,unique_values")
-    for md in metadata:
-        print("{},{},{}".format(md['name'], md['type'], md['unique_values']))
+            unique_values = 0
+        print("{},{},{}".format(md['name'], md['type'], unique_values))
 
 
 if __name__ == '__main__':
