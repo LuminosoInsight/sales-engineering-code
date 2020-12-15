@@ -33,7 +33,7 @@ def copy_shared_concepts(from_client, to_client, overwrite=False):
             to_client.delete("concept_lists/{}/".format(to_ids[cl['name']]))
             overwrite_count += 1
 
-            # add cound will get incremented in the enxt step fixing the accounting
+            # add count will get incremented in the next step fixing the accounting
             add_count -= 1
 
         if (not cl['name'] in to_ids.keys()) or (overwrite):           

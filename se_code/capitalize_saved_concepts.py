@@ -5,7 +5,7 @@ from luminoso_api import V5LuminosoClient
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Capitalize shared conecept list concepts in a project'
+        description='Capitalize shared concepts concepts in a project'
     )
     parser.add_argument('url', help="The URL of the project to capitalize shared concept list concepts for.")
     args = parser.parse_args()

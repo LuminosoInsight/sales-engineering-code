@@ -38,8 +38,10 @@ def main():
         'filename',
         help=('Full name of the file containing shared concept definitions,'
               ' including the extension. Must be CSV or JSON.'
-)
+             )
         )
+    parser.add_argument("project_url", help="The URL of the project to use.")
+
     parser.add_argument('-d', '--delete', default=False, action="store_true", 
         help="Whether to delete all the existing shared concepts or not.")
     parser.add_argument('-e', '--encoding', default="utf-8", 
@@ -55,27 +57,26 @@ def main():
     if '.csv' in filename:
         with open(filename, encoding=args.encoding) as f:
             reader = csv.DictReader(f)
-            data = [row for row in reader]
-        true_data = {}
-        for d in data:
-            if d['concept_list_name'] not in true_data.keys():
-                true_data[d['concept_list_name']] = {
-                    "name":d['concept_list_name'],
-                    "concepts":[]
-                }
-            if 'texts' not in [k.lower() for k in list(d.keys())] and 'texts' not in [k.lower() for k in list(d.keys())]:
-                print('ERROR: File must contain a "text" column.')
-                return
-            row = {}
-            for k in d:
-                if 'text' in k.lower():
-                    row['texts'] = [t.strip() for t in d[k].split(',')]
-                if 'name' in k.lower():
-                    row['name'] = d[k]
-                if 'color' in k.lower():
-                    row['color'] = d[k]
-            true_data[d['concept_list_name']]['concepts'].append(row)
-        
+            true_data = {}
+            for d in reader:
+                if d['concept_list_name'] not in true_data.keys():
+                    true_data[d['concept_list_name']] = {
+                        "name": d['concept_list_name'],
+                        "concepts": []
+                    }
+                if 'texts' not in [k.lower() for k in list(d.keys())]:
+                    print('ERROR: File must contain a "text" column.')
+                    return
+                row = {}
+                for k, v in d.items():
+                    if 'text' in k.lower():
+                        row['texts'] = [t.strip() for t in v.split(',')]
+                    if 'name' in k.lower():
+                        row['name'] = v
+                    if 'color' in k.lower():
+                        row['color'] = v
+                true_data[d['concept_list_name']]['concepts'].append(row)
+            
         # reformat true_data for export
         true_data = [{'concept_list_name':cl[1]['name'],
                       'concepts':cl[1]['concepts']} for cl in true_data.items()]
@@ -87,7 +88,7 @@ def main():
                 c['texts'] = c['texts'].split(",")
     else:
         print('ERROR: you must pass in a CSV or JSON file.')
-        filename = input('Please enter a valid filename (include the file extension): ')
+        return
 
     statement = 'New Shared Concepts added to project'
     if args.delete:

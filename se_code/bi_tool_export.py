@@ -3,6 +3,8 @@ import argparse
 import numpy as np
 import urllib
 
+from collections import defaultdict 
+
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 # from se_code.conjunctions_disjunctions import get_new_results
@@ -45,7 +47,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
         ]
         if not concept_lists:
             print(
-                "Error: must specify at least one saved concept list. Lists available: {}".format(
+                "Error: must specify at least one shared concept list. Lists available: {}".format(
                     [c["name"] for c in concept_lists_raw]
                 )
             )
@@ -112,25 +114,21 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
     Creates a tabulated format for the relationships between docs & terms
     :param docs: List of document dictionaries
     :param concepts: List of concept dictionaries
-    :param scl_match_counts: This list of matchcounts for each saved concept list (scl)
+    :param scl_match_counts: This list of matchcounts for each shared concept list (scl)
     :return: List of dicts containing doc_ids, related terms, score & whether an exact match was found
     '''
 
     doc_term_table = []
-    concept_ids = {}
+
+    concept_ids = defaultdict(list)
     for c in concepts:
         for t in c['exact_term_ids']:
-            if t not in concept_ids:
-                concept_ids[t] =  [(c['name'], 'top', None)]
-            else:
-                concept_ids[t].append((c['name'], 'top', None))
+            concept_ids[t].append((c['name'], 'top', None))
+
     for scl_name, saved_concepts in scl_match_counts.items():
         for s in saved_concepts['match_counts']:
             for t in s['exact_term_ids']:
-                if t not in concept_ids:
-                    concept_ids[t] = [(s['name'], 'saved', scl_name)]
-                else:
-                    concept_ids[t].append((s['name'], 'saved', scl_name))
+                concept_ids[t].append((s['name'], 'saved', scl_name))
     
     doc_count = 0
     for doc in docs:
@@ -270,7 +268,8 @@ def create_doc_table(client, docs, metadata, suggested_concepts,
         date_number = 0
         for m in doc['metadata']:
             if m['type'] == 'date':
-                row['doc_date %d' % date_number] = '%s %s' % (m['value'].split('T')[0], 
+                row['doc_date %d' % date_number] = '%s %s' % (
+                    m['value'].split('T')[0], 
                     m['value'].split('T')[1].split('.')[0])
                 date_number += 1
             row[metadata_map[m['name']]] = m['value']
@@ -305,7 +304,7 @@ def create_terms_table(concepts, scl_match_counts):
     '''
     Create a tabulation of top terms and their exact/total match counts
     :param concepts: List of concept dictionaries
-    :param scl_match_counts: Dictionary of match_counts for each saved concept list to process
+    :param scl_match_counts: Dictionary of match_counts for each shared concept list to process
     :return: List of terms, and match counts
     '''
 
@@ -367,14 +366,14 @@ def create_sentiment_table(client, scl_match_counts, top_concepts, root_url=''):
 
     # first get the default sentiment output with sentiment suggestions
     results = client.get('/concepts/sentiment/')['match_counts']
-    sentiment_match_counts = [{'texts':c['texts'],
-                               'name':c['name'],
-                               'concept_type':'sentiment_suggestions',
-                               'match_count':c['match_count'],
-                               'exact_match_count':c['exact_match_count'],
-                               'sentiment_share_positive':c['sentiment_share']['positive'],
-                               'sentiment_share_neutral':c['sentiment_share']['neutral'],
-                               'sentiment_share_negative':c['sentiment_share']['negative']
+    sentiment_match_counts = [{'texts': c['texts'],
+                               'name': c['name'],
+                               'concept_type': 'sentiment_suggestions',
+                               'match_count': c['match_count'],
+                               'exact_match_count': c['exact_match_count'],
+                               'sentiment_share_positive': c['sentiment_share']['positive'],
+                               'sentiment_share_neutral': c['sentiment_share']['neutral'],
+                               'sentiment_share_negative': c['sentiment_share']['negative']
                                } for c in results]
 
     for scl_name, saved_concepts in scl_match_counts.items():
@@ -383,15 +382,15 @@ def create_sentiment_table(client, scl_match_counts, top_concepts, root_url=''):
         results_saved
 
         for c in results_saved:
-            row = {'texts':c['texts'],
-                   'name':c['name'],
-                   'match_count':c['match_count'],
+            row = {'texts': c['texts'],
+                   'name': c['name'],
+                   'match_count': c['match_count'],
                    'concept_type': 'saved',
                    'saved_concept_list': scl_name,
-                   'exact_match_count':c['exact_match_count'],
-                   'sentiment_share_positive':c['sentiment_share']['positive'],
-                   'sentiment_share_neutral':c['sentiment_share']['neutral'],
-                   'sentiment_share_negative':c['sentiment_share']['negative']
+                   'exact_match_count': c['exact_match_count'],
+                   'sentiment_share_positive': c['sentiment_share']['positive'],
+                   'sentiment_share_neutral': c['sentiment_share']['neutral'],
+                   'sentiment_share_negative': c['sentiment_share']['negative']
                    }
 
             sentiment_match_counts.append(row)
@@ -401,14 +400,14 @@ def create_sentiment_table(client, scl_match_counts, top_concepts, root_url=''):
     results_top
 
     for c in results_top:
-        row = { 'texts':c['texts'],
-                'name':c['name'],
-                'match_count':c['match_count'],
+        row = { 'texts': c['texts'],
+                'name': c['name'],
+                'match_count': c['match_count'],
                 'concept_type': 'top',
-                'exact_match_count':c['exact_match_count'],
-                'sentiment_share_positive':c['sentiment_share']['positive'],
-                'sentiment_share_neutral':c['sentiment_share']['neutral'],
-                'sentiment_share_negative':c['sentiment_share']['negative']
+                'exact_match_count': c['exact_match_count'],
+                'sentiment_share_positive': c['sentiment_share']['positive'],
+                'sentiment_share_neutral': c['sentiment_share']['neutral'],
+                'sentiment_share_negative': c['sentiment_share']['negative']
                 }
 
         sentiment_match_counts.append(row)
@@ -536,7 +535,7 @@ def write_table_to_csv(table, filename, calc_keys=False, encoding='utf-8'):
             fieldnames = {k for t_item in table for k in t_item.keys()}
         else:
             fieldnames = table[0].keys()
-        
+
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(table)
@@ -597,7 +596,7 @@ def main():
         themes_table = create_themes_table(client, themes)
         write_table_to_csv(themes_table, 'themes_table.csv', encoding=args.encoding)
 
-    # Combines list of concepts and saved concept lists
+    # Combines list of concepts and shared concept lists
     if not args.doc_term:
         doc_term_table = create_doc_term_table(docs, concepts, scl_match_counts)
         write_table_to_csv(doc_term_table, 'doc_term_table.csv', encoding=args.encoding)

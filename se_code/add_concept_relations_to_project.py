@@ -19,7 +19,7 @@ def format_docs_for_upload(docs):
 def write_documents(client, docs):
     offset = 0
     while offset < len(docs):
-        end = min(len(docs),offset+1000)
+        end = offset+1000
         client.post('upload', docs=docs[offset:end])
         offset = end
 
@@ -38,11 +38,7 @@ def main():
     )
     parser.add_argument('project_url', help="The URL of the project to analyze")
     args = parser.parse_args()
-    
-    api_url = args.project_url.split('/app')[0]
-    project_id = args.project_url.strip('/ ').split('/')[-1]
 
-    # account_id = args.project_url.strip('/').split('/')[5]
     project_id = args.project_url.strip('/').split('/')[6]
     api_url = '/'.join(args.project_url.strip('/').split('/')[:3]).strip('/') + '/api/v5'
     proj_apiv5 = '{}/projects/{}'.format(api_url, project_id)

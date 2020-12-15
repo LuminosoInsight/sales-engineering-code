@@ -32,7 +32,8 @@ def copy_projects_to_accounts(all_projects, from_client, to_client, to_account):
 
         # Create a new project
         client = to_client.client_for_path('/projects')
-        to_project = client.post(name=from_project['name'], language=language, account_id=to_account)
+        to_project = client.post(name=from_project['name'], language=language, 
+                                 workspace_id=to_account)
         to_client_project = client.client_for_path(to_project['project_id'])
         to_client_project.post('upload', docs=from_docs)
 
