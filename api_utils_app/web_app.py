@@ -1,53 +1,53 @@
 import datetime
-import logging
 import redis
-import sys
 
-from flask import Flask, jsonify, render_template, request, session, url_for, Response
+from flask import Flask, jsonify, render_template, request, session, url_for
+
 from luminoso_api import LuminosoClient
-from pack64 import unpack64
-from topic_utilities import copy_topics, del_topics, parse_url
-from term_utilities import get_terms, ignore_terms, merge_terms
 from deduper_utilities import dedupe
-import numpy as np
-from se_code.conjunctions_disjunctions import get_new_results, get_current_results
-from random import randint
 from reddit_utilities import get_reddit_api, get_posts_from_past, get_posts_by_name, get_docs_from_comments, write_to_csv
-
-from se_code.tableau_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, get_first_date_field, get_date_field_by_name, create_drivers_with_subsets_table
-from subset_utilities import search_subsets, calc_metadata_vectors
+from term_utilities import get_terms, ignore_terms, merge_terms
+from se_code.copy_shared_concepts import copy_shared_concepts, delete_shared_concepts
 from se_code.create_train_test_split import create_train_test
+from se_code.bi_tool_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, get_first_date_field, get_date_field_by_name, create_drivers_with_subsets_table, parse_url
+from subset_utilities import search_subsets, calc_metadata_vectors
 
-
-#Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
+# Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
 
 app = Flask(__name__)
 app.secret_key = 'secret_key_that_we_need_to_have_to_use_sessions'
 red = redis.StrictRedis()
 
+
 def connect_to_client(url):
-    api_url, from_proj = parse_url(url)
-    
+    root_url, api_url, acct, proj = parse_url(url)
+
     client = LuminosoClient.connect_with_username_and_password(url=api_url,
                                                                username=session['username'],
                                                                password=session['password'])
-    client = client.client_for_path('projects/{}'.format(from_proj))
+    client = client.client_for_path('projects/{}'.format(proj))
     return client
+
 
 @app.route('/')
 def home():
     return render_template('login.html')
+
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
     session['username'] = request.form['username']
     session['password'] = request.form['password']
     session['apps_to_show'] = [
-        ('Topic',('Copy Topics',url_for('copy_topics_page')),('Delete Topics',url_for('delete_topics_page'))),
-        ('Term',('Merge Terms',url_for('term_merge_page')),('Ignore Terms',url_for('term_ignore_page'))),
-        ('Subsets',('Conceptual Subset Search',url_for('subset_search'))),
-        ('Cleaning',('Deduper',url_for('deduper_page')),('Create Train Test Split',url_for('create_train_test_page'))), # ('Boilerplate Cleaner',url_for('boilerplate_page'))),
-        ('Dashboards', ('Tableau Export',url_for('tableau_export_page'))),
+        ('Concept List', ('Copy Concept Lists', url_for('copy_shared_concepts_page')), 
+                  ('Delete Concept Lists', url_for('delete_shared_concept_page'))),
+        ('Term', ('Merge Terms', url_for('term_merge_page')),
+                 ('Ignore Terms', url_for('term_ignore_page'))),
+        ('Subsets', ('Conceptual Subset Search', url_for('subset_search'))),
+        ('Cleaning', ('Deduper', url_for('deduper_page')),
+                     ('Create Train Test Split', url_for('create_train_test_page'))),
+                     # ('Boilerplate Cleaner',url_for('boilerplate_page'))),
+        ('Exports', ('BI Tool Export', url_for('bi_tool_export_page'))),
         ('Connectors', ('Reddit by Time', url_for('reddit_by_time_page')),
                        ('Reddit by Name', url_for('reddit_by_name_page')))]
     try:
@@ -60,9 +60,11 @@ def login():
         error = 'Invalid_credentials'
         return render_template('login.html', error=error)
 
+
 @app.route('/index')
 def index():
     return render_template('index.html', urls=session['apps_to_show'])
+
 
 @app.route('/reddit_by_time_page', methods=['GET'])
 def reddit_by_time_page():
@@ -71,6 +73,7 @@ def reddit_by_time_page():
     return render_template('reddit_by_timeframe.html', urls=session['apps_to_show'],
                            types=SEARCH_TYPES,
                            periods=SEARCH_PERIODS)
+
 
 @app.route('/reddit_by_time', methods=['POST'])
 def reddit_by_time():
@@ -83,8 +86,8 @@ def reddit_by_time():
     time_period = request.form['period']
     reddit = get_reddit_api()
     posts = get_posts_from_past(
-    reddit, subreddit_name, start_datetime, sort_type, time_period
-    )
+        reddit, subreddit_name, start_datetime, sort_type, time_period
+        )
     docs = get_docs_from_comments(posts, reddit)
     write_to_csv('%s docs.csv' % subreddit_name, docs, fields)
     SEARCH_TYPES = ['top', 'controversial', 'new']
@@ -94,10 +97,12 @@ def reddit_by_time():
                            types=SEARCH_TYPES,
                            periods=SEARCH_PERIODS)
 
+
 @app.route('/reddit_by_name_page', methods=['GET'])
 def reddit_by_name_page():
     return render_template('reddit_by_name.html', 
                            urls=session['apps_to_show'])
+
 
 @app.route('/reddit_by_name', methods=['POST'])
 def reddit_by_name():
@@ -111,14 +116,18 @@ def reddit_by_name():
     write_to_csv('%s docs.csv' % subreddit_name, docs, fields)
     return render_template('reddit_by_name.html', 
                            urls=session['apps_to_show'])
-@app.route('/tableau_export_page', methods=['GET'])
-def tableau_export_page():
-    return render_template('tableau_export.html', urls=session['apps_to_show'])
 
-@app.route('/tableau_export', methods=['POST'])
-def tableau_export():
+
+@app.route('/bi_tool_export_page', methods=['GET'])
+def bi_tool_export_page():
+    return render_template('bi_tool_export.html', urls=session['apps_to_show'])
+
+
+@app.route('/bi_tool_export', methods=['POST'])
+def bi_tool_export():
     url = request.form['url'].strip()
-    api_url, proj = parse_url(url)
+    root_url, api_url, acct, proj = parse_url(url)
+    ui_project_url = root_url + '/app/projects/' + acct + '/' + proj
 
     foldername = request.form['folder_name'].strip()
     concept_count = request.form['term_count'].strip()
@@ -134,7 +143,6 @@ def tableau_export():
         
     term_table = (request.form.get('terms') == 'on')
     doc_term = (request.form.get('doc_term') == 'on')
-    #doc_topic = (request.form.get('doc_topic') == 'on')
     doc_subset = (request.form.get('doc_subset') == 'on')
     themes_on = (request.form.get('themes') == 'on')
     skt_on = (request.form.get('skt') == 'on')
@@ -142,7 +150,6 @@ def tableau_export():
     driver_subsets = (request.form.get('driver_subsets') == 'on')
     driver_subset_fields = request.form['driver_subset_fields'].strip()
 
-    #trends = (request.form.get('trends') == 'on')
     sentiment = (request.form.get('sentiment') == 'on')
     topic_drive = (request.form.get('topic_drive') == 'on')
     
@@ -160,21 +167,21 @@ def tableau_export():
     if 'sdot_date_field_name' in request.form:
         sdot_date_field_name = request.form['sdot_date_field_name'].strip()
     
-    client, docs, saved_concepts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
+    client, docs, scl_match_counts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
 
     doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata, themes, sentiment=sentiment)
-    write_table_to_csv(doc_table, foldername+'doc_table.csv',calc_keys=True)
+    write_table_to_csv(doc_table, foldername+'doc_table.csv', calc_keys=True)
     write_table_to_csv(xref_table, foldername+'xref_table.csv')
     
     if sentiment:
-        sentiment_table = create_sentiment_table(client, saved_concepts, concepts)
-        write_table_to_csv(sentiment_table, foldername+'sentiment.csv')
+        sentiment_table = create_sentiment_table(client, scl_match_counts, concepts)
+        write_table_to_csv(sentiment_table, foldername+'sentiment.csv', calc_keys=True)
 
     if term_table:
-        terms_table = create_terms_table(concepts, saved_concepts)
-        write_table_to_csv(terms_table, foldername+'terms_table.csv')
+        terms_table = create_terms_table(concepts, scl_match_counts)
+        write_table_to_csv(terms_table, foldername+'terms_table.csv', calc_keys=True)
     if doc_term:
-        doc_term_table = create_doc_term_table(docs, concepts, saved_concepts)
+        doc_term_table = create_doc_term_table(docs, concepts, scl_match_counts)
         write_table_to_csv(doc_term_table, foldername+'doc_term_table.csv')
     
     # if doc_topic:
@@ -198,11 +205,11 @@ def tableau_export():
         write_table_to_csv(driver_table, foldername+'drivers_table.csv')
 
     if driver_subsets:
-        driver_table = create_drivers_with_subsets_table(client, driver_fields, topic_drive,subset_fields=driver_subset_fields)
+        driver_table = create_drivers_with_subsets_table(client, driver_fields, topic_drive, subset_fields=driver_subset_fields)
         write_table_to_csv(driver_table, 'subset_drivers_table.csv')
      
     if sdot_on:
-        print("SDOT {},{},{},{}".format(sdot_end,sdot_iterations,sdot_range_type,sdot_date_field_name))
+        print("SDOT {},{},{},{}".format(sdot_end, sdot_iterations, sdot_range_type, sdot_date_field_name))
 
         if len(sdot_date_field_name)==0:
             date_field_info = get_first_date_field(client, True)
@@ -211,7 +218,7 @@ def tableau_export():
                 return
         else:
             date_field_info = get_date_field_by_name(sdot_date_field_name)
-            if date_field_info == None:
+            if not date_field_info:
                 print("ERROR: no date field name: {}".format(sdot_date_field_name))
                 return
 
@@ -223,7 +230,7 @@ def tableau_export():
     #    write_table_to_csv(trends_table, foldername, 'trends_table.csv')
     #    write_table_to_csv(trendingterms_table, foldername, 'trendingterms_table.csv')
     
-    return render_template('tableau_export.html', urls=session['apps_to_show'])
+    return render_template('bi_tool_export.html', urls=session['apps_to_show'])
 
 
 @app.route('/subset_search', methods=['GET','POST'])
@@ -241,10 +248,10 @@ def subset_search():
             metadata_with_vects = client.get('/metadata')['result']
 
             if field:
-                metadata_with_vects = calc_metadata_vectors(client,metadata_with_vects,field)
+                metadata_with_vects = calc_metadata_vectors(client, metadata_with_vects, field)
             else:
-                field=None
-                metadata_with_vects = calc_metadata_vectors(client,metadata_with_vects)
+                field = None
+                metadata_with_vects = calc_metadata_vectors(client, metadata_with_vects)
         else:
             project = client.get()['name']
             question = request.form['text']
@@ -252,7 +259,7 @@ def subset_search():
             if request.form.get('include_docs'):
                 include_docs = True
 
-            result = search_subsets(client, [ question ],metadata_with_vects,field=field, sample_docs=include_docs)
+            result = search_subsets(client, [question], metadata_with_vects, field=field, sample_docs=include_docs)
 
             return render_template('subset_search.html',
                                    urls=session['apps_to_show'],
@@ -264,68 +271,88 @@ def subset_search():
         
     return render_template('subset_search.html', urls=session['apps_to_show'], project=project)
 
-@app.route('/topic_utils')
-def topic_utils():
-    return render_template('topic_utils.html', urls=session['apps_to_show'])
 
-@app.route('/topic_utils/copy', methods=['POST'])
-def topic_utils_copy():
-    #NOTE: Should add a checkbox for if the existing topics should be deleted first
+@app.route('/concept_list_utils')
+def concept_list_utils():
+    return render_template('concept_list_utils.html', urls=session['apps_to_show'])
+
+
+@app.route('/concept_list_utils/copy', methods=['POST'])
+def concept_list_utils_copy():
+    # NOTE: Should add a checkbox for if the existing concept lists should be deleted first
     url = request.form['url'].strip()
     to_delete = (request.form.get('delete') == 'on')
-    api_url, from_proj = parse_url(url)
-    client = connect_to_client(url)
-    client = client.client_for_path('/')
-    client = client.client_for_path('projects')
-    dests = [url.strip() for url in request.form['dest_urls'].split(',')]
-    
-    for dest_proj in dests:
-        api_url, to_proj = parse_url(dest_proj)
-        if to_delete:
-            del_topics(connect_to_client(dest_proj))
-        copy_topics(
-            client,
-            from_proj=from_proj,
-            to_proj=to_proj
-        )
-    #NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
-    return render_template('copy_topics.html', urls=session['apps_to_show'])
+    # parse the from url
+    froot_url, fapi_url, faccount_id, fproject_id = parse_url(url)
 
-@app.route('/topic_utils/delete', methods=['POST'])
-def topic_utils_delete():
+    # api_url, from_proj = parse_url(url)
+    # client = connect_to_client(url)
+    # client = client.client_for_path('/')
+    # client = client.client_for_path('projects')
+    dests = [url.strip() for url in request.form['dest_urls'].split(',')]
+
+    from_client = LuminosoClient.connect(url='%s/projects/%s' % (fapi_url, fproject_id))
+
+    for dest_proj in dests:
+        # parse the to url
+        troot_url, tapi_url, taccount_id, tproject_id = parse_url(dest_proj)
+        to_client = LuminosoClient.connect(url='%s/projects/%s' % (tapi_url, tproject_id))
+
+        # api_url, to_proj = parse_url(dest_proj)
+        if to_delete:
+            delete_shared_concepts(to_client)
+        copy_shared_concepts(
+            from_client,
+            to_client
+        )
+    
+    # NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
+    return render_template('copy_shared_concepts.html', urls=session['apps_to_show'])
+
+
+@app.route('/concept_list_delete', methods=['POST'])
+def concept_list_delete():
     dests = [url.strip() for url in request.form['urls'].split(',')]
 
     for dest_proj in dests:
         client = connect_to_client(dest_proj)
-        del_topics(client)
-    #NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
-    return render_template('delete_topics.html', urls=session['apps_to_show'])
+        delete_shared_concepts(client)
+    
+    # NOTE: ADD A FLASH CONFIRMATION MESSAGE HERE
+    return render_template('delete_shared_concept_lists.html', urls=session['apps_to_show'])
+
 
 @app.route('/term_utils')
 def term_utils():
     return render_template('term_utils.html', urls=session['apps_to_show'])
 
+
 @app.route('/term_merge_page')
 def term_merge_page():
     return render_template('term_merge.html', urls=session['apps_to_show'])
+
 
 @app.route('/term_ignore')
 def term_ignore_page():
     return render_template('term_ignore.html', urls=session['apps_to_show'])
 
-@app.route('/copy_topics_page')
-def copy_topics_page():
-    return render_template('copy_topics.html', urls=session['apps_to_show'])
 
-@app.route('/delete_topics_page')
-def delete_topics_page():
-    return render_template('delete_topics.html', urls=session['apps_to_show'])
+@app.route('/copy_shared_concepts_page')
+def copy_shared_concepts_page():
+    return render_template('copy_shared_concepts.html', urls=session['apps_to_show'])
 
-@app.route('/term_utils/search', methods=['GET','POST'])
+
+@app.route('/delete_shared_concept_page')
+def delete_shared_concept_page():
+    return render_template('delete_shared_concept_lists.html', urls=session['apps_to_show'])
+
+
+@app.route('/term_utils/search', methods=['GET', 'POST'])
 def term_utils_search():
     url = request.args.get('url', 0, type=str).strip()
     cli = connect_to_client(url)
     return jsonify(get_terms(cli))
+
 
 @app.route('/term_utils/merge')
 def term_utils_merge():
@@ -334,6 +361,7 @@ def term_utils_merge():
     cli = connect_to_client(url)
     return jsonify(merge_terms(cli, terms))
 
+
 @app.route('/term_utils/ignore')
 def term_utils_ignore():
     url = request.args.get('url', 0, type=str).strip()
@@ -341,9 +369,11 @@ def term_utils_ignore():
     cli = connect_to_client(url)
     return jsonify(ignore_terms(cli, terms))
 
+
 @app.route('/deduper_page')
 def deduper_page():
     return render_template('dedupe.html', urls=session['apps_to_show'])
+
 
 @app.route('/dedupe')
 def dedupe_util():
@@ -356,9 +386,11 @@ def dedupe_util():
 
     return jsonify(dedupe(cli, recalc=recalc, reconcile_func=reconcile, copy=copy))
 
+
 @app.route('/create_train_test_page', methods=['GET'])
 def create_train_test_page():
     return render_template('create_train_test.html', urls=session['apps_to_show'])
+
 
 @app.route('/create_train_test_util', methods=['POST'])
 def create_train_test_util():
@@ -375,12 +407,12 @@ def create_train_test_util():
     
     return render_template('create_train_test.html', urls=session['apps_to_show'])
 
+
 ###
 # BEGIN Boilerplate code, some of which will be moved to separate file
 # note: may need to use the session['username'] to uniquely identify
 #       the pubsub messages for each user, if red is shared for all sessions.
 ###
-
 def event_stream():
     pubsub = red.pubsub()
     pubsub.subscribe('boilerplate')

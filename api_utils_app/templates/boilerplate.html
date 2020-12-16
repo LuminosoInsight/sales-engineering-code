@@ -118,8 +118,8 @@ $(document).ready(function(){
   <br>
   <div><h4>Step 1: Configure the parameters and review the detected boilerplate</h4></div>
   <br>
-  Enter an Analytics project URL (will not be modified; a new cleaned project will be created)
-  <input type="text" name="url" class="form-control" placeholder="Analytics Project URL" value="https://analytics.luminoso.com/explore.html?account=admin&projectId=ws9hn" required autofocus>
+  Enter a Daylight project URL (will not be modified; a new cleaned project will be created)
+  <input type="text" name="url" class="form-control" placeholder="Daylight Project URL" value="https://daylight.luminoso.com/explore.html?account=admin&projectId=ws9hn" required autofocus>
   <br><br>
   Choose how many sample documents to print
   <a href="#" data-toggle="tooltip" title="A number of sample documents will be printed with the detected boilerplate highlighted in red. This will help you configure the other parameters to catch all of the boilerplate."><img src={{ url_for('static', filename = 'images/questionmark.png') }} width='25px' alt="What is this?"/></a> <br> <input class="form-control" type="number" id="sample_docs" name="sample_docs" value="10"/>
@@ -145,7 +145,6 @@ $(document).ready(function(){
   <br>
 </div>
 {% endblock %}
-
 
 
 

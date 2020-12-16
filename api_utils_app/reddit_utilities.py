@@ -174,7 +174,7 @@ def write_to_csv(filename, docs, fields):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Export data to Tableau compatible CSV files.'
+        description='Export reddit data to CSV files.'
     )
     parser.add_argument('--request_type', default="name", help="Type of reddit request default=name.  Possible values: [name,date]")
     parser.add_argument('subreddit_name', help="Enter the subreddit name")
