@@ -28,7 +28,7 @@ class SentimentTopics:
     @staticmethod
     def _connect(account_id, project_id):
         client = LuminosoClient.connect(
-            'https://analytics.luminoso.com/api/v4/projects/{}/{}'.format(account_id, project_id))
+            'https://analytics.luminoso.com/api/v4/projects/{}/{}'.format(account_id, project_id), user_agent_suffix='se_code:science_sentiment_topics')
         return client
 
     def _get_project_terms(self, n_terms, language):

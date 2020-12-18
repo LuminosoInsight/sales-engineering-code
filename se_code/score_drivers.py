@@ -464,7 +464,7 @@ def main():
     project_id = project_url.split('/')[6].strip()
     workspace_id = project_url.split('/')[5].strip()
     
-    client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/'), project_id))
+    client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/'), project_id), user_agent_suffix='se_code:score_drivers')
 
     #print('Getting Docs...')
     #docs = get_all_docs(client)

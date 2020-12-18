@@ -71,7 +71,7 @@ def main():
     email = args.email
     permissions = args.permissions
 
-    client = LuminosoClient.connect(args.host_url)
+    client = LuminosoClient.connect(args.host_url, user_agent_suffix='se_code:onsite_invite_user')
     accounts_client = client.change_path("/accounts/")
 
     if all(arg is None for arg in (csv_file, account_id, email, permissions)):

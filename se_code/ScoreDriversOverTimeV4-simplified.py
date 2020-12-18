@@ -42,7 +42,7 @@ def main(args):
     print("reading docs from: {}/{}".format(str(account_id),str(project_id)))
     # Get Master Data
     docs = []
-    client = LuminosoClient.connect('/projects/{}/{}'.format(account_id,project_id))
+    client = LuminosoClient.connect('/projects/{}/{}'.format(account_id,project_id), user_agent_suffix='se_code:ScoreDriversOverTimeV4-simplified')
     while True:
         new_docs = client.get('docs', limit=25000, offset=len(docs), doc_fields=['text',
                                                                                 'date',

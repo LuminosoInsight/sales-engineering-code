@@ -168,7 +168,8 @@ def main():
     workspace_id = project_url.split('/')[5].strip()
     
     print("opening client: {}  - {}/{}".format(api_url,project_id,workspace_id))
-    client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/'), project_id))
+    client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/'), project_id),
+                                    user_agent_suffix='se_code:deduper')
     
     
     print("prjinfo={}".format(client.get('/')))

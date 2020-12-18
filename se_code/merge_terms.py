@@ -42,7 +42,7 @@ def main():
     args = parser.parse_args()
     
     endpoint = parse_url(args.project_url)
-    client = LuminosoClient.connect(endpoint)
+    client = LuminosoClient.connect(endpoint, user_agent_suffix='se_code:merge_terms')
 
     if args.merge_into_text and args.merge_from_text:
         term_manage = merge_single_text(args.merge_from_text, args.merge_into_text, client)

@@ -269,7 +269,7 @@ def main():
     )
     proj_apiv5 = "{}/projects/{}".format(api_url, project_id)
 
-    client = LuminosoClient.connect(url=proj_apiv5)
+    client = LuminosoClient.connect(url=proj_apiv5, user_agent_suffix='se_code:doc_downloader')
 
     docs = get_all_docs(client)
     if args.concept_relations or args.concept_list:

@@ -65,8 +65,8 @@ def main():
     # parse the to url
     troot_url, tapi_url, taccount_id, tproject_id = parse_url(args.to_url)
 
-    from_client = LuminosoClient.connect(url='%s/projects/%s' % (fapi_url, fproject_id))
-    to_client = LuminosoClient.connect(url='%s/projects/%s' % (tapi_url, tproject_id))
+    from_client = LuminosoClient.connect(url='%s/projects/%s' % (fapi_url, fproject_id), user_agent_suffix='se_code:copy_shared_concepts:from')
+    to_client = LuminosoClient.connect(url='%s/projects/%s' % (tapi_url, tproject_id), user_agent_suffix='se_code:copy_shared_concepts:to')
         
     if args.delete:
         delete_shared_concepts(to_client)
