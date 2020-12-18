@@ -54,7 +54,7 @@ def main():
 
     # connect to the Luminoso Daylight onsite service
     api_url = args.host_url + "/api/v4/"
-    client = LuminosoClient.connect(api_url)
+    client = LuminosoClient.connect(api_url, user_agent_suffix='se_code:onsite_usage')
 
     # list the accounts
     usage_csv = get_usage_list(client)

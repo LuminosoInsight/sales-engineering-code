@@ -156,7 +156,7 @@ def main():
             print("error retrieving account_id: {}".format(profile['error']))
 
     # connect to v5 api
-    client = LuminosoClient.connect(url=api_url)
+    client = LuminosoClient.connect(url=api_url, user_agent_suffix='se_code:create_daylight_project_from_csv')
 
     client_prj = create_project(client, input_file, project_name, account_id, keyword_expansion_terms=args.keyword_expansion_terms, max_len=max_len, skip_sentiment_build=args.skip_sentiment_build)
 

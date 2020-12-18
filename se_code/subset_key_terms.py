@@ -161,7 +161,7 @@ def main():
     project_url = args.project_url.strip('/')
     api_url = project_url.split('/app')[0].strip() + '/api/v5'
     project_id = project_url.split('/')[-1].strip()
-    client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/ '), project_id))
+    client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/ '), project_id), user_agent_suffix='se_code:subset_key_terms')
     docs = get_all_docs(client)
     subset_counts = {}
     for d in docs:

@@ -108,7 +108,7 @@ def run(project_url, out_filename):
     """
     api_root = project_url.strip('/ ').split('/app')[0]
     project_id = project_url.strip('/ ').split('/')[-1]
-    client = LuminosoClient.connect('%s/api/v5/projects/%s' % (api_root, project_id))
+    client = LuminosoClient.connect('%s/api/v5/projects/%s' % (api_root, project_id), user_agent_suffix='se_code:topic_labeler')
 
     topic_dicts, doc_dicts = collect_topic_mapping(client)
     write_csv(topic_dicts, doc_dicts, out_filename)

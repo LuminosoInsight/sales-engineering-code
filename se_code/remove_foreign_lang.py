@@ -59,7 +59,7 @@ def main():
     
     api_url = args.project_url.split('/app')[0]
     project_id = args.project_url.strip('/ ').split('/')[-1]
-    client = LuminosoClient.connect(url='{}/api/v5/projects/{}/'.format(api_url, project_id))
+    client = LuminosoClient.connect(url='{}/api/v5/projects/{}/'.format(api_url, project_id), user_agent_suffix='se_code:remove_foreign_lang')
     remove_foreign_lang(client,args.lang_code,args.threshold)
     
 if __name__ == '__main__':

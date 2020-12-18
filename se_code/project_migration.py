@@ -58,8 +58,8 @@ def main():
     from_account = args.from_url.strip('/').split('/')[5]
     to_account = args.to_url.strip('/').split('/')[5]
 
-    from_client = LuminosoClient.connect(url=from_api_url + '/api/v5/projects')
-    to_client = LuminosoClient.connect(url=to_api_url + '/api/v5/projects')
+    from_client = LuminosoClient.connect(url=from_api_url + '/api/v5/projects', user_agent_suffix='se_code:project_migration:from')
+    to_client = LuminosoClient.connect(url=to_api_url + '/api/v5/projects', user_agent_suffix='se_code:project_migration:to')
     all_projects = from_client.get()
     all_projects = [p for p in all_projects if p['account_id'] == from_account]
 

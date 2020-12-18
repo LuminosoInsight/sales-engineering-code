@@ -50,7 +50,7 @@ def main():
     args = parser.parse_args()
     
     endpoint = parse_url(args.project_url)
-    client = LuminosoClient.connect(endpoint)
+    client = LuminosoClient.connect(endpoint, user_agent_suffix='se_code:ignore_terms')
         
     if args.ignore_term:
         ignore = ignore_single_term(args.ignore_term, client)

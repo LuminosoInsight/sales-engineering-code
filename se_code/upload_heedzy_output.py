@@ -95,7 +95,7 @@ def upload_docs_to_projects(docs, filename,
     Uploads Luminoso-compatible documents to 3 separate projects and prints
     their resulting URLs for easy access.
     '''
-    client = LuminosoClient.connect('%s/projects/' % api_root)
+    client = LuminosoClient.connect('%s/projects/' % api_root, user_agent_suffix='se_code:upload_heedzy_output')
     name = filename.split('.csv')[0].split('/')[-1]
     if account_id:
         proj_id = client.post(name=name, 

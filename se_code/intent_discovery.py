@@ -264,7 +264,7 @@ def save_doc_search_results(docs, intent_list, threshold=.5, encoding="utf-8"):
 def main(args):
     project_id = args.project_url.strip('/').split('/')[-1]
     api_url = args.project_url.split('/app')[0] + '/api/v5/'
-    client = LuminosoClient.connect(url=api_url)
+    client = LuminosoClient.connect(url=api_url, user_agent_suffix='se_code:intent_discovery')
     client = client.client_for_path('/projects/{}'.format(project_id))
 
     print('Finding terms...')

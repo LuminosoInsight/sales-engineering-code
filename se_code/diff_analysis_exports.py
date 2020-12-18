@@ -42,8 +42,8 @@ def main():
     root_2 = args.project_url_2.split('/app')[0]
     project_2_id = args.project_url_2.strip('/').split('/')[-1]
     
-    client_1 = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (root_1, project_1_id))
-    client_2 = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (root_2, project_2_id))
+    client_1 = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (root_1, project_1_id), user_agent_suffix='se_code:diff_analysis:client1')
+    client_2 = LuminosoClient.connect(url='%s/api/v5/projects/%s' % (root_2, project_2_id), user_agent_suffix='se_code:copy_shared_concepts:from')
     
     match_counts_1 = client_1.get('concepts/match_counts', concept_selector={'type': 'top', 'limit': int(args.limit)})
     match_counts_2 = client_2.get('concepts/match_counts', concept_selector={'type': 'top', 'limit': int(args.limit)})
