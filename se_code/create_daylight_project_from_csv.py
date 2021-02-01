@@ -2,8 +2,8 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 from ignore_terms import ignore_csv_file
 
 import argparse
-import datetime, getpass, time, json, os, csv
-import numpy, pack64
+import csv
+import time
 
 '''
 Create a Luminoso Daylight project from a CSV file. Usefull if the file is too
@@ -11,9 +11,9 @@ large for UI or building without the UI for things like search_enhancement
 
 '''
 
-def write_documents(client,docs):
+def write_documents(client, docs):
     offset = 0
-    while offset<len(docs):
+    while offset < len(docs):
         end = min(len(docs),offset+1000)
         result = client.post('upload', docs=docs[offset:end])
         offset = end
@@ -27,14 +27,14 @@ def is_number(s):
         return False
 
 
-def create_project(client, input_file, project_name, account_id, keyword_expansion_terms=None, max_len=0, skip_sentiment_build=False):
+def create_project(client, input_file, project_name, account_id, keyword_expansion_terms=None, max_len=0, skip_sentiment_build=False, language="en"):
 
     doc_count = 0
     block_size = 5000
 
     # create the project
     print("Creating project named: "+project_name)
-    project_info = client.post(name=project_name,language="en",account_id=account_id)
+    project_info = client.post(name=project_name, language=language, account_id=account_id)
     print("New project info = "+str(project_info))
 
     client_prj = client.client_for_path(project_info['project_id'])
@@ -145,6 +145,7 @@ def main():
     parser.add_argument('-s', '--skip_sentiment_build', action="store_true", default=False, help="Allows the build to skip the sentiment build")
     parser.add_argument('-w', '--wait_for_build_complete', action="store_true", default=False, help="Wait for the build to complete")
     parser.add_argument('-i', '--ignore_terms_csv_file', default=None, required=False, help="A csv file with terms to ignore")
+    parser.add_argument('-l', '--language', default="en", required=False, help="Project language code (Default=en)")
     args = parser.parse_args()
 
     project_name = args.project_name
@@ -176,7 +177,10 @@ def main():
     # connect to v5 api
     client = LuminosoClient.connect(url=api_url, user_agent_suffix='se_code:create_daylight_project_from_csv')
 
-    client_prj = create_project(client, input_file, project_name, account_id, keyword_expansion_terms=args.keyword_expansion_terms, max_len=max_len, skip_sentiment_build=args.skip_sentiment_build)
+    client_prj = create_project(client, input_file, project_name, account_id, 
+        keyword_expansion_terms=args.keyword_expansion_terms, max_len=max_len, 
+        skip_sentiment_build=args.skip_sentiment_build, 
+        language=args.language)
 
     if (args.wait_for_build_complete or args.ignore_terms_csv_file):
         print("waiting for build to complete...")
@@ -184,7 +188,7 @@ def main():
 
     if args.ignore_terms_csv_file:
         print("Ignoring terms from: "+args.ignore_terms_csv_file)
-        ignore_csv_file(args.ignore_terms_csv_file,client_prj)
+        ignore_csv_file(args.ignore_terms_csv_file, client_prj)
 
         sentiment_configuration = {"type":"full"}
         if (save_skip_sentiment_build):
@@ -194,6 +198,7 @@ def main():
             sentiment_configuration=sentiment_configuration)
         print("Waiting for ignore terms build")
         client_prj.wait_for_build()
+
 
 if __name__ == '__main__':
     main()
