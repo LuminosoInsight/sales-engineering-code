@@ -48,7 +48,7 @@ Navigate your browser to (http://127.0.0.1:5000/)
 
 ##  Packaging the wheel file for customers
 
-The se_code can be packaged for sharing with customers by using a wheel file.
+The se_code can be packaged for sharing with customers by using a wheel file. First update the version in the setup.py file.
 
 `cd sales-engineering-code`
 `python setup.py sdist bdist_wheel`
