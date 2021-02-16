@@ -98,10 +98,11 @@ def main():
                 write_row = {k: v for k, v in read_row.items() if k not in text_fields}
                 write_row.update({'Text': read_row[key]})
                 if 'text_' in key.lower():
-                    write_row.update({'string_' + args.column_dest: key.split('ext_')[1]})
+                    write_row.update({'string_' + args.column_dest: key.split('text_')[1]})
                 else:
                     write_row.update({'string_' + args.column_dest: 'Text'})
-                write_table.append(write_row)
+                if len(write_row['Text'].strip()) > 0:
+                    write_table.append(write_row)
     dict_to_file(write_table, args.output_file, encoding=args.encoding, header_map=header_map)
 
 
