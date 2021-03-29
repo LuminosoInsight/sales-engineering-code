@@ -88,17 +88,19 @@ def main():
         help="Encoding type of the files to read from"
     )
     args = parser.parse_args()
-    
+
     write_table = []
     table, header_map = file_to_dict(args.input_file, encoding=args.encoding)
     text_fields = [field for field in table[0] if 'text_' in field.lower() or 'text' == field.lower().strip()]
     for read_row in table:
         for key in read_row:
-            if 'text_' in key.lower() or 'text' == key.lower().strip():
+            if key.lower().startswith('text_') or key.lower().strip().startswith('text'):
                 write_row = {k: v for k, v in read_row.items() if k not in text_fields}
                 write_row.update({'Text': read_row[key]})
-                if 'text_' in key.lower():
-                    write_row.update({'string_' + args.column_dest: key.split('text_')[1]})
+                if key.lower().startswith('text_'):
+                    # case sensitive text_
+                    splitat = key[0:5]
+                    write_row.update({'string_' + args.column_dest: key.split(splitat)[1]})
                 else:
                     write_row.update({'string_' + args.column_dest: 'Text'})
                 if len(write_row['Text'].strip()) > 0:
