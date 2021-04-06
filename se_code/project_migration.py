@@ -4,21 +4,11 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 from se_code.copy_shared_concepts import copy_shared_concepts
 
 
-def get_all_docs(client):
-    '''
-    Get all docs
-    '''
-    docs = []
-    while True:
-        newdocs = client.get('docs', limit=25000, offset=len(docs))
-        if newdocs['result']:
-            docs.extend(newdocs['result'])
-        else:
-            return docs
+BATCH_SIZE = 1000
 
 
 def copy_projects_to_workspace(all_projects, from_client, to_client,
-                               to_workspace):
+                               to_workspace, batch_size=BATCH_SIZE):
     for from_project in all_projects:
         project_name = from_project['name']
 
@@ -27,11 +17,6 @@ def copy_projects_to_workspace(all_projects, from_client, to_client,
             from_project['project_id']
         )
         print('Connected to project: ' + project_name)
-        # get the docs and filter for new project
-        from_docs = get_all_docs(from_client_project)
-        from_docs = [{'text': d['text'],
-                      'title': d['title'],
-                      'metadata': d['metadata']} for d in from_docs]
 
         # Create a new project
         to_project = to_client.post(
@@ -39,7 +24,16 @@ def copy_projects_to_workspace(all_projects, from_client, to_client,
             language=from_project['language'], workspace_id=to_workspace
         )
         to_client_project = to_client.client_for_path(to_project['project_id'])
-        to_client_project.post('upload', docs=from_docs)
+
+        # get the docs
+        offset = 0
+        while offset < from_project['document_count']:
+            docs = from_client_project.get(
+                'docs', limit=batch_size, offset=offset,
+                fields=('text', 'title', 'metadata')
+            )['result']
+            to_client_project.post('upload', docs=docs)
+            offset += batch_size
 
         # Copy shared concept lists
         copy_shared_concepts(from_client_project, to_client_project)
