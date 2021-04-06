@@ -17,7 +17,7 @@ def get_all_docs(client):
             return docs
 
 
-def copy_projects_to_accounts(all_projects, from_client, to_client, to_account):
+def copy_projects_to_workspace(all_projects, from_client, to_client, to_workspace):
     for from_project in all_projects:
         # Connect to project
         from_client_project = from_client.client_for_path(from_project['project_id'])
@@ -33,7 +33,7 @@ def copy_projects_to_accounts(all_projects, from_client, to_client, to_account):
         # Create a new project
         client = to_client.client_for_path('/projects')
         to_project = client.post(name=from_project['name'], language=language, 
-                                 workspace_id=to_account)
+                                 workspace_id=to_workspace)
         to_client_project = client.client_for_path(to_project['project_id'])
         to_client_project.post('upload', docs=from_docs)
 
@@ -46,26 +46,43 @@ def copy_projects_to_accounts(all_projects, from_client, to_client, to_account):
         
 def main():
     parser = argparse.ArgumentParser(
-        description='Copy all projects from an account on one cloud into another account on another cloud.'
+        description=('Copy all projects from a workspace on one cloud into a'
+                     ' workspace on another cloud.')
     )
-    parser.add_argument('from_url', help="The URL of the account that owns the current projects")
-    parser.add_argument('to_url', help="The URL of the account to copy all projects to")
+    parser.add_argument(
+        'from_url',
+        help='The URL of a project in the workspace to copy from'
+    )
+    parser.add_argument(
+        'to_url',
+        help='The URL of a project in the workspace to copy to'
+    )
     args = parser.parse_args()
     
     from_api_url = args.from_url.split('/app')[0]
     to_api_url = args.to_url.split('/app')[0]
 
-    from_account = args.from_url.strip('/').split('/')[5]
-    to_account = args.to_url.strip('/').split('/')[5]
+    from_workspace = args.from_url.strip('/').split('/')[5]
+    to_workspace = args.to_url.strip('/').split('/')[5]
 
-    from_client = LuminosoClient.connect(url=from_api_url + '/api/v5/projects', user_agent_suffix='se_code:project_migration:from')
-    to_client = LuminosoClient.connect(url=to_api_url + '/api/v5/projects', user_agent_suffix='se_code:project_migration:to')
-    all_projects = from_client.get()
-    all_projects = [p for p in all_projects if p['account_id'] == from_account]
+    from_client = LuminosoClient.connect(
+        url=from_api_url + '/api/v5/projects',
+        user_agent_suffix='se_code:project_migration:from'
+    )
+    to_client = LuminosoClient.connect(
+        url=to_api_url + '/api/v5/projects',
+        user_agent_suffix='se_code:project_migration:to'
+    )
+    all_projects = from_client.get(
+        fields=('project_id', 'name', 'description', 'language',
+                'document_count'),
+        workspace_id=from_workspace
+    )
 
     print('There are {} projects to be copied'.format(len(all_projects)))
     
-    copy_projects_to_accounts(all_projects, from_client, to_client, to_account)
+    copy_projects_to_workspace(all_projects, from_client, to_client,
+                               to_workspace)
     
     
 if __name__ == '__main__':
