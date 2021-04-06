@@ -44,7 +44,8 @@ def copy_projects_to_workspace(all_projects, from_client, to_client,
         # Copy shared concept lists
         copy_shared_concepts(from_client_project, to_client_project)
 
-        to_client_project.post('build')    
+        to_client_project.post('build')
+        to_client_project.wait_for_sentiment_build()
         print('Copied project: ' + project_name)
         
         
