@@ -17,13 +17,16 @@ def get_all_docs(client):
             return docs
 
 
-def copy_projects_to_workspace(all_projects, from_client, to_client, to_workspace):
+def copy_projects_to_workspace(all_projects, from_client, to_client,
+                               to_workspace):
     for from_project in all_projects:
-        # Connect to project
-        from_client_project = from_client.client_for_path(from_project['project_id'])
-        print('Connected to project: ' +  from_project['name'])
-        language = from_project['language']
+        project_name = from_project['name']
 
+        # Connect to project
+        from_client_project = from_client.client_for_path(
+            from_project['project_id']
+        )
+        print('Connected to project: ' + project_name)
         # get the docs and filter for new project
         from_docs = get_all_docs(from_client_project)
         from_docs = [{'text': d['text'],
@@ -31,17 +34,18 @@ def copy_projects_to_workspace(all_projects, from_client, to_client, to_workspac
                       'metadata': d['metadata']} for d in from_docs]
 
         # Create a new project
-        client = to_client.client_for_path('/projects')
-        to_project = client.post(name=from_project['name'], language=language, 
-                                 workspace_id=to_workspace)
-        to_client_project = client.client_for_path(to_project['project_id'])
+        to_project = to_client.post(
+            name=project_name, description=from_project['description'],
+            language=from_project['language'], workspace_id=to_workspace
+        )
+        to_client_project = to_client.client_for_path(to_project['project_id'])
         to_client_project.post('upload', docs=from_docs)
 
         # Copy shared concept lists
         copy_shared_concepts(from_client_project, to_client_project)
 
         to_client_project.post('build')    
-        print('Copied project: ' + from_project['name'])
+        print('Copied project: ' + project_name)
         
         
 def main():
