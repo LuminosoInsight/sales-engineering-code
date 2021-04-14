@@ -23,6 +23,7 @@ setup(
             'lumi-doc-downloader = se_code.doc_downloader:main',
             'lumi-format-multiple-text-fields = se_code.format_multiple_text_fields:main',
             'lumi-ignore-terms = se_code.ignore_terms:main',
+            'lumi-notice-terms = se_code.notice_terms:main',
             'lumi-list-metadata = se_code.list_metadata:main',
             'lumi-load-shared-concepts = se_code.load_shared_concepts:main',
             'lumi-onsite-list-users = se_code.onsite_list_users:main',
