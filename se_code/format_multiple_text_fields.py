@@ -37,6 +37,7 @@ def char_position(letters):
         index += ((ord(char.lower()) - 97) + (i * 26))
     return index
 
+
 def main():
     parser = argparse.ArgumentParser(
         description='Changing a CSV with multiple text columns into a CSV with one text column and a metadata field describing the name of the original column.'
@@ -59,21 +60,23 @@ def main():
         help="Encoding type of the files to read from"
     )
     args = parser.parse_args()
-    
+
     write_table = []
     table = file_to_dict(args.input_file, encoding=args.encoding)
     text_fields = [field for field in table[0] if 'text_' in field.lower() or 'text' == field.lower().strip()]
     for read_row in table:
         for key in read_row:
-            if 'text_' in key.lower() or 'text' == key.lower().strip():
+            if key.lower().startswith('text_') or key.lower().strip().startswith('text'):
                 write_row = {k: v for k, v in read_row.items() if k not in text_fields}
                 write_row.update({'Text': read_row[key]})
-                if 'text_' in key.lower():
-                    write_row.update({'string_' + args.column_dest: key.split('ext_')[1]})
+                if key.lower().startswith('text_'):
+                    # case sensitive text_
+                    write_row.update({'string_' + args.column_dest: key[5:]})
                 else:
                     write_row.update({'string_' + args.column_dest: 'Text'})
                 write_table.append(write_row)
     dict_to_file(write_table, args.output_file, encoding=args.encoding)
-    
+
+
 if __name__ == '__main__':
     main()
