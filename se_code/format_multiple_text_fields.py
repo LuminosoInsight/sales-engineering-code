@@ -71,8 +71,7 @@ def main():
                 write_row.update({'Text': read_row[key]})
                 if key.lower().startswith('text_'):
                     # case sensitive text_
-                    splitat = key[0:5]
-                    write_row.update({'string_' + args.column_dest: key.split(splitat)[1]})
+                    write_row.update({'string_' + args.column_dest: key[5:]})
                 else:
                     write_row.update({'string_' + args.column_dest: 'Text'})
                 write_table.append(write_row)
