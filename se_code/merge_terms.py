@@ -45,7 +45,7 @@ def main():
     client = LuminosoClient.connect(endpoint, user_agent_suffix='se_code:merge_terms')
 
     if args.merge_into_text and args.merge_from_text:
-        term_manage = merge_single_text(args.merge_from_text, args.merge_into_text, client)
+        term_manage = merge_single_term(args.merge_from_text, args.merge_into_text, client)
     elif args.merge_into_text and args.filename:
         texts = read_csv_file(args.filename)
         term_manage = merge_multiple_terms(texts, args.merge_into_text, client)
