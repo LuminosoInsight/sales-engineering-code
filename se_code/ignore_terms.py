@@ -22,7 +22,7 @@ def read_text_file(filename):
         return f.readlines()
 
 
-def ignore_terms(texts, client):
+def ignore_terms(texts, client, overwrite=False):
     # Get the current state of management, so we can see whether there are
     # changes by the end
     current_management = client.get('terms/manage')
@@ -37,9 +37,8 @@ def ignore_terms(texts, client):
         exact_term_ids = concept['exact_term_ids']
         if exact_term_ids:
             to_ignore[exact_term_ids[0]] = {'action': 'ignore'}
-    if not to_ignore:
-        raise ValueError('No concepts found')
-    client.put('terms/manage', term_management=to_ignore)
+    client.put('terms/manage', term_management=to_ignore,
+               overwrite=overwrite)
     new_management = client.get('terms/manage')
     if new_management == current_management:
         raise ValueError('No changes detected')
@@ -53,16 +52,21 @@ def main():
     parser.add_argument('project_url',
                         help="URL of the project to ignore terms in")
 
+    parser.add_argument('-o', '--overwrite', default=False,
+                        action='store_true',
+                        help='overwrites all existing term management'
+                             'information with the term management object'
+                             ' being sent. Otherwise appends new terms')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-i', '--ignore_term', default=None, action='append',
-                        help=('Term to ignore in project; can be specified'
-                              ' multiple times'))
+                       help=('Term to ignore in project; can be specified'
+                             ' multiple times'))
     group.add_argument('-f', '--filename', default=None,
-                        help=('Name of the file to read list of terms to'
-                              ' ignore from.  If the filename ends with .csv,'
-                              ' concepts will be read from the "text" column.'
-                              '  Otherwise, each line of the file will be'
-                              ' treated as a concept to ignore'))
+                       help=('Name of the file to read list of terms to'
+                             ' ignore from.  If the filename ends with .csv,'
+                             ' concepts will be read from the "text" column.'
+                             '  Otherwise, each line of the file will be'
+                             ' treated as a concept to ignore'))
     args = parser.parse_args()
 
     endpoint = parse_url(args.project_url)
@@ -83,7 +87,7 @@ def main():
         terms_to_ignore = [ignore_term]
 
     try:
-        ignore_result = ignore_terms(terms_to_ignore, client)
+        ignore_result = ignore_terms(terms_to_ignore, client, args.overwrite)
     except ValueError as e:
         print(f'Error encountered: {e}.  Not rebuilding!')
         sys.exit()
