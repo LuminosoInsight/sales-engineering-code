@@ -70,6 +70,8 @@ Once installed, the wheel included shortcuts to run any of the scripts without t
 
 `lumi_doc_downloader --help`
 
+A customer installation document is available [here](https://docs.google.com/document/d/1lbJFlE8sTkP23Y6ofLxYX0hrh_gWJo2WqzXOyxWgb9c/edit?usp=sharing).
+
 ## Change Procedures
 
 These scripts and files are maintained by the Luminoso sales team.
