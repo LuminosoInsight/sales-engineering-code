@@ -103,7 +103,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
             cluster_labels[r['cluster_label']] = {'id': theme_id, 'name': []}
         # add the theme_id and unpack the vector
         r['theme_id'] = theme_id
-        if len(r['vector']) > 0:
+        if ('vector' in r) and (len(r['vector']) > 0):
             r['fvector'] = [float(v) for v in unpack64(r['vector'])]
 
     return client, docs, scl_match_counts, concepts, metadata, driver_fields, skt, themes
@@ -285,7 +285,7 @@ def create_doc_table(client, docs, metadata, suggested_concepts,
         max_score = 0
         max_id = ''
         for t in suggested_concepts['result']:
-            if len(t['vector']) > 0:
+            if ('vector' in r) and (len(t['vector'])) > 0:
                 score = np.dot(doc['fvector'], t['fvector'])
                 if score > max_score:
                     max_score = score
