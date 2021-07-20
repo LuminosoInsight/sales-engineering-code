@@ -225,7 +225,7 @@ def create_one_table(client, field, topic_drive, root_url='',filter=""):
 
         # Sort documents based on their association with the coefficient vector
         for doc in search_docs['result']:
-            doc['driver_as'] = get_as(driver['vector'],doc['vector'])
+            doc['driver_as'] = get_as(driver['vectors'][0],doc['vector'])
 
         docs = sorted(search_docs['result'], key=lambda k: k['driver_as']) 
         row['example_doc'] = ''
