@@ -285,7 +285,8 @@ def create_doc_table(client, docs, metadata, suggested_concepts,
         max_score = 0
         max_id = ''
         for t in suggested_concepts['result']:
-            if ('vector' in r) and (len(t['vector'])) > 0:
+            if (len(t['vectors'][0])) > 0:
+                t['fvector'] = [float(v) for v in unpack64(t['vectors'][0])]
                 score = np.dot(doc['fvector'], t['fvector'])
                 if score > max_score:
                     max_score = score
