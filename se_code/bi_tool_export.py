@@ -59,7 +59,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     
     metadata = client.get('metadata')['result']
     
-    # saved_concepts is now moving to a deeper dictionary with the saved_concept name as the key
+    # saved_concepts is now moving to a deeper dictionary with the shared_concept name as the key
     # and the data as the list of concepts.
     # For naming purposes scl = shared_concept_list
     scl_match_counts = {}
@@ -556,7 +556,7 @@ def main():
     parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Do not generate doc_subset_table")
     parser.add_argument('-skt', '--skt_table', default=False, action='store_true',help="Do not generate skt_tables")
     parser.add_argument('-drive', '--drive', default=False, action='store_true',help="Do not generate driver_table")
-    parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="If generating drivers_table do so with saved/top concepts as well as auto concepts")
+    parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="If generating drivers_table do so with shared/top concepts as well as auto concepts")
     parser.add_argument('--driver_subset', default=False, action='store_true', help="Do not generate score drivers by subset")
     parser.add_argument('--driver_subset_fields', default=None, help='Which subsets to include in score driver by subset. Default = All with < 200 unique values. Samp: "field1,field2"')
     
