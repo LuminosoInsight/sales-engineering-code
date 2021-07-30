@@ -59,8 +59,6 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     
     metadata = client.get('metadata')['result']
     
-    # saved_concepts = client.get('concepts/match_counts',
-    #                            concept_selector={'type': 'saved'})['match_counts']
     # saved_concepts is now moving to a deeper dictionary with the saved_concept name as the key
     # and the data as the list of concepts.
     # For naming purposes scl = shared_concept_list
@@ -128,7 +126,7 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
     for scl_name, saved_concepts in scl_match_counts.items():
         for s in saved_concepts['match_counts']:
             for t in s['exact_term_ids']:
-                concept_ids[t].append((s['name'], 'saved', scl_name))
+                concept_ids[t].append((s['name'], 'shared', scl_name))
     
     doc_count = 0
     for doc in docs:
@@ -324,7 +322,7 @@ def create_terms_table(concepts, scl_match_counts):
             row['term'] = s['name']
             row['exact_match_count'] = s['exact_match_count']
             row['related_match_count'] = s['match_count'] - s['exact_match_count']
-            row['concept_type'] = 'saved'
+            row['concept_type'] = "shared"
             row['saved_concept_list'] = scl_name
             table.append(row)
     return table
@@ -386,7 +384,7 @@ def create_sentiment_table(client, scl_match_counts, top_concepts, root_url=''):
             row = {'texts': c['texts'],
                    'name': c['name'],
                    'match_count': c['match_count'],
-                   'concept_type': 'saved',
+                   'concept_type': 'shared',
                    'saved_concept_list': scl_name,
                    'exact_match_count': c['exact_match_count'],
                    'sentiment_share_positive': c['sentiment_share']['positive'],
