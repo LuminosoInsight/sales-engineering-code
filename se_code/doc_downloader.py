@@ -10,7 +10,7 @@ def get_all_docs(client):
     docs = []
     while True:
         new_docs = client.get(
-            "docs", include_sentiment=True, limit=25000, offset=len(docs)
+            "docs", include_sentiment=True, include_sentiment_on_concepts=True, limit=25000, offset=len(docs)
         )
         if new_docs["result"]:
             docs.extend(new_docs["result"])
@@ -55,13 +55,25 @@ def add_relations(
     shared_list_name=None,
     match_type="both",
     add_match_score=False,
-    add_saved_concept_sentiment=False,
+    add_term_concept_sentiment=False,
 ):
-    # get the list of saved concepts with included sentiment
-    #saved_concepts = client.get(
-    #    "concepts/sentiment", concept_selector={"type": "saved"}
-    #)["match_counts"]
-    
+
+    if add_term_concept_sentiment:
+        # build a lookup for concept to term
+        for d in docs:
+            term_sentiment = {}
+            for t in d["terms"]:
+                term_name = t["term_id"].split("|")[0]
+                if (term_name in term_sentiment) and (term_sentiment[term_name]["sentiment"]!=t["sentiment"]):
+                    term_sentiment[term_name]["sentiment"] = "mixed"
+                    term_confidence = 0
+                else:
+                    term_sentiment[term_name] = {
+                        "sentiment": t["sentiment"],
+                        "sentiment_confidence": t["sentiment_confidence"]
+                }
+            d["term_sentiment"] = term_sentiment
+
     concept_lists = client.get("concept_lists/")
     if shared_list_name!=None:
         concept_lists = [cl for cl in concept_lists if cl['name']==shared_list_name]
@@ -91,6 +103,10 @@ def add_relations(
                 sc["tag_name"] = "tag_"+sc["name"]
             clist.append(sc["tag_name"])
 
+            if add_term_concept_sentiment:
+                clist.append(sc["tag_name"]+"_sentiment")
+                clist.append(sc["tag_name"]+"_sentiment_confidence")
+
     # filter out metadata with same name as tags
     for d in docs:
         d["metadata"] = [md for md in d["metadata"] if md["name"] not in clist]
@@ -117,17 +133,22 @@ def add_relations(
                                     "value": sc["match_scores_by_id"][d["doc_id"]],
                                 }
                             )
+                        if (add_term_concept_sentiment) and (sc["name"] in d["term_sentiment"]):
+                            d["metadata"].append(
+                                {
+                                    "name": sc["tag_name"]+"_sentiment",
+                                    "type": "string",
+                                    "value": d["term_sentiment"][sc["name"]]["sentiment"]
+                                }
+                            )
+                            d["metadata"].append(
+                                {
+                                    "name": sc["tag_name"]+"_sentiment_confidence",
+                                    "type": "number",
+                                    "value": d["term_sentiment"][sc["name"]]["sentiment_confidence"]
+                                }
+                            )
                     doc_concept_list.append(sc["name"])
-
-                    '''if add_saved_concept_sentiment:
-                        d["metadata"].append(
-                            {
-                                "name": sc["tag_name"] + " sentiment",
-                                "type": "string",
-                                "value": sc["sentiment"],
-                            }
-                        )
-                    '''
                 else:
                     if add_concept_relations:
                         d["metadata"].append(
@@ -318,7 +339,7 @@ def main():
             args.shared_list_name,
             match_type=args.match_type,
             add_match_score=args.match_score,
-            add_saved_concept_sentiment=args.concept_relations_sentiment,
+            add_term_concept_sentiment=args.concept_relations_sentiment,
         )
 
     field_names, docs = flatten_docs(docs, args.date_format)
