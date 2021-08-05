@@ -141,7 +141,10 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
                                                    'term': n[0],
                                                    'exact_match': 1,
                                                    'concept_type': n[1],
-                                                   'saved_concept_list': n[2]})
+                                                   'saved_concept_list': n[2],
+                                                   'sentiment': t['sentiment'],
+                                                   'sentiment_confidence': t['sentiment_confidence']
+                                                   })
         doc_count += 1
 
     return doc_term_table
