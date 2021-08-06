@@ -46,7 +46,28 @@ You can run the web application\
 
 Navigate your browser to (http://127.0.0.1:5000/)
 
-##  Packaging the wheel file for customers
+## Updating the version
+
+To update to a new version, change the version value in setup.py.
+
+Package the wheel file as outlined below.
+
+Make any changes to the se_code_installation.pdf file, the source is [https://docs.google.com/document/d/1lbJFlE8sTkP23Y6ofLxYX0hrh_gWJo2WqzXOyxWgb9c/edit#heading=h.fpkjdyy6kh7h](here). Save that google document as a pdf called se_code_installation.pdf
+
+Check that change into the git push the change into the repo.
+
+Go to the [https://github.com/LuminosoInsight/sales-engineering-code/releases](releases) and draft a new release.
+
+
+The tag version will be just the version.  0.5.0
+
+The release title will be the same number with a v in front.  v0.5.0
+
+Drag the whl file, the source file and se_code_installation.pdf file into the 'attach binaries by dropping them here' section.
+
+Click publish release.
+
+## Packaging the wheel file for customers
 
 The se_code can be packaged for sharing with customers by using a wheel file.
 
