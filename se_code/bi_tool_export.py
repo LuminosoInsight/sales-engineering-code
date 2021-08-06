@@ -59,9 +59,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     
     metadata = client.get('metadata')['result']
     
-    # saved_concepts = client.get('concepts/match_counts',
-    #                            concept_selector={'type': 'saved'})['match_counts']
-    # saved_concepts is now moving to a deeper dictionary with the saved_concept name as the key
+    # saved_concepts is now moving to a deeper dictionary with the shared_concept name as the key
     # and the data as the list of concepts.
     # For naming purposes scl = shared_concept_list
     scl_match_counts = {}
@@ -87,7 +85,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
                 for v in m['values']:
                     subset_counts[m['name']][v['value']] = v['count']
 
-    skt = subset_key_terms(client, subset_counts, len(docs), skt_limit)
+    skt = subset_key_terms(client, subset_counts, len(docs), skt_limit, threaded=True)
     
     driver_fields = get_driver_fields(client)
     
@@ -128,7 +126,7 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
     for scl_name, saved_concepts in scl_match_counts.items():
         for s in saved_concepts['match_counts']:
             for t in s['exact_term_ids']:
-                concept_ids[t].append((s['name'], 'saved', scl_name))
+                concept_ids[t].append((s['name'], 'shared', scl_name))
     
     doc_count = 0
     for doc in docs:
@@ -143,7 +141,10 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
                                                    'term': n[0],
                                                    'exact_match': 1,
                                                    'concept_type': n[1],
-                                                   'saved_concept_list': n[2]})
+                                                   'saved_concept_list': n[2],
+                                                   'sentiment': t['sentiment'],
+                                                   'sentiment_confidence': t['sentiment_confidence']
+                                                   })
         doc_count += 1
 
     return doc_term_table
@@ -324,7 +325,7 @@ def create_terms_table(concepts, scl_match_counts):
             row['term'] = s['name']
             row['exact_match_count'] = s['exact_match_count']
             row['related_match_count'] = s['match_count'] - s['exact_match_count']
-            row['concept_type'] = 'saved'
+            row['concept_type'] = "shared"
             row['saved_concept_list'] = scl_name
             table.append(row)
     return table
@@ -386,7 +387,7 @@ def create_sentiment_table(client, scl_match_counts, top_concepts, root_url=''):
             row = {'texts': c['texts'],
                    'name': c['name'],
                    'match_count': c['match_count'],
-                   'concept_type': 'saved',
+                   'concept_type': 'shared',
                    'saved_concept_list': scl_name,
                    'exact_match_count': c['exact_match_count'],
                    'sentiment_share_positive': c['sentiment_share']['positive'],
@@ -558,7 +559,7 @@ def main():
     parser.add_argument('-dsubset', '--doc_subset', default=False, action='store_true', help="Do not generate doc_subset_table")
     parser.add_argument('-skt', '--skt_table', default=False, action='store_true',help="Do not generate skt_tables")
     parser.add_argument('-drive', '--drive', default=False, action='store_true',help="Do not generate driver_table")
-    parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="If generating drivers_table do so with saved/top concepts as well as auto concepts")
+    parser.add_argument('-tdrive', '--topic_drive', default=False, action='store_true', help="If generating drivers_table do so with shared/top concepts as well as auto concepts")
     parser.add_argument('--driver_subset', default=False, action='store_true', help="Do not generate score drivers by subset")
     parser.add_argument('--driver_subset_fields', default=None, help='Which subsets to include in score driver by subset. Default = All with < 200 unique values. Samp: "field1,field2"')
     

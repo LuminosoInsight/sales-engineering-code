@@ -6,7 +6,51 @@ import argparse, csv, sys, getpass, json
 import concurrent.futures
 
 
-def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10, scan_terms=1000):
+def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10, scan_terms=1000, threaded=True):
+    """
+    Find 'key terms' for a subset, those that appear disproportionately more
+    inside a subset than outside of it. We determine this using Fisher's
+    exact test, choosing the terms that have statistically significant
+    differences with the largest odds ratio.
+
+    Parameters:
+
+    - client: a LuminosoClient pointing to the appropriate project
+    - terms_per_subset: how many key terms to find in each subset
+    - scan_terms: how many relevant terms to consider from each subset
+
+    To avoid spurious results, we filter results by their statistical p-value.
+    Ideally, a subset that is an arbitrary sample from the project as a whole
+    will have no key terms.
+
+    The cutoff p-value is adjusted according to `scan_terms`, to somewhat
+    compensate for running so many statistical tests. The expected number of
+    spurious results is .05 per subset.
+    """
+    if threaded:
+        results = subset_key_terms_threaded(client, subset_counts, total_count, terms_per_subset, scan_terms)
+    else:
+        results = subset_key_terms_single_thread(client, subset_counts, total_count, terms_per_subset, scan_terms)
+
+    return results
+
+
+def subset_key_terms_threaded(client, subset_counts, total_count, terms_per_subset=10, scan_terms=1000):
+
+    pvalue_cutoff = 1 / scan_terms / 20
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+
+        futures = {executor.submit(skt, client, name, subset, total_count, scan_terms, subset_counts, pvalue_cutoff): name for name in sorted(subset_counts) for subset in sorted(subset_counts[name])}
+        for future in concurrent.futures.as_completed(futures):
+            subset_scores = future.result()
+
+            results.extend(subset_scores[:terms_per_subset])
+
+    return results
+
+
+def subset_key_terms_single_thread(client, subset_counts, total_count, terms_per_subset=10, scan_terms=1000):
     """
     Find 'key terms' for a subset, those that appear disproportionately more
     inside a subset than outside of it. We determine this using Fisher's
@@ -29,12 +73,10 @@ def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10, sc
     """
     pvalue_cutoff = 1 / scan_terms / 20
     results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
 
-        futures = {executor.submit(skt, client, name, subset, total_count, scan_terms, subset_counts, pvalue_cutoff): name for name in sorted(subset_counts) for subset in sorted(subset_counts[name])}
-        for future in concurrent.futures.as_completed(futures):
-            subset_scores = future.result()
-
+    for name in sorted(subset_counts):
+        for subset in sorted(subset_counts[name]):
+            subset_scores = skt(client, name, subset, total_count, scan_terms, subset_counts, pvalue_cutoff);
             results.extend(subset_scores[:terms_per_subset])
 
     return results
@@ -82,6 +124,7 @@ def skt(client, name, subset, total_count, scan_terms, subset_counts, pvalue_cut
 
     return subset_scores
 
+
 def create_skt_table(client, skt):
     '''
     Create tabulation of subset key terms analysis (terms distinctive within a subset)
@@ -122,6 +165,7 @@ def create_skt_table(client, skt):
                           'total_matches': t['match_count']})
     return skt_table
 
+
 def write_table_to_csv(table, filename, encoding='utf-8'):
     '''
     Function for writing lists of dictionaries to a CSV file
@@ -138,7 +182,8 @@ def write_table_to_csv(table, filename, encoding='utf-8'):
         writer = csv.DictWriter(file, fieldnames=table[0].keys())
         writer.writeheader()
         writer.writerows(table)
-        
+
+
 def get_all_docs(client):
     docs = []
     while True:
@@ -147,8 +192,8 @@ def get_all_docs(client):
             docs.extend(new_docs['result'])
         else:
             return docs
-        
-        
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Export Subset Key Terms and write to a file'
@@ -157,7 +202,7 @@ def main():
     parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset, default 20")
     parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding type of the file to write to")
     args = parser.parse_args()
-    
+
     project_url = args.project_url.strip('/')
     api_url = project_url.split('/app')[0].strip() + '/api/v5'
     project_id = project_url.split('/')[-1].strip()
@@ -174,7 +219,7 @@ def main():
                 subset_counts[m['name']][m['value']] += 1
     total_count = len(docs)
     print('Retrieving Subset Key Terms...')
-    skt = subset_key_terms(client, subset_counts, total_count, terms_per_subset=int(args.skt_limit))
+    skt = subset_key_terms(client, subset_counts, total_count, terms_per_subset=int(args.skt_limit), threaded=True)
     table = create_skt_table(client, skt)
     write_table_to_csv(table, 'skt_table.csv', encoding=args.encoding)
     
