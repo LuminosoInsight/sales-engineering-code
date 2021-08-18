@@ -411,7 +411,7 @@ def create_sdot_table(client, driver_fields, date_field_info, end_date, iteratio
 def get_all_docs(client):
     docs = []
     while True:
-        new_docs = client.get('docs', limit=25000, offset=len(docs), include_sentiment=True, include_sentiment_on_concepts=True)['result']
+        new_docs = client.get('docs', limit=25000, offset=len(docs), include_sentiment_on_concepts=True)['result']
         if new_docs:
             docs.extend(new_docs)
         else:
