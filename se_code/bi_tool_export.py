@@ -187,14 +187,13 @@ def create_doc_subset_table(docs, metadata_map):
     return doc_subset_table
 
 
-def create_doc_table(docs, metadata, suggested_concepts, sentiment=False):
+def create_doc_table(docs, metadata, suggested_concepts):
     '''
     Create a tabulation of documents and their related subsets & themes
     :param docs: List of document dictionaries
     :param metadata: List of metadata dictionaries
     :param suggested_concepts: The results from /concepts for
          suggested_concepts (same as themes)
-    :param sentiment: Include doc level sentiment
     :return: List of documents with associated themes and list of
          cross-references between docs and subsets
     '''
@@ -220,9 +219,6 @@ def create_doc_table(docs, metadata, suggested_concepts, sentiment=False):
             row[metadata_map[field['name']]] = field['value']
         if date_number == 0:
             row['doc_date 0'] = 0
-        if sentiment:
-            row['sentiment'] = doc['sentiment']
-            row['sentiment_confidence'] = doc['sentiment_confidence']
         
         # add the them (cluster) data
         doc['fvector'] = unpack64(doc['vector']).tolist()
@@ -496,7 +492,7 @@ def main():
 
     # get the docs no matter what because later data needs the metadata_map
     doc_table, xref_table, metadata_map = create_doc_table(
-        docs, metadata, themes, sentiment=not args.sentiment
+        docs, metadata, themes
     )
 
     ui_project_url = root_url + '/app/projects/' + workspace + '/' + proj

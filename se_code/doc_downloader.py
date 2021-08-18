@@ -10,7 +10,7 @@ def get_all_docs(client):
     docs = []
     while True:
         new_docs = client.get(
-            "docs", include_sentiment=True, include_sentiment_on_concepts=True, limit=25000, offset=len(docs)
+            "docs", include_sentiment_on_concepts=True, limit=25000, offset=len(docs)
         )
         if new_docs["result"]:
             docs.extend(new_docs["result"])
