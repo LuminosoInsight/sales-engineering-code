@@ -1,7 +1,7 @@
-from __future__ import division
-from luminoso_api import V5LuminosoClient as LuminosoClient
 import argparse
 import csv
+
+from luminoso_api import V5LuminosoClient as LuminosoClient
 
 
 def subset_key_terms(client, subset_counts, terms_per_subset=10):
@@ -9,11 +9,13 @@ def subset_key_terms(client, subset_counts, terms_per_subset=10):
     Find 'key terms' for a subset, those that appear disproportionately more
     inside a subset than outside of it.
 
-    Parameters:
-
-    - client: a LuminosoClient pointing to the appropriate project
-    - terms_per_subset: how many key terms to find in each subset
-    - scan_terms: how many relevant terms to consider from each subset
+    :param client: LuminosoClient object pointed to project path
+    :param subset_counts: dict mapping each metadata field name to an iterable
+        of the field's values
+    :param terms_per_subset: number of terms to get for each field value
+    :return: List of triples of the form (field_name, value, <concept_dict>),
+        where <concept_dict> is the API's concept object from the match
+        counts endpoint
     """
     results = []
 
@@ -25,10 +27,9 @@ def subset_key_terms(client, subset_counts, terms_per_subset=10):
                 concept_selector={'type': 'unique_to_filter',
                                   'limit': terms_per_subset}
             )['match_counts']
-            scores = [
-                (name, subset, concept) for concept in unique_to_filter
-            ]
-            results.extend(scores)
+            results.extend(
+                [(name, subset, concept) for concept in unique_to_filter]
+            )
 
     return results
 
