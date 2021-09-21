@@ -1,141 +1,37 @@
 from __future__ import division
 from luminoso_api import V5LuminosoClient as LuminosoClient
-import numpy as np
-from scipy.stats import fisher_exact
 import argparse
 import csv
-import concurrent.futures
 
 
 def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10,
                      scan_terms=1000, threaded=True):
     """
     Find 'key terms' for a subset, those that appear disproportionately more
-    inside a subset than outside of it. We determine this using Fisher's
-    exact test, choosing the terms that have statistically significant
-    differences with the largest odds ratio.
+    inside a subset than outside of it.
 
     Parameters:
 
     - client: a LuminosoClient pointing to the appropriate project
     - terms_per_subset: how many key terms to find in each subset
     - scan_terms: how many relevant terms to consider from each subset
-
-    To avoid spurious results, we filter results by their statistical p-value.
-    Ideally, a subset that is an arbitrary sample from the project as a whole
-    will have no key terms.
-
-    The cutoff p-value is adjusted according to `scan_terms`, to somewhat
-    compensate for running so many statistical tests. The expected number of
-    spurious results is .05 per subset.
     """
-    if threaded:
-        results = subset_key_terms_threaded(client, subset_counts, total_count,
-                                            terms_per_subset, scan_terms)
-    else:
-        results = subset_key_terms_single_thread(client, subset_counts,
-                                                 total_count, terms_per_subset,
-                                                 scan_terms)
-
-    return results
-
-
-def subset_key_terms_threaded(client, subset_counts, total_count,
-                              terms_per_subset=10, scan_terms=1000):
-    pvalue_cutoff = 1 / scan_terms / 20
-    results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {
-            executor.submit(skt, client, name, subset, total_count, scan_terms,
-                            subset_counts, pvalue_cutoff): name
-            for name in
-            sorted(subset_counts) for subset in sorted(subset_counts[name])
-        }
-        for future in concurrent.futures.as_completed(futures):
-            subset_scores = future.result()
-
-            results.extend(subset_scores[:terms_per_subset])
-
-    return results
-
-
-def subset_key_terms_single_thread(client, subset_counts, total_count,
-                                   terms_per_subset=10, scan_terms=1000):
-    """
-    Find 'key terms' for a subset, those that appear disproportionately more
-    inside a subset than outside of it. We determine this using Fisher's
-    exact test, choosing the terms that have statistically significant
-    differences with the largest odds ratio.
-
-    Parameters:
-
-    - client: a LuminosoClient pointing to the appropriate project
-    - terms_per_subset: how many key terms to find in each subset
-    - scan_terms: how many relevant terms to consider from each subset
-
-    To avoid spurious results, we filter results by their statistical p-value.
-    Ideally, a subset that is an arbitrary sample from the project as a whole
-    will have no key terms.
-
-    The cutoff p-value is adjusted according to `scan_terms`, to somewhat
-    compensate for running so many statistical tests. The expected number of
-    spurious results is .05 per subset.
-    """
-    pvalue_cutoff = 1 / scan_terms / 20
     results = []
 
     for name in sorted(subset_counts):
         for subset in sorted(subset_counts[name]):
-            subset_scores = skt(client, name, subset, total_count, scan_terms,
-                                subset_counts, pvalue_cutoff)
-            results.extend(subset_scores[:terms_per_subset])
+            unique_to_filter = client.get(
+                'concepts/match_counts',
+                filter=[{'name': name, 'values': [subset]}],
+                concept_selector={'type': 'unique_to_filter',
+                                  'limit': terms_per_subset}
+            )['match_counts']
+            scores = [
+                (name, subset, concept, 0, 0) for concept in unique_to_filter
+            ]
+            results.extend(scores)
 
     return results
-
-
-def skt(client, name, subset, total_count, scan_terms, subset_counts,
-        pvalue_cutoff):
-    subset_terms = client.get(
-        'concepts/match_counts',
-        filter=[{'name': name, 'values': [subset]}],
-        concept_selector={"type": "top",
-                          "limit": scan_terms,
-                          "include_extra_concept_details": True}
-    )['match_counts']
-    length = 0
-    termlist = []
-    all_terms = []
-    for term in subset_terms:
-        if length + len(term['exact_term_ids'][0]) > 1000:
-            all_terms.extend(client.get('terms', term_ids=termlist))
-            termlist = []
-            length = 0
-        termlist.append(term['exact_term_ids'][0])
-        length += len(term['exact_term_ids'][0])
-    if len(termlist) > 0:
-        all_terms.extend(client.get('terms', term_ids=termlist))
-    all_term_dict = {term['term_id']: term['distinct_doc_count'] for term
-                     in all_terms}
-
-    subset_scores = []
-    for term in subset_terms:
-        term_in_subset = term['distinct_doc_count']
-        exact_id = term['exact_term_ids'][0]
-        term_outside_subset = all_term_dict[exact_id] - term_in_subset + 1
-        docs_in_subset = subset_counts[name][subset]
-        docs_outside_subset = total_count - docs_in_subset + 1
-        table = np.array([
-            [term_in_subset, term_outside_subset],
-            [docs_in_subset, docs_outside_subset]
-        ])
-        odds_ratio, pvalue = fisher_exact(table, alternative='greater')
-        if pvalue < pvalue_cutoff:
-            subset_scores.append((name, subset, term, odds_ratio, pvalue))
-
-    if len(subset_scores) > 0:
-        subset_scores.sort(key=lambda x: ('%s: %s' % (x[0], x[1]), -x[3]))
-
-    return subset_scores
 
 
 def create_skt_table(client, skt_tuples):
@@ -148,7 +44,6 @@ def create_skt_table(client, skt_tuples):
 
     print('Creating subset key terms table...')
     skt_table = []
-    # name, subset, term, odds_ratio, pvalue
     for name, subset, term, odds_ratio, pvalue in skt_tuples:
         docs = client.get('docs', limit=3, search={'texts': [term['name']]},
                           filter=[{'name': name, 'values': [subset]}])
