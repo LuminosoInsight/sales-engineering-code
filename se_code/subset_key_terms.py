@@ -54,8 +54,6 @@ def create_skt_table(client, skt_tuples):
             {'term': concept['name'],
              'subset': name,
              'value': subset,
-             'odds_ratio': 0,
-             'p_value': 0,
              'exact_matches': concept['exact_match_count'],
              'conceptual_matches': (concept['match_count']
                                     - concept['exact_match_count']),
