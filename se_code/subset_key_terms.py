@@ -85,16 +85,6 @@ def write_table_to_csv(table, filename, encoding='utf-8'):
         writer.writerows(table)
 
 
-def get_all_docs(client):
-    docs = []
-    while True:
-        new_docs = client.get('docs', limit=25000, offset=len(docs))
-        if new_docs['result']:
-            docs.extend(new_docs['result'])
-        else:
-            return docs
-
-
 def main():
     parser = argparse.ArgumentParser(
         description='Export Subset Key Terms and write to a file'
@@ -115,16 +105,13 @@ def main():
         url='%s/projects/%s' % (api_url.strip('/ '), project_id),
         user_agent_suffix='se_code:subset_key_terms'
     )
-    docs = get_all_docs(client)
     subset_counts = {}
-    for d in docs:
-        for m in d['metadata']:
-            if m['type'] != 'date' and m['type'] != 'number':
-                if m['name'] not in subset_counts:
-                    subset_counts[m['name']] = {}
-                if m['value'] not in subset_counts[m['name']]:
-                    subset_counts[m['name']][m['value']] = 0
-                subset_counts[m['name']][m['value']] += 1
+    metadata = client.get('metadata')['result']
+    for field in metadata:
+        if field['type'] in ('date', 'number'):
+            continue
+        subset_counts[field['name']] = [v['value'] for v in field['values']]
+
     print('Retrieving Subset Key Terms...')
     result = subset_key_terms(client, subset_counts,
                               terms_per_subset=int(args.skt_limit))
