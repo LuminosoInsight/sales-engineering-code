@@ -26,7 +26,7 @@ def subset_key_terms(client, subset_counts, terms_per_subset=10):
                                   'limit': terms_per_subset}
             )['match_counts']
             scores = [
-                (name, subset, concept, 0, 0) for concept in unique_to_filter
+                (name, subset, concept) for concept in unique_to_filter
             ]
             results.extend(scores)
 
@@ -37,43 +37,32 @@ def create_skt_table(client, skt_tuples):
     '''
     Create tabulation of subset key terms analysis (terms distinctive within a subset)
     :param client: LuminosoClient object pointed to project path
-    :param skt_tuples: List of subset key terms 5-tuples
+    :param skt_tuples: List of subset key terms triples
     :return: List of subset key terms output with example documents & match counts
     '''
 
     print('Creating subset key terms table...')
     skt_table = []
-    for name, subset, term, odds_ratio, pvalue in skt_tuples:
-        docs = client.get('docs', limit=3, search={'texts': [term['name']]},
+    for name, subset, concept in skt_tuples:
+        docs = client.get('docs', limit=3, search={'texts': [concept['name']]},
                           filter=[{'name': name, 'values': [subset]}])
-        doc_texts = [doc['text'] for doc in docs['result']]
-        text_length = len(doc_texts)
-        text_1 = ''
-        text_2 = ''
-        text_3 = ''
-        # excel has a max doc length of 32k
-        if text_length == 1:
-            text_1 = doc_texts[0]
-        elif text_length == 2:
-            text_1 = doc_texts[0]
-            text_2 = doc_texts[1]
-        elif text_length > 2:
-            text_1 = doc_texts[0]
-            text_2 = doc_texts[1]
-            text_3 = doc_texts[2]
+        # excel has a max doc length of 32k; pad the list with two additional
+        # values, and then pull out the first three
+        doc_texts = [doc['text'][:32766] for doc in docs['result']]
+        text_1, text_2, text_3, *_ = (doc_texts + ['', ''])
         skt_table.append(
-            {'term': term['name'],
+            {'term': concept['name'],
              'subset': name,
              'value': subset,
-             'odds_ratio': odds_ratio,
-             'p_value': pvalue,
-             'exact_matches': term['exact_match_count'],
-             'conceptual_matches': (term['match_count']
-                                    - term['exact_match_count']),
-             'Text 1': text_1[:32766],
-             'Text 2': text_2[:32766],
-             'Text 3': text_3[:32766],
-             'total_matches': term['match_count']}
+             'odds_ratio': 0,
+             'p_value': 0,
+             'exact_matches': concept['exact_match_count'],
+             'conceptual_matches': (concept['match_count']
+                                    - concept['exact_match_count']),
+             'Text 1': text_1,
+             'Text 2': text_2,
+             'Text 3': text_3,
+             'total_matches': concept['match_count']}
         )
     return skt_table
 
