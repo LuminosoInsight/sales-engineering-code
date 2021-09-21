@@ -4,8 +4,7 @@ import argparse
 import csv
 
 
-def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10,
-                     scan_terms=1000, threaded=True):
+def subset_key_terms(client, subset_counts, terms_per_subset=10):
     """
     Find 'key terms' for a subset, those that appear disproportionately more
     inside a subset than outside of it.
@@ -137,11 +136,9 @@ def main():
                 if m['value'] not in subset_counts[m['name']]:
                     subset_counts[m['name']][m['value']] = 0
                 subset_counts[m['name']][m['value']] += 1
-    total_count = len(docs)
     print('Retrieving Subset Key Terms...')
-    result = subset_key_terms(client, subset_counts, total_count,
-                              terms_per_subset=int(args.skt_limit),
-                              threaded=True)
+    result = subset_key_terms(client, subset_counts,
+                              terms_per_subset=int(args.skt_limit))
     table = create_skt_table(client, result)
     write_table_to_csv(table, 'skt_table.csv', encoding=args.encoding)
 
