@@ -2,11 +2,13 @@ from __future__ import division
 from luminoso_api import V5LuminosoClient as LuminosoClient
 import numpy as np
 from scipy.stats import fisher_exact
-import argparse, csv, sys, getpass, json
+import argparse
+import csv
 import concurrent.futures
 
 
-def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10, scan_terms=1000, threaded=True):
+def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10,
+                     scan_terms=1000, threaded=True):
     """
     Find 'key terms' for a subset, those that appear disproportionately more
     inside a subset than outside of it. We determine this using Fisher's
@@ -28,20 +30,27 @@ def subset_key_terms(client, subset_counts, total_count, terms_per_subset=10, sc
     spurious results is .05 per subset.
     """
     if threaded:
-        results = subset_key_terms_threaded(client, subset_counts, total_count, terms_per_subset, scan_terms)
+        results = subset_key_terms_threaded(client, subset_counts, total_count,
+                                            terms_per_subset, scan_terms)
     else:
-        results = subset_key_terms_single_thread(client, subset_counts, total_count, terms_per_subset, scan_terms)
+        results = subset_key_terms_single_thread(client, subset_counts,
+                                                 total_count, terms_per_subset,
+                                                 scan_terms)
 
     return results
 
 
-def subset_key_terms_threaded(client, subset_counts, total_count, terms_per_subset=10, scan_terms=1000):
-
+def subset_key_terms_threaded(client, subset_counts, total_count,
+                              terms_per_subset=10, scan_terms=1000):
     pvalue_cutoff = 1 / scan_terms / 20
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-
-        futures = {executor.submit(skt, client, name, subset, total_count, scan_terms, subset_counts, pvalue_cutoff): name for name in sorted(subset_counts) for subset in sorted(subset_counts[name])}
+        futures = {
+            executor.submit(skt, client, name, subset, total_count, scan_terms,
+                            subset_counts, pvalue_cutoff): name
+            for name in
+            sorted(subset_counts) for subset in sorted(subset_counts[name])
+        }
         for future in concurrent.futures.as_completed(futures):
             subset_scores = future.result()
 
@@ -50,7 +59,8 @@ def subset_key_terms_threaded(client, subset_counts, total_count, terms_per_subs
     return results
 
 
-def subset_key_terms_single_thread(client, subset_counts, total_count, terms_per_subset=10, scan_terms=1000):
+def subset_key_terms_single_thread(client, subset_counts, total_count,
+                                   terms_per_subset=10, scan_terms=1000):
     """
     Find 'key terms' for a subset, those that appear disproportionately more
     inside a subset than outside of it. We determine this using Fisher's
@@ -76,24 +86,26 @@ def subset_key_terms_single_thread(client, subset_counts, total_count, terms_per
 
     for name in sorted(subset_counts):
         for subset in sorted(subset_counts[name]):
-            subset_scores = skt(client, name, subset, total_count, scan_terms, subset_counts, pvalue_cutoff);
+            subset_scores = skt(client, name, subset, total_count, scan_terms,
+                                subset_counts, pvalue_cutoff)
             results.extend(subset_scores[:terms_per_subset])
 
     return results
 
 
-def skt(client, name, subset, total_count, scan_terms, subset_counts, pvalue_cutoff):
-    subset_terms = client.get('concepts/match_counts', 
-                                      filter=[{'name':name,'values':[subset]}], 
-                                      concept_selector={"type": "top",
-                                                        "limit": scan_terms,
-                                                        "include_extra_concept_details": True})['match_counts']
-    #all_term_dict= {}
+def skt(client, name, subset, total_count, scan_terms, subset_counts,
+        pvalue_cutoff):
+    subset_terms = client.get(
+        'concepts/match_counts',
+        filter=[{'name': name, 'values': [subset]}],
+        concept_selector={"type": "top",
+                          "limit": scan_terms,
+                          "include_extra_concept_details": True}
+    )['match_counts']
     length = 0
     termlist = []
     all_terms = []
     for term in subset_terms:
-        #if term['exact_term_ids'][0] not in all_term_dict:
         if length + len(term['exact_term_ids'][0]) > 1000:
             all_terms.extend(client.get('terms', term_ids=termlist))
             termlist = []
@@ -102,13 +114,14 @@ def skt(client, name, subset, total_count, scan_terms, subset_counts, pvalue_cut
         length += len(term['exact_term_ids'][0])
     if len(termlist) > 0:
         all_terms.extend(client.get('terms', term_ids=termlist))
-    for term in all_terms:
-        all_term_dict = {term['term_id']: term['distinct_doc_count'] for term in all_terms}
+    all_term_dict = {term['term_id']: term['distinct_doc_count'] for term
+                     in all_terms}
 
     subset_scores = []
     for term in subset_terms:
         term_in_subset = term['distinct_doc_count']
-        term_outside_subset = all_term_dict[term['exact_term_ids'][0]] - term_in_subset + 1
+        exact_id = term['exact_term_ids'][0]
+        term_outside_subset = all_term_dict[exact_id] - term_in_subset + 1
         docs_in_subset = subset_counts[name][subset]
         docs_outside_subset = total_count - docs_in_subset + 1
         table = np.array([
@@ -125,18 +138,20 @@ def skt(client, name, subset, total_count, scan_terms, subset_counts, pvalue_cut
     return subset_scores
 
 
-def create_skt_table(client, skt):
+def create_skt_table(client, skt_tuples):
     '''
     Create tabulation of subset key terms analysis (terms distinctive within a subset)
     :param client: LuminosoClient object pointed to project path
-    :param skt: List of subset key terms dictionaries
+    :param skt_tuples: List of subset key terms 5-tuples
     :return: List of subset key terms output with example documents & match counts
     '''
 
     print('Creating subset key terms table...')
     skt_table = []
-    for n, s, t, o, p in skt:   
-        docs = client.get('docs', limit=3, search={'texts':[t['name']]}, filter=[{'name':n,'values':[s]}])
+    # name, subset, term, odds_ratio, pvalue
+    for name, subset, term, odds_ratio, pvalue in skt_tuples:
+        docs = client.get('docs', limit=3, search={'texts': [term['name']]},
+                          filter=[{'name': name, 'values': [subset]}])
         doc_texts = [doc['text'] for doc in docs['result']]
         text_length = len(doc_texts)
         text_1 = ''
@@ -152,17 +167,20 @@ def create_skt_table(client, skt):
             text_1 = doc_texts[0]
             text_2 = doc_texts[1]
             text_3 = doc_texts[2]
-        skt_table.append({'term': t['name'],
-                          'subset': n,
-                          'value': s,
-                          'odds_ratio': o,
-                          'p_value': p,
-                          'exact_matches': t['exact_match_count'],
-                          'conceptual_matches': t['match_count'] - t['exact_match_count'],
-                          'Text 1': text_1[:32766],
-                          'Text 2': text_2[:32766],
-                          'Text 3': text_3[:32766],
-                          'total_matches': t['match_count']})
+        skt_table.append(
+            {'term': term['name'],
+             'subset': name,
+             'value': subset,
+             'odds_ratio': odds_ratio,
+             'p_value': pvalue,
+             'exact_matches': term['exact_match_count'],
+             'conceptual_matches': (term['match_count']
+                                    - term['exact_match_count']),
+             'Text 1': text_1[:32766],
+             'Text 2': text_2[:32766],
+             'Text 3': text_3[:32766],
+             'total_matches': term['match_count']}
+        )
     return skt_table
 
 
@@ -198,15 +216,22 @@ def main():
     parser = argparse.ArgumentParser(
         description='Export Subset Key Terms and write to a file'
     )
-    parser.add_argument('project_url', help="The complete URL of the Daylight project")
-    parser.add_argument('-skt', '--skt_limit', default=20, help="The max number of subset key terms to display per subset, default 20")
-    parser.add_argument('-e', '--encoding', default='utf-8', help="Encoding type of the file to write to")
+    parser.add_argument('project_url',
+                        help="The complete URL of the Daylight project")
+    parser.add_argument('-skt', '--skt_limit', default=20,
+                        help="The max number of subset key terms to display"
+                             " per subset, default 20")
+    parser.add_argument('-e', '--encoding', default='utf-8',
+                        help="Encoding type of the file to write to")
     args = parser.parse_args()
 
     project_url = args.project_url.strip('/')
     api_url = project_url.split('/app')[0].strip() + '/api/v5'
     project_id = project_url.split('/')[-1].strip()
-    client = LuminosoClient.connect(url='%s/projects/%s' % (api_url.strip('/ '), project_id), user_agent_suffix='se_code:subset_key_terms')
+    client = LuminosoClient.connect(
+        url='%s/projects/%s' % (api_url.strip('/ '), project_id),
+        user_agent_suffix='se_code:subset_key_terms'
+    )
     docs = get_all_docs(client)
     subset_counts = {}
     for d in docs:
@@ -219,9 +244,12 @@ def main():
                 subset_counts[m['name']][m['value']] += 1
     total_count = len(docs)
     print('Retrieving Subset Key Terms...')
-    skt = subset_key_terms(client, subset_counts, total_count, terms_per_subset=int(args.skt_limit), threaded=True)
-    table = create_skt_table(client, skt)
+    result = subset_key_terms(client, subset_counts, total_count,
+                              terms_per_subset=int(args.skt_limit),
+                              threaded=True)
+    table = create_skt_table(client, result)
     write_table_to_csv(table, 'skt_table.csv', encoding=args.encoding)
-    
+
+
 if __name__ == '__main__':
     main()
