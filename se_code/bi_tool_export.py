@@ -91,8 +91,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
             for value in field['values'][:200]:
                 subset_counts[field['name']][value['value']] = value['count']
 
-    skt = subset_key_terms(client, subset_counts, len(docs),
-                           terms_per_subset=skt_limit, threaded=True)
+    skt = subset_key_terms(client, subset_counts, terms_per_subset=skt_limit)
     
     driver_fields = get_driver_fields(client)
     
