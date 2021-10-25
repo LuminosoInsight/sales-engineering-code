@@ -47,9 +47,9 @@ def main():
     client = LuminosoClient.connect(url=api_url, user_agent_suffix='se_code:rebuild_all_projects')
 
     projects = client.get("/workspaces/"+workspace_id)['projects']
-    if (len(projects) > 0):
+    if len(projects) > 0:
         for p in projects:
-            if (args.test):
+            if args.test:
                 print("test: rebuild project not started: {}:{}".format(p['project_id'], p['name']))
             else:
 
@@ -63,12 +63,12 @@ def main():
 
                 try:
                     if only_if_sentiment_stalled:
-                        if (not is_sentiment_built):
+                        if not is_sentiment_built:
                             pclient.post('/build/')
                             print("  rebuild started, waiting for completion...")
                         else:
                             print("  sentiment okay, skipping build")
-                    elif (pinfo['last_build_info']['stop_time'] is not None):
+                    elif pinfo['last_build_info']['stop_time'] is not None:
                         pclient.post('/build/')
                         print("  rebuild started, waiting for completion...")
                     else:
