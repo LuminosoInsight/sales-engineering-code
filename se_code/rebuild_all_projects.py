@@ -53,10 +53,6 @@ def main():
         return
 
     for p in projects:
-        if args.test:
-            print("test: rebuild project not started: {}:{}".format(p['project_id'], p['name']))
-            continue
-
         print("considering {}:{}".format(p['project_id'], p['name']))
         pclient = client.client_for_path('/projects/{}/'.format(p['project_id']))
         pinfo = pclient.get("/", fields=['last_build_info'])['last_build_info']
@@ -67,6 +63,9 @@ def main():
             continue
 
         if pinfo['stop_time'] is None:
+            if args.test:
+                print('  project already building, would wait for completion')
+                continue
             print("  project already building, skipping build start")
             print("  waiting for completion...")
             try:
@@ -75,6 +74,9 @@ def main():
                 print('  Error:', str(e))
 
         else:
+            if args.test:
+                print('  would start rebuild')
+                continue
             try:
                 pclient.post('/build/')
                 print("  rebuild started, waiting for completion...")
