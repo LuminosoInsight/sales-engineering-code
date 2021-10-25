@@ -463,7 +463,7 @@ def main():
                              " per subset")
     parser.add_argument('-docs', '--doc', default=False, action='store_true',
                         help="Do not generate doc_table")
-    parser.add_argument('-doc_terms_sentiment', '--doc_terms_sentiment',
+    parser.add_argument('-doc_term_sentiment', '--doc_term_sentiment',
                         default=False,
                         action='store_true',
                         help="Do not generate doc_term_sentiment_table")
@@ -536,14 +536,14 @@ def main():
         )
         write_table_to_csv(driver_table, 'subset_drivers_table.csv',
                            encoding=args.encoding)
- 
+
     if not args.doc:
         write_table_to_csv(doc_table, 'doc_table.csv', calc_keys=True,
                            encoding=args.encoding)
         write_table_to_csv(xref_table, 'xref_table.csv', calc_keys=True,
                            encoding=args.encoding)
 
-    if not args.doc_terms_sentiment:
+    if not args.doc_term_sentiment:
         doc_term_sentiment_table = create_doc_term_sentiment(docs)
         write_table_to_csv(doc_term_sentiment_table, 'doc_term_sentiment.csv',
                            encoding=args.encoding)
@@ -552,7 +552,7 @@ def main():
         terms_table = create_terms_table(concepts, scl_match_counts)
         write_table_to_csv(terms_table, 'terms_table.csv', calc_keys=True,
                            encoding=args.encoding)
-        
+
     if not args.themes:
         print('Creating themes table...')
         themes_table = create_themes_table(client, themes)
