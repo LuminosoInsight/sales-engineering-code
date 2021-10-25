@@ -54,33 +54,33 @@ def main():
     for p in projects:
         if args.test:
             print("test: rebuild project not started: {}:{}".format(p['project_id'], p['name']))
+            continue
+
+        print("considering {}:{}".format(p['project_id'], p['name']))
+        pclient = client.client_for_path('/projects/{}/'.format(p['project_id']))
+        pinfo = pclient.get("/")
+        if ('sentiment' in pinfo['last_build_info']) and ('success' in pinfo['last_build_info']['sentiment']):
+            is_sentiment_built = pinfo['last_build_info']['sentiment']['success']
         else:
+            is_sentiment_built = False
 
-            print("considering {}:{}".format(p['project_id'], p['name']))
-            pclient = client.client_for_path('/projects/{}/'.format(p['project_id']))
-            pinfo = pclient.get("/")
-            if ('sentiment' in pinfo['last_build_info']) and ('success' in pinfo['last_build_info']['sentiment']):
-                is_sentiment_built = pinfo['last_build_info']['sentiment']['success']
-            else:
-                is_sentiment_built = False
-
-            try:
-                if only_if_sentiment_stalled:
-                    if not is_sentiment_built:
-                        pclient.post('/build/')
-                        print("  rebuild started, waiting for completion...")
-                    else:
-                        print("  sentiment okay, skipping build")
-                elif pinfo['last_build_info']['stop_time'] is not None:
+        try:
+            if only_if_sentiment_stalled:
+                if not is_sentiment_built:
                     pclient.post('/build/')
                     print("  rebuild started, waiting for completion...")
                 else:
-                    print("  project all ready building, skipping build start")
-                    print("  waiting for completion...")
+                    print("  sentiment okay, skipping build")
+            elif pinfo['last_build_info']['stop_time'] is not None:
+                pclient.post('/build/')
+                print("  rebuild started, waiting for completion...")
+            else:
+                print("  project all ready building, skipping build start")
+                print("  waiting for completion...")
 
-                pclient.wait_for_sentiment_build()
-            except Exception as e:
-                print(e)
+            pclient.wait_for_sentiment_build()
+        except Exception as e:
+            print(e)
 
 
 if __name__ == '__main__':
