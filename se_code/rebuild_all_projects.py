@@ -59,10 +59,7 @@ def main():
         print("considering {}:{}".format(p['project_id'], p['name']))
         pclient = client.client_for_path('/projects/{}/'.format(p['project_id']))
         pinfo = pclient.get("/", fields=['last_build_info'])['last_build_info']
-        if ('sentiment' in pinfo) and ('success' in pinfo['sentiment']):
-            is_sentiment_built = pinfo['last_build_info']['sentiment']['success']
-        else:
-            is_sentiment_built = False
+        is_sentiment_built = pinfo.get('sentiment', {}).get('success')
 
         try:
             if only_if_sentiment_stalled:
