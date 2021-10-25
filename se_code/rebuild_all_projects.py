@@ -1,6 +1,7 @@
 import argparse
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
+from luminoso_api import LuminosoError
 
 '''
 rebuild_all_projects.py 
@@ -59,25 +60,27 @@ def main():
         print("considering {}:{}".format(p['project_id'], p['name']))
         pclient = client.client_for_path('/projects/{}/'.format(p['project_id']))
         pinfo = pclient.get("/", fields=['last_build_info'])['last_build_info']
-        is_sentiment_built = pinfo.get('sentiment', {}).get('success')
 
-        try:
-            if only_if_sentiment_stalled:
-                if not is_sentiment_built:
-                    pclient.post('/build/')
-                    print("  rebuild started, waiting for completion...")
-                else:
-                    print("  sentiment okay, skipping build")
-            elif pinfo['stop_time'] is not None:
+        is_sentiment_built = pinfo.get('sentiment', {}).get('success')
+        if only_if_sentiment_stalled and is_sentiment_built:
+            print("  sentiment okay, skipping build")
+            continue
+
+        if pinfo['stop_time'] is None:
+            print("  project already building, skipping build start")
+            print("  waiting for completion...")
+            try:
+                pclient.wait_for_sentiment_build()
+            except LuminosoError as e:
+                print('  Error:', str(e))
+
+        else:
+            try:
                 pclient.post('/build/')
                 print("  rebuild started, waiting for completion...")
-            else:
-                print("  project all ready building, skipping build start")
-                print("  waiting for completion...")
-
-            pclient.wait_for_sentiment_build()
-        except Exception as e:
-            print(e)
+                pclient.wait_for_sentiment_build()
+            except LuminosoError as e:
+                print('  Error:', str(e))
 
 
 if __name__ == '__main__':
