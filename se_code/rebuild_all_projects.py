@@ -58,8 +58,8 @@ def main():
 
         print("considering {}:{}".format(p['project_id'], p['name']))
         pclient = client.client_for_path('/projects/{}/'.format(p['project_id']))
-        pinfo = pclient.get("/")
-        if ('sentiment' in pinfo['last_build_info']) and ('success' in pinfo['last_build_info']['sentiment']):
+        pinfo = pclient.get("/", fields=['last_build_info'])['last_build_info']
+        if ('sentiment' in pinfo) and ('success' in pinfo['sentiment']):
             is_sentiment_built = pinfo['last_build_info']['sentiment']['success']
         else:
             is_sentiment_built = False
@@ -71,7 +71,7 @@ def main():
                     print("  rebuild started, waiting for completion...")
                 else:
                     print("  sentiment okay, skipping build")
-            elif pinfo['last_build_info']['stop_time'] is not None:
+            elif pinfo['stop_time'] is not None:
                 pclient.post('/build/')
                 print("  rebuild started, waiting for completion...")
             else:
