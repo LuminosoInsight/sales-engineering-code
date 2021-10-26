@@ -1,6 +1,7 @@
 import argparse
 import csv
 import numpy as np
+import re
 import sys
 import urllib
 from collections import defaultdict
@@ -241,6 +242,30 @@ def create_doc_table(docs, metadata, suggested_concepts):
     return doc_table, xref_table, metadata_map
 
 
+def create_doc_term_sentiment(docs):
+    '''
+    Create a tabluation of the term sentiment in the context of each document.
+
+    :param docs: The document list that has include_sentiment_on_concepts flag
+    :return List of term sentiments in context of documents
+    '''
+
+    # regex to remove the language from the term_id
+    # "newest|en product|en"  ->  "newest product"
+    _DELANGTAG_RE = re.compile(r'\|[a-z]+(?=\s|\Z)')
+
+    table = []
+    for doc in docs:
+        for term in doc['terms']:
+            if 'sentiment' in term:
+                row = {**term,
+                       'doc_id': doc['doc_id'],
+                       'name': _DELANGTAG_RE.sub('', term['term_id'])}
+                table.append(row)
+
+    return table
+
+
 def create_terms_table(concepts, scl_match_counts):
     '''
     Create a tabulation of top terms and their exact/total match counts
@@ -434,6 +459,10 @@ def main():
                              " per subset")
     parser.add_argument('-docs', '--doc', default=False, action='store_true',
                         help="Do not generate doc_table")
+    parser.add_argument('-doc_term_sentiment', '--doc_term_sentiment',
+                        default=False,
+                        action='store_true',
+                        help="Do not generate doc_term_sentiment_table")
     parser.add_argument('-terms', '--terms', default=False,
                         action='store_true',
                         help="Do not generate terms_table")
@@ -503,18 +532,23 @@ def main():
         )
         write_table_to_csv(driver_table, 'subset_drivers_table.csv',
                            encoding=args.encoding)
- 
+
     if not args.doc:
         write_table_to_csv(doc_table, 'doc_table.csv', calc_keys=True,
                            encoding=args.encoding)
         write_table_to_csv(xref_table, 'xref_table.csv', calc_keys=True,
                            encoding=args.encoding)
 
+    if not args.doc_term_sentiment:
+        doc_term_sentiment_table = create_doc_term_sentiment(docs)
+        write_table_to_csv(doc_term_sentiment_table, 'doc_term_sentiment.csv',
+                           encoding=args.encoding)
+
     if not args.terms:
         terms_table = create_terms_table(concepts, scl_match_counts)
         write_table_to_csv(terms_table, 'terms_table.csv', calc_keys=True,
                            encoding=args.encoding)
-        
+
     if not args.themes:
         print('Creating themes table...')
         themes_table = create_themes_table(client, themes)
