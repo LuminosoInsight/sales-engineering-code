@@ -258,13 +258,9 @@ def create_doc_term_sentiment(docs):
     for doc in docs:
         for term in doc['terms']:
             if 'sentiment' in term:
-                row = {'doc_id': doc['doc_id'],
-                       'term_id': term['term_id'],
-                       'name': _DELANGTAG_RE.sub('', term['term_id']),
-                       'start': term['start'],
-                       'end': term['end'],
-                       'sentiment': term['sentiment'],
-                       'sentiment_confidence': term['sentiment_confidence']}
+                row = {**term,
+                       'doc_id': doc['doc_id'],
+                       'name': _DELANGTAG_RE.sub('', term['term_id'])}
                 table.append(row)
 
     return table
