@@ -39,6 +39,9 @@ def ignore_multiple_terms(texts, client):
     ignore = client.get('terms/manage')
     return ignore
         
+def ignore_csv_file(filename, client):
+        texts = read_csv_file(filename)
+        ignore = ignore_multiple_terms(texts, client)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -55,8 +58,7 @@ def main():
     if args.ignore_term:
         ignore = ignore_single_term(args.ignore_term, client)
     elif args.filename:
-        texts = read_csv_file(args.filename)
-        ignore = ignore_multiple_terms(texts, client)
+        ignore_csv_file(args.filename, client)
     else:
         ignore_term = ''
         while ignore_term.strip() == '':
