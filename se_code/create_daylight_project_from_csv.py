@@ -1,171 +1,263 @@
+'''
+Create a Luminoso Daylight project from a CSV file. Useful if the file is too
+large for UI or building without the UI for things like search_enhancement
+'''
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from ignore_terms import ignore_csv_file
 
 import argparse
-import datetime, getpass, time, json, os, csv
-import numpy, pack64
+import csv
+import time
 
-'''
-Create a Luminoso Daylight project from a CSV file. Usefull if the file is too
-large for UI or building without the UI for things like search_enhancement
+# Python's csv module limits cell sizes to 131072 characters (i.e., 2^17, or
+# 128k).  Some CSVs have extremely long text, so we set max cell size to four
+# times that; bear in mind that that's already longer than the 500,000
+# characters that the API allows in a document.
+csv.field_size_limit(2 ** 19)
 
-'''
+# Number of documents to load at once
+BLOCK_SIZE = 1000
 
-def write_documents(client,docs):
-    offset = 0
-    while offset<len(docs):
-        end = min(len(docs),offset+1000)
-        result = client.post('upload', docs=docs[offset:end])
-        offset = end
+DATE_FORMATS = [
+    '%Y-%m-%dT%H:%M:%SZ',
+    '%Y-%m-%d',
+    '%m/%d/%Y',
+    '%m/%d/%y',
+    '%m/%d/%y %H:%M'
+]
 
-def create_project(client, input_file, project_name, account_id, keyword_expansion_terms=None, max_len=0, skip_sentiment_build=False):
+FIELD_TYPES = ['date', 'number', 'score', 'string']
 
-    block_size = 5000
+
+def create_project(client, input_file, project_name, workspace_id,
+                   keyword_expansion_terms=None, max_len=0,
+                   skip_sentiment_build=False):
+    # convert max_len into None if it's 0, to allow indexing later
+    if not max_len:
+        max_len = None
 
     # create the project
-    print("Creating project named: "+project_name)
-    project_info = client.post(name=project_name,language="en",account_id=account_id)
-    print("New project info = "+str(project_info))
+    print('Creating project named: ' + project_name)
+    project_info = client.post(name=project_name, language='en',
+                               workspace_id=workspace_id)
+    print('New project info = ' + str(project_info))
 
     client_prj = client.client_for_path(project_info['project_id'])
 
-    # load the csv
-    lumi_data_types = ["string","number","score","date"]
-    reader = csv.DictReader(open(input_file, 'r', encoding='ISO-8859-1'))
+    # Extract the documents from the CSV file and upload them in batches.
+    with open(input_file, 'r', encoding='utf-8-sig') as file:
+        for i, docs in parse_csv_file(file, max_len):
+            print('Uploading at {}, {} new documents'.format(i, len(docs)))
+            client_prj.post('upload', docs=docs)
+
+    print('Done uploading. Starting build')
+
+    options = {}
+    if skip_sentiment_build:
+        options['sentiment_configuration'] = {'type': 'none'}
+
+    if keyword_expansion_terms:
+        keyword_expansion_filter = []
+        for entry in keyword_expansion_terms.split('|'):
+            field_and_val = entry.split('=')
+            print('fv {}'.format(field_and_val))
+            field_values = field_and_val[1].split(',')
+            keyword_expansion_filter.append({'name': field_and_val[0],
+                                             'values': field_values})
+
+        keyword_expansion_dict = {'limit': 20,
+                                  'filter': keyword_expansion_filter}
+        print('keyword filter = {}'.format(keyword_expansion_dict))
+        options['keyword_expansion'] = keyword_expansion_dict
+
+    client_prj.post('build', **options)
+    print('Build started')
+    return client_prj
+
+
+def parse_csv_file(file, max_text_length):
+    """
+    Given a file and a length at which to truncate document text, yield batches
+    of documents suitable for uploading.
+    """
+    # Note that we don't use a DictReader here because there may be
+    # multiple columns with the same header
+    reader = csv.reader(file)
+
+    # Parse the first row of the CSV as a header row, storing the results in
+    # a list whose elements are:
+    # * for text/title: the string "text" or "title"
+    # * for metadata fields: the pair (data_type, field_name)
+    # * for unparseable headers: None
+    columns = []
+    for col_num, cell in enumerate(next(reader), start=1):
+        data_type, _, data_name = cell.partition('_')
+        data_type = data_type.strip().lower()
+        if data_type in ('text', 'title') and not data_name:
+            columns.append(data_type)
+        elif data_type in FIELD_TYPES:
+            columns.append((data_type, data_name))
+        else:
+            print('Uninterpretable header "{}" in column'
+                  ' {}'.format(cell, col_num))
+            columns.append(None)
+
+    # If there is not exactly one "text" column, raise an error
+    text_count = columns.count('text')
+    if text_count != 1:
+        raise RuntimeError('Must have exactly one text column,'
+                           ' found {}'.format(text_count))
+
     docs = []
-    for i, row in enumerate(reader):
-        # print(str(row))
-        new_doc = {}
-        new_doc['metadata']=[]
-        for k in row.keys():
-            ksplit = k.split("_")
-            if k.strip().lower() == "text":
-                #if max_len>0:
-                #    new_doc['text'] = row[k][0:max_len]
-                #else:
-                new_doc['text'] = row[k]
-            if k.strip().lower() == "title":
-                new_doc['title'] = row[k]
-            if (len(ksplit)>1):
-                field_name = "_".join(ksplit[1:])
-                if ksplit[0].lower().strip() == 'date':
-                    try:
-                        if len(row[k])>0:
-                            if (row[k].isnumeric()):
-                                edate = int(row[k])
-                            else:
-                                date_formats = ["%Y-%m-%dT%H:%M:%SZ","%Y-%m-%d","%m/%d/%Y","%m/%d/%y","%m/%d/%y %H:%M"]
-                                edate = None
-                                for df in date_formats:
-                                    try:
-                                        edate = int(time.mktime(time.strptime(row[k], df)))
-                                    except:
-                                        pass
-                                if edate == None:
-                                    print("Error in date format: {}".format(row[k]))
-                                    print("{} is numeric {}".format(row[k],row[k].isnumeric()))
-                                else:
-                                    new_doc['metadata'].append({"type":ksplit[0],"name":field_name,"value":edate})
-                    except:
-                        print("date error: {}".format(row[k]))
-                elif ksplit[0].lower().strip() in 'number':
-                    try:
-                        new_doc['metadata'].append({"type":ksplit[0],"name":field_name,"value":float(row[k].strip()) if row[k].strip() else 0})
-                    except:
-                        print("number error")
-                elif ksplit[0].lower().strip() in 'score':
-                    try:
-                        new_doc['metadata'].append({"type":ksplit[0],"name":field_name,"value":float(row[k].strip()) if row[k].strip() else 0})
-                    except:
-                        print("score error")
-                elif ksplit[0] in lumi_data_types:
-                    new_doc['metadata'].append({"type":ksplit[0],"name":field_name,"value":row[k]})
+    i = None
+    for i, row in enumerate(reader, start=1):
+        new_doc = {'metadata': []}
+        for header, cell_value in zip(columns, row):
+            # For each cell in the row: if the header was unparseable, skip it;
+            # if the header is text/title, add that to the document; otherwise,
+            # parse it as metadata
+            if header is None:
+                continue
+            elif header == 'text':
+                new_doc['text'] = cell_value[:max_text_length]
+            elif header == 'title':
+                new_doc['title'] = cell_value
+            else:
+                # Blank cells indicate no metadata value
+                cell_value = cell_value.strip()
+                if not cell_value:
+                    continue
+                try:
+                    metadata_field = parse_metadata_field(header, cell_value)
+                    new_doc['metadata'].append(metadata_field)
+                except ValueError as e:
+                    print(
+                        'Metadata error in document {}: {}'.format(i, str(e))
+                    )
         docs.append(new_doc)
 
-        if len(docs)>=block_size:
-            print("Uploading {} documents".format(len(docs)))
-            write_documents(client_prj, docs)
-
+        if len(docs) >= BLOCK_SIZE:
+            yield i, docs
             docs = []
 
-    if len(docs)>0:
-        print("Uploading {} documents".format(len(docs)))
-        write_documents(client_prj, docs)
+    if i is None:
+        raise RuntimeError('No documents found')
 
-    sentiment_configuration = {"type":"full"}
-    if (skip_sentiment_build):
-        sentiment_configuration = {"type":"none"}
+    if docs:
+        yield i, docs
 
-    print("Done uploading. Starting build")
-    if keyword_expansion_terms:
 
-        keyword_expansion_filter = []
-        for entry in keyword_expansion_terms.split("|"):
-            field_and_val = entry.split("=")
-            print("fv {}".format(field_and_val))
-            field_values = field_and_val[1].split(",")
-            keyword_expansion_filter.append({"name":field_and_val[0],
-                                            "values":field_values})
+def parse_metadata_field(type_and_name, cell_value):
+    """
+    Given a (type, name) pair and a value, return a metadata dict with type,
+    name, and the parsed value.  Raises a ValueError if "value" cannot be
+    parsed as the given type.
+    """
+    data_type, field_name = type_and_name
+    value = None
+    if data_type == 'date':
+        if cell_value.isnumeric():
+            value = int(cell_value)
+        else:
+            for df in DATE_FORMATS:
+                try:
+                    value = int(time.mktime(time.strptime(cell_value, df)))
+                except ValueError:
+                    continue
+                break
+    elif data_type in ('number', 'score'):
+        try:
+            value = float(cell_value.strip())
+        except ValueError:
+            pass
+    elif data_type == 'string':
+        value = cell_value
+    if value is None:
+        raise ValueError(
+            'Cannot parse "{}" value "{}" as {}'.format(
+                field_name, cell_value, data_type
+            )
+        )
+    return {'type': data_type, 'name': field_name, 'value': value}
 
-        keyword_expansion_dict = {"limit":20,
-                                "filter":keyword_expansion_filter}
-        print("keyword filter = {}".format(keyword_expansion_dict))
-
-        client_prj.post("build",
-                keyword_expansion=keyword_expansion_dict,
-                sentiment_configuration=sentiment_configuration)
-    else:
-        client_prj.post('build', sentiment_configuration=sentiment_configuration)
-
-    print("Build started")
-
-    return client_prj
 
 def main():
     parser = argparse.ArgumentParser(
         description='Create a Luminoso project using a CSV file.'
     )
-    parser.add_argument('input_file', help="CSV file with project data")
-    parser.add_argument('-n', '--project_name', default="", required=True, help="New project name")
-    parser.add_argument('-a', '--account_id', default="", required=False, help="Luminoso account ID")
-    parser.add_argument('-u', '--api_url', default='https://daylight.luminoso.com/api/v5/projects/', help='The host url. Default=https://daylight.luminoso.com/api/v5/projects/')
-    parser.add_argument('-k', '--keyword_expansion_terms', default=None, required=False, help="field list of metadata field=data,data to expand. search_doc_type=primary,primary2|search_doc_type2=secondary")
-    parser.add_argument('-m', '--max_text_length', default="0", required=False, help="The maximum length to limit text fields")
-    parser.add_argument('-s', '--skip_sentiment_build', action="store_true", default=False, help="Allows the build to skip the sentiment build")
-    parser.add_argument('-w', '--wait_for_build_complete', action="store_true", default=False, help="Wait for the build to complete")
-    parser.add_argument('-i', '--ignore_terms_csv_file', default=None, required=False, help="A csv file with terms to ignore")
+    parser.add_argument('input_file', help='CSV file with project data')
+    parser.add_argument(
+        '-n', '--project_name', default='', required=True,
+        help='New project name'
+    )
+    parser.add_argument(
+        '-w', '--workspace_id', default='', required=False,
+        help='Luminoso account ID'
+    )
+    parser.add_argument(
+        '-u', '--api_url', default='https://daylight.luminoso.com/api/v5/',
+        help='The host url. Default=https://daylight.luminoso.com/api/v5/'
+    )
+    parser.add_argument(
+        '-k', '--keyword_expansion_terms', default=None, required=False,
+        help='field list of metadata field=data,data to expand. '
+             'search_doc_type=primary,primary2|search_doc_type2=secondary '
+    )
+    parser.add_argument(
+        '-m', '--max_text_length', default=0, type=int, required=False,
+        help='The maximum length to limit text fields'
+    )
+    parser.add_argument(
+        '-s', '--skip_sentiment_build', action='store_true', default=False,
+        help='Allows the build to skip the sentiment build'
+    )
+    parser.add_argument(
+        '-b', '--wait_for_build_complete', action='store_true', default=False,
+        help='Wait for the build to complete'
+    )
+    parser.add_argument(
+        '-i', '--ignore_terms_csv_file', default=None, required=False, 
+        help="A csv file with terms to ignore"
+    )
     args = parser.parse_args()
 
     project_name = args.project_name
     input_file = args.input_file
-    account_id = args.account_id
-    max_len = int(args.max_text_length)
+    workspace_id = args.workspace_id
+    max_len = args.max_text_length
 
     api_url = args.api_url
 
     # get the default account id if none given
-    if len(account_id)==0:
-        # use the v5 url to build the v4 url
-        urllist = api_url.strip('/').split('/')
-        api_urlv4 = "/".join(urllist[0:3])+"/api/v4"
-
-        # connect to luminoso and get the client info
-        clientv4 =  LuminosoClient.connect(url=api_urlv4)
-        profile = clientv4.get("/user/profile/")
-        if not profile['error']:
-            account_id = profile["result"]["default_account"]
-        else:
-            print("error retrieving account_id: {}".format(profile['error']))
+    if len(workspace_id) == 0:
+        # connect to v5 api
+        client = LuminosoClient.connect(
+            url=api_url,
+            user_agent_suffix='se_code:create_daylight_project_from_csv'
+        )
+        workspace_id = client.get('/profile')['default_workspace']
+        client = client.client_for_path('/projects/')
+    else:
+        # connect to v5 api
+        client = LuminosoClient.connect(
+            url=api_url + '/projects/',
+            user_agent_suffix='se_code:create_daylight_project_from_csv'
+        )
 
     # the ignore terms will cause a second build and doesn't need sentiment built
     save_skip_sentiment_build = args.skip_sentiment_build
     if args.ignore_terms_csv_file:
         args.skip_sentiment_build = True
 
-    # connect to v5 api
-    client = LuminosoClient.connect(url=api_url, user_agent_suffix='se_code:create_daylight_project_from_csv')
-
-    client_prj = create_project(client, input_file, project_name, account_id, keyword_expansion_terms=args.keyword_expansion_terms, max_len=max_len, skip_sentiment_build=args.skip_sentiment_build)
+    try:
+        client_prj = create_project(
+            client, input_file, project_name, workspace_id,
+            keyword_expansion_terms=args.keyword_expansion_terms,
+            max_len=max_len, skip_sentiment_build=args.skip_sentiment_build
+        )
+    except RuntimeError as e:
+        parser.exit(1, 'Error creating project: {}'.format(str(e)))
+        return  # unreachable; lets the IDE knows client_prj has been defined
 
     if (args.wait_for_build_complete or args.ignore_terms_csv_file):
         print("waiting for build to complete...")
@@ -173,16 +265,17 @@ def main():
 
     if args.ignore_terms_csv_file:
         print("Ignoring terms from: "+args.ignore_terms_csv_file)
-        ignore_csv_file(args.ignore_terms_csv_file,client_prj)
+        ignore_csv_file(args.ignore_terms_csv_file, client_prj)
 
-        sentiment_configuration = {"type":"full"}
+        sentiment_configuration = {"type": "full"}
         if (save_skip_sentiment_build):
-            sentiment_configuration = {"type":"none"}
+            sentiment_configuration = {"type": "none"}
 
         client_prj.post('build',
-            sentiment_configuration=sentiment_configuration)
+                        sentiment_configuration=sentiment_configuration)
         print("Waiting for ignore terms build")
         client_prj.wait_for_build()
+
 
 if __name__ == '__main__':
     main()

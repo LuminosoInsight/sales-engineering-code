@@ -225,7 +225,7 @@ def create_one_table(client, field, topic_drive, root_url='',filter=""):
 
         # Sort documents based on their association with the coefficient vector
         for doc in search_docs['result']:
-            doc['driver_as'] = get_as(driver['vector'],doc['vector'])
+            doc['driver_as'] = get_as(driver['vectors'][0],doc['vector'])
 
         docs = sorted(search_docs['result'], key=lambda k: k['driver_as']) 
         row['example_doc'] = ''
@@ -411,7 +411,7 @@ def create_sdot_table(client, driver_fields, date_field_info, end_date, iteratio
 def get_all_docs(client):
     docs = []
     while True:
-        new_docs = client.get('docs', limit=25000, offset=len(docs), include_sentiment=True)['result']
+        new_docs = client.get('docs', limit=25000, offset=len(docs), include_sentiment_on_concepts=True)['result']
         if new_docs:
             docs.extend(new_docs)
         else:

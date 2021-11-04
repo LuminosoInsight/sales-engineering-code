@@ -169,12 +169,12 @@ def bi_tool_export():
     
     client, docs, scl_match_counts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
 
-    doc_table, xref_table, metadata_map = create_doc_table(client, docs, metadata, themes, sentiment=sentiment)
+    doc_table, xref_table, metadata_map = create_doc_table(docs, metadata, themes, sentiment=sentiment)
     write_table_to_csv(doc_table, foldername+'doc_table.csv', calc_keys=True)
     write_table_to_csv(xref_table, foldername+'xref_table.csv')
     
     if sentiment:
-        sentiment_table = create_sentiment_table(client, scl_match_counts, concepts)
+        sentiment_table = create_sentiment_table(client, scl_match_counts)
         write_table_to_csv(sentiment_table, foldername+'sentiment.csv', calc_keys=True)
 
     if term_table:

@@ -10,7 +10,7 @@ def get_all_docs(client):
     docs = []
     while True:
         new_docs = client.get(
-            "docs", include_sentiment=True, limit=25000, offset=len(docs)
+            "docs", include_sentiment_on_concepts=True, limit=25000, offset=len(docs)
         )
         if new_docs["result"]:
             docs.extend(new_docs["result"])
@@ -52,26 +52,62 @@ def add_relations(
     docs,
     add_concept_relations=False,
     add_concept_list=False,
+    shared_list_name=None,
     match_type="both",
     add_match_score=False,
-    add_saved_concept_sentiment=False,
+    add_term_concept_sentiment=False,
 ):
-    # get the list of saved concepts with included sentiment
-    saved_concepts = client.get(
-        "concepts/sentiment", concept_selector={"type": "saved"}
-    )["match_counts"]
 
-    # pre-calculate the top sentiment share
-    for sc in saved_concepts:
-        sc["sentiment"] = collections.Counter(sc["sentiment_share"]).most_common()[0][0]
+    if add_term_concept_sentiment:
+        # build a lookup for concept to term
+        for d in docs:
+            term_sentiment = {}
+            for t in d["terms"]:
+                term_name = t["term_id"].split("|")[0]
+                if (term_name in term_sentiment) and (term_sentiment[term_name]["sentiment"]!=t["sentiment"]):
+                    term_sentiment[term_name]["sentiment"] = "mixed"
+                    term_confidence = 0
+                else:
+                    term_sentiment[term_name] = {
+                        "sentiment": t["sentiment"],
+                        "sentiment_confidence": t["sentiment_confidence"]
+                }
+            d["term_sentiment"] = term_sentiment
 
-        search_results = search_all_doc_ids(client, sc["texts"], match_type=match_type)
-        sc["match_scores_by_id"] = {
-            c["doc_id"]: c["match_score"] for c in search_results
-        }
+    concept_lists = client.get("concept_lists/")
+    if shared_list_name!=None:
+        concept_lists = [cl for cl in concept_lists if cl['name']==shared_list_name]
 
-    # filter out metadata that matches our current saved concepts
-    clist = [sc["name"] for sc in saved_concepts]
+    scl_match_counts = {}
+    for clist in concept_lists:
+        concept_selector = {"type": "concept_list", "concept_list_id": clist['concept_list_id']}
+        clist_match_counts = client.get('concepts/match_counts',concept_selector=concept_selector)
+        clist_match_counts['concept_list_id'] = clist['concept_list_id']
+        scl_match_counts[clist['name']] = clist_match_counts
+
+    # get the match score vs. each concept
+    # also build up the list of column names clist to exclude meta data of the same name
+    # typically this metadata will be from prior runs...
+    clist = []
+    for cl in concept_lists:
+        for sc in cl["concepts"]:
+            search_results = search_all_doc_ids(client, sc["texts"], match_type=match_type)
+            sc["match_scores_by_id"] = {
+                c["doc_id"]: c["match_score"] for c in search_results
+            }
+
+            # the name of the tag changes if we have more than one shared concept list
+            if len(concept_lists)>1:
+                sc["tag_name"] = cl["name"]+"_tag_"+sc["name"]
+            else:
+                sc["tag_name"] = "tag_"+sc["name"]
+            clist.append(sc["tag_name"])
+
+            if add_term_concept_sentiment:
+                clist.append(sc["tag_name"]+"_sentiment")
+                clist.append(sc["tag_name"]+"_sentiment_confidence")
+
+    # filter out metadata with same name as tags
     for d in docs:
         d["metadata"] = [md for md in d["metadata"] if md["name"] not in clist]
 
@@ -79,65 +115,80 @@ def add_relations(
     # add metadata for its yes/no relation to each saved concept
     # if it is not associated with any saved concept, mark it as an outlier
     for d in docs:
-        in_none = True
-        doc_concept_list = []
-        for sc in saved_concepts:
-            if d["doc_id"] in sc["match_scores_by_id"]:
-                in_none = False
-                if add_concept_relations:
-                    d["metadata"].append(
-                        {"name": sc["name"], "type": "string", "value": "yes"}
-                    )
-                    if add_match_score:
+        for cl in concept_lists:
+            in_none = True
+            doc_concept_list = []
+            for sc in cl["concepts"]:
+                if d["doc_id"] in sc["match_scores_by_id"]:
+                    in_none = False
+                    if add_concept_relations:
                         d["metadata"].append(
-                            {
-                                "name": sc["name"] + " match_score",
-                                "type": "number",
-                                "value": sc["match_scores_by_id"][d["doc_id"]],
-                            }
+                            {"name": sc["tag_name"], "type": "string", "value": "yes"}
                         )
-                doc_concept_list.append(sc["name"])
-
-                if add_saved_concept_sentiment:
-                    d["metadata"].append(
-                        {
-                            "name": sc["name"] + " sentiment",
-                            "type": "string",
-                            "value": sc["sentiment"],
-                        }
-                    )
-            else:
-                if add_concept_relations:
-                    d["metadata"].append(
-                        {"name": sc["name"], "type": "string", "value": "no"}
-                    )
-                    if add_match_score:
+                        if add_match_score:
+                            d["metadata"].append(
+                                {
+                                    "name": sc["tag_name"] + " match_score",
+                                    "type": "number",
+                                    "value": sc["match_scores_by_id"][d["doc_id"]],
+                                }
+                            )
+                        if (add_term_concept_sentiment) and (sc["name"] in d["term_sentiment"]):
+                            d["metadata"].append(
+                                {
+                                    "name": sc["tag_name"]+"_sentiment",
+                                    "type": "string",
+                                    "value": d["term_sentiment"][sc["name"]]["sentiment"]
+                                }
+                            )
+                            d["metadata"].append(
+                                {
+                                    "name": sc["tag_name"]+"_sentiment_confidence",
+                                    "type": "number",
+                                    "value": d["term_sentiment"][sc["name"]]["sentiment_confidence"]
+                                }
+                            )
+                    doc_concept_list.append(sc["name"])
+                else:
+                    if add_concept_relations:
                         d["metadata"].append(
-                            {
-                                "name": sc["name"] + " match_score",
-                                "type": "number",
-                                "value": 0,
-                            }
+                            {"name": sc["tag_name"], "type": "string", "value": "no"}
                         )
+                        if add_match_score:
+                            d["metadata"].append(
+                                {
+                                    "name": sc["tag_name"] + " match_score",
+                                    "type": "number",
+                                    "value": 0,
+                                }
+                            )
 
-        if add_concept_relations:
-            if in_none:
+            if add_concept_relations:
+                if len(concept_lists)>1:
+                    outlier_field_name = cl["name"]+"_doc_outlier"
+                else:
+                    outlier_field_name = "doc_outlier"
+                if in_none:
+                    d["metadata"].append(
+                        {"name": outlier_field_name, "type": "string", "value": "yes"}
+                    )
+                    doc_concept_list.append("outlier")
+                else:
+                    d["metadata"].append(
+                        {"name": outlier_field_name, "type": "string", "value": "no"}
+                    )
+            if add_concept_list:
+                if len(concept_lists)>1:
+                    cl_field_name = cl["name"]+"_tags"
+                else:
+                    cl_field_name = "tags"
                 d["metadata"].append(
-                    {"name": "doc_outlier", "type": "string", "value": "yes"}
+                    {
+                        "name": cl_field_name,
+                        "type": "string",
+                        "value": "|".join(doc_concept_list),
+                    }
                 )
-                doc_concept_list.append("outlier")
-            else:
-                d["metadata"].append(
-                    {"name": "doc_outlier", "type": "string", "value": "no"}
-                )
-        if add_concept_list:
-            d["metadata"].append(
-                {
-                    "name": "concept_list",
-                    "type": "string",
-                    "value": "|".join(doc_concept_list),
-                }
-            )
 
 
 # flatten the doc structure for csv export
@@ -223,6 +274,12 @@ def main():
         help="Add columns for saved concept relations and outliers",
     )
     parser.add_argument(
+        "-sln",
+        "--shared_list_name",
+        default=None,
+        help="The name of the shared concept list to use for relations default=ALL"
+    )
+    parser.add_argument(
         "-mt",
         "--match_type",
         default=None,
@@ -251,6 +308,7 @@ def main():
         or args.match_score
         or args.concept_relations_sentiment
         or args.match_type is not None
+        or args.shared_list_name is not None
     ) and (not args.concept_relations):
         parser.error("-l, -mt, -ms, -s all require -c")
 
@@ -278,9 +336,10 @@ def main():
             docs,
             args.concept_relations,
             args.concept_list,
+            args.shared_list_name,
             match_type=args.match_type,
             add_match_score=args.match_score,
-            add_saved_concept_sentiment=args.concept_relations_sentiment,
+            add_term_concept_sentiment=args.concept_relations_sentiment,
         )
 
     field_names, docs = flatten_docs(docs, args.date_format)
