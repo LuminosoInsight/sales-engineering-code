@@ -1,11 +1,12 @@
 from luminoso_api import V5LuminosoClient as LuminosoClient
+from ignore_terms import ignore_csv_file
 
 import argparse
 import datetime, getpass, time, json, os, csv
 import numpy, pack64
 
 '''
-Create a Luminoso Daylight project from a CSV file. Usefull if the file is too 
+Create a Luminoso Daylight project from a CSV file. Usefull if the file is too
 large for UI or building without the UI for things like search_enhancement
 
 '''
@@ -18,7 +19,7 @@ def write_documents(client,docs):
         offset = end
 
 def create_project(client, input_file, project_name, account_id, keyword_expansion_terms=None, max_len=0, skip_sentiment_build=False):
-    
+
     block_size = 5000
 
     # create the project
@@ -30,7 +31,7 @@ def create_project(client, input_file, project_name, account_id, keyword_expansi
 
     # load the csv
     lumi_data_types = ["string","number","score","date"]
-    reader = csv.DictReader(open(input_file, 'r', encoding='utf-8-sig'))
+    reader = csv.DictReader(open(input_file, 'r', encoding='ISO-8859-1'))
     docs = []
     for i, row in enumerate(reader):
         # print(str(row))
@@ -69,7 +70,7 @@ def create_project(client, input_file, project_name, account_id, keyword_expansi
                         print("date error: {}".format(row[k]))
                 elif ksplit[0].lower().strip() in 'number':
                     try:
-                        new_doc['metadata'].append({"type":ksplit[0],"name":field_name,"value":float(row[k].strip()) if row[k].strip() else 0})                
+                        new_doc['metadata'].append({"type":ksplit[0],"name":field_name,"value":float(row[k].strip()) if row[k].strip() else 0})
                     except:
                         print("number error")
                 elif ksplit[0].lower().strip() in 'score':
@@ -86,11 +87,11 @@ def create_project(client, input_file, project_name, account_id, keyword_expansi
             write_documents(client_prj, docs)
 
             docs = []
-    
+
     if len(docs)>0:
         print("Uploading {} documents".format(len(docs)))
         write_documents(client_prj, docs)
-    
+
     sentiment_configuration = {"type":"full"}
     if (skip_sentiment_build):
         sentiment_configuration = {"type":"none"}
@@ -111,11 +112,11 @@ def create_project(client, input_file, project_name, account_id, keyword_expansi
         print("keyword filter = {}".format(keyword_expansion_dict))
 
         client_prj.post("build",
-                keyword_expansion=keyword_expansion_dict, 
+                keyword_expansion=keyword_expansion_dict,
                 sentiment_configuration=sentiment_configuration)
     else:
         client_prj.post('build', sentiment_configuration=sentiment_configuration)
-    
+
     print("Build started")
 
     return client_prj
@@ -132,8 +133,9 @@ def main():
     parser.add_argument('-m', '--max_text_length', default="0", required=False, help="The maximum length to limit text fields")
     parser.add_argument('-s', '--skip_sentiment_build', action="store_true", default=False, help="Allows the build to skip the sentiment build")
     parser.add_argument('-w', '--wait_for_build_complete', action="store_true", default=False, help="Wait for the build to complete")
+    parser.add_argument('-i', '--ignore_terms_csv_file', default=None, required=False, help="A csv file with terms to ignore")
     args = parser.parse_args()
-    
+
     project_name = args.project_name
     input_file = args.input_file
     account_id = args.account_id
@@ -155,13 +157,31 @@ def main():
         else:
             print("error retrieving account_id: {}".format(profile['error']))
 
+    # the ignore terms will cause a second build and doesn't need sentiment built
+    save_skip_sentiment_build = args.skip_sentiment_build
+    if args.ignore_terms_csv_file:
+        args.skip_sentiment_build = True
+
     # connect to v5 api
     client = LuminosoClient.connect(url=api_url, user_agent_suffix='se_code:create_daylight_project_from_csv')
 
     client_prj = create_project(client, input_file, project_name, account_id, keyword_expansion_terms=args.keyword_expansion_terms, max_len=max_len, skip_sentiment_build=args.skip_sentiment_build)
 
-    if (args.wait_for_build_complete):
+    if (args.wait_for_build_complete or args.ignore_terms_csv_file):
         print("waiting for build to complete...")
+        client_prj.wait_for_build()
+
+    if args.ignore_terms_csv_file:
+        print("Ignoring terms from: "+args.ignore_terms_csv_file)
+        ignore_csv_file(args.ignore_terms_csv_file,client_prj)
+
+        sentiment_configuration = {"type":"full"}
+        if (save_skip_sentiment_build):
+            sentiment_configuration = {"type":"none"}
+
+        client_prj.post('build',
+            sentiment_configuration=sentiment_configuration)
+        print("Waiting for ignore terms build")
         client_prj.wait_for_build()
 
 if __name__ == '__main__':
