@@ -584,7 +584,7 @@ def main():
     
     if bool(args.sdot):
         if args.sdot_date_field is None:
-            date_field_info = get_first_date_field(client, True)
+            date_field_info = get_first_date_field(client)
             if date_field_info is None:
                 print("ERROR no date field in project")
                 return

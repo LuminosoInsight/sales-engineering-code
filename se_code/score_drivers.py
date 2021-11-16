@@ -34,7 +34,7 @@ def get_driver_fields(client):
     return driver_fields
 
 
-def get_first_date_field(client, warn_too_many_dates=False):
+def get_first_date_field(client):
     '''
     Get the first date field
     :param client: LuminosoClient object pointed to project path
@@ -506,7 +506,7 @@ def main():
         print("Calculating sdot")
 
         if args.sdot_date_field is None:
-            date_field_info = get_first_date_field(client, True)
+            date_field_info = get_first_date_field(client)
             if date_field_info is None:
                 print("ERROR no date field in project")
                 return
