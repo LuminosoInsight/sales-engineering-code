@@ -521,7 +521,8 @@ def main():
                 print("ERROR no date field in project")
                 return
         else:
-            date_field_info = get_date_field_by_name(args.sdot_date_field)
+            date_field_info = get_date_field_by_name(client,
+                                                     args.sdot_date_field)
             if date_field_info is None:
                 print("ERROR: no date field name: {}".format(args.sdot_date_field))
                 return
