@@ -1,14 +1,14 @@
+import argparse
+import concurrent.futures
+import csv
+import numpy as np
+import pandas as pd
+import urllib
+from datetime import datetime, timedelta
+
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
-from sklearn.linear_model import Ridge
-import numpy as np
-import csv, time, sys, argparse, getpass, json
-import urllib
 
-from datetime import datetime
-from datetime import timedelta
-import concurrent.futures
-import pandas as pd
 
 def get_as(vector1, vector2):
     '''
