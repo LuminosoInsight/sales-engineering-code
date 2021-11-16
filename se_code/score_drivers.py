@@ -453,20 +453,10 @@ def write_table_to_csv(table, filename, encoding='utf-8'):
     if len(table) == 0:
         print('Warning: No data to write to {}.'.format(filename))
         return
-    try:
-        with open(filename, 'w', encoding=encoding, newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=table[0].keys())
-            writer.writeheader()
-            writer.writerows(table)
-    except UnicodeEncodeError as e:
-        print('WARNING: Unicode Decode Error occurred, attempting to handle.'
-              ' Error was: %s' % e)
-        write_table = [{k: v for k, v in t.items()} for t in table]
-        with open(filename, 'w', encoding=encoding, newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=write_table[0].keys())
-            writer.writeheader()
-            writer.writerows(write_table)
-        print('Unicode Decode Error was handled')
+    with open(filename, 'w', encoding=encoding, newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=table[0].keys())
+        writer.writeheader()
+        writer.writerows(table)
 
 
 def main():
