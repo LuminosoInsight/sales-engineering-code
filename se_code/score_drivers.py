@@ -20,6 +20,11 @@ def get_assoc(vector1, vector2):
     return float(np.dot(unpack64(vector1), unpack64(vector2)))
 
 
+def get_driver_url(root_url, driver):
+    texts = urllib.parse.quote(' '.join(driver['texts']))
+    return root_url + '/galaxy?suggesting=false&search=' + texts
+
+
 def get_driver_fields(client):
     '''
     Get all numeric or score metadata fields from the project in order to run
@@ -157,9 +162,7 @@ def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
                    'doc_count': driver['exact_match_count']}
 
             if len(root_url) > 0:
-                row['url'] = (root_url +
-                              "/galaxy?suggesting=false&search=" +
-                              urllib.parse.quote(" ".join(driver['texts'])))
+                row['url'] = get_driver_url(root_url, driver)
 
             # Use the driver term to find related documents
             search_docs = client.get('docs', search={'texts': driver['texts']},
@@ -200,9 +203,7 @@ def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
                    'doc_count': driver['exact_match_count']}
 
             if len(root_url) > 0:
-                row['url'] = (root_url +
-                              "/galaxy?suggesting=false&search=" +
-                              urllib.parse.quote(" ".join(driver['texts'])))
+                row['url'] = get_driver_url(root_url, driver)
 
             # Use the driver term to find related documents
             search_docs = client.get('docs', search={'texts': driver['texts']},
@@ -241,9 +242,7 @@ def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
                'doc_count': driver['exact_match_count']}
 
         if len(root_url) > 0:
-            row['url'] = (root_url +
-                          "/galaxy?suggesting=false&search=" +
-                          urllib.parse.quote(" ".join(driver['texts'])))
+            row['url'] = get_driver_url(root_url, driver)
 
         # Use the driver term to find related documents
         search_docs = client.get('docs', search={'texts': driver['texts']},
