@@ -3,7 +3,7 @@ import concurrent.futures
 import csv
 import numpy as np
 import pandas as pd
-import urllib
+import urllib.parse
 from datetime import datetime, timedelta
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
