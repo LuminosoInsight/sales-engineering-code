@@ -10,15 +10,14 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 
 
-def get_as(vector1, vector2):
+def get_assoc(vector1, vector2):
     '''
     Calculate the association score between two vectors
     :param vector1: First vector
     :param vector2: Second vector
     :return: Cosine similarity of two vectors
     '''
-    return np.dot([float(v) for v in unpack64(vector1)],
-                  [float(v) for v in unpack64(vector2)])
+    return float(np.dot(unpack64(vector1), unpack64(vector2)))
 
 
 def get_driver_fields(client):
@@ -169,7 +168,7 @@ def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
             # Sort documents based on their association with the coefficient
             # vector
             for doc in search_docs['result']:
-                doc['driver_as'] = get_as(driver['vector'], doc['vector'])
+                doc['driver_as'] = get_assoc(driver['vector'], doc['vector'])
 
             docs = sorted(search_docs['result'], key=lambda k: k['driver_as'])
             row['example_doc'] = ''
@@ -212,7 +211,7 @@ def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
             # Sort documents based on their association with the coefficient
             # vector
             for doc in search_docs['result']:
-                doc['driver_as'] = get_as(driver['vector'], doc['vector'])
+                doc['driver_as'] = get_assoc(driver['vector'], doc['vector'])
 
             docs = sorted(search_docs['result'], key=lambda k: k['driver_as'])
             row['example_doc'] = ''
@@ -252,7 +251,7 @@ def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
 
         # Sort documents based on their association with the coefficient vector
         for doc in search_docs['result']:
-            doc['driver_as'] = get_as(driver['vectors'][0], doc['vector'])
+            doc['driver_as'] = get_assoc(driver['vectors'][0], doc['vector'])
 
         docs = sorted(search_docs['result'], key=lambda k: k['driver_as'])
         row['example_doc'] = ''
