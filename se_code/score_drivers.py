@@ -132,7 +132,7 @@ def get_fieldvalues_for_fieldname(client, field_name, metadata=None):
         return
 
 
-def create_one_table(client, field, topic_drive, root_url='', filter=""):
+def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
     '''
     Create tabulation of ScoreDrivers output, complete with doc counts, example
     docs, scores and driver clusters
@@ -143,10 +143,10 @@ def create_one_table(client, field, topic_drive, root_url='', filter=""):
     '''
     driver_table = []
     if topic_drive:
-        if len(filter) > 0:
+        if len(filter_list) > 0:
             score_drivers = client.get(
                 'concepts/score_drivers', score_field=field,
-                concept_selector={'type': 'saved'}, filter=filter
+                concept_selector={'type': 'saved'}, filter=filter_list
             )
         else:
             score_drivers = client.get(
@@ -186,10 +186,10 @@ def create_one_table(client, field, topic_drive, root_url='', filter=""):
                 row['example_doc3'] = docs[2]['text'][:32700]
             driver_table.append(row)
 
-        if len(filter) > 0:
+        if len(filter_list) > 0:
             score_drivers = client.get(
                 'concepts/score_drivers', score_field=field,
-                concept_selector={'type': 'top'}, filter=filter
+                concept_selector={'type': 'top'}, filter=filter_list
             )
         else:
             score_drivers = client.get(
@@ -230,9 +230,9 @@ def create_one_table(client, field, topic_drive, root_url='', filter=""):
 
             driver_table.append(row)
 
-    if len(filter) > 0:
+    if len(filter_list) > 0:
         score_drivers = client.get('concepts/score_drivers', score_field=field,
-                                   limit=100, filter=filter)
+                                   limit=100, filter=filter_list)
     else:
         score_drivers = client.get('concepts/score_drivers', score_field=field,
                                    limit=100)
@@ -272,24 +272,25 @@ def create_one_table(client, field, topic_drive, root_url='', filter=""):
     return driver_table
 
 
-def create_one_sdot_table(client, field, topic_drive, root_url, filter):
-    print("{}:{} sdot starting".format(filter[0]['maximum'], field))
+def create_one_sdot_table(client, field, topic_drive, root_url, filter_list):
+    print("{}:{} sdot starting".format(filter_list[0]['maximum'], field))
 
     driver_table = create_one_table(client, field, topic_drive, root_url,
-                                    filter)
+                                    filter_list)
     for d in driver_table:
-        d['end_date'] = filter[0]['maximum']
+        d['end_date'] = filter_list[0]['maximum']
     print("{}:{} sdot done data len={}".format(
-        filter[0]['maximum'], field, len(driver_table))
+        filter_list[0]['maximum'], field, len(driver_table))
     )
     return driver_table
 
 
 def create_drivers_table(client, driver_fields, topic_drive, root_url='',
-                         filter="", subset_name=None, subset_value=None):
+                         filter_list="", subset_name=None, subset_value=None):
     all_tables = []
     for field in driver_fields:
-        table = create_one_table(client, field, topic_drive, root_url, filter)
+        table = create_one_table(client, field, topic_drive, root_url,
+                                 filter_list)
         all_tables.extend(table)
 
     if subset_name is not None:
@@ -324,12 +325,12 @@ def create_drivers_with_subsets_table(client, driver_fields, topic_drive,
                                                          metadata=metadata)
             print("{}: field_values = {}".format(field_name, field_values))
             for field_value in field_values:
-                filter = [{"name": field_name, "values": field_value}]
-                print("filter={}".format(filter))
+                filter_list = [{"name": field_name, "values": field_value}]
+                print("filter={}".format(filter_list))
                 futures.append(executor.submit(
                     create_drivers_table, client, driver_fields, topic_drive,
-                    root_url=root_url, filter=filter, subset_name=field_name,
-                    subset_value=field_value[0])
+                    root_url=root_url, filter_list=filter_list,
+                    subset_name=field_name, subset_value=field_value[0])
                 )
                 threads_started += 1
 
@@ -404,13 +405,13 @@ def create_sdot_table(client, driver_fields, date_field_info, end_date,
 
             # if there is a metadata field filter, apply it here
             for field_value in driver_fields:
-                filter = [{"name": date_field_name,
-                           "minimum": int(start_date_epoch),
-                           "maximum": int(end_date_epoch)}]
+                filter_list = [{"name": date_field_name,
+                                "minimum": int(start_date_epoch),
+                                "maximum": int(end_date_epoch)}]
 
                 futures.append(executor.submit(
                     create_one_sdot_table, client, field_value, topic_drive,
-                    root_url, filter
+                    root_url, filter_list
                 ))
 
             # move to the nextdate
