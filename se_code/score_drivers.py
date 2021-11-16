@@ -41,14 +41,12 @@ def get_first_date_field(client):
     :return: dictionary with the date field info
     '''
     metadata = client.get('metadata')
-
-    if len([df['name'] for df in metadata['result'] if df['type'] == 'date']) > 1:
+    date_fields = [df for df in metadata['result'] if df['type'] == 'date']
+    if len(date_fields) > 1:
         print("WARNING: multiple date fields. Using first date field found.")
-
-    for df in metadata['result']:
-        if df['type'] == 'date':
-            return df
-    return None
+    if not date_fields:
+        return None
+    return date_fields[0]
 
 
 def get_date_field_by_name(client, date_field_name):
