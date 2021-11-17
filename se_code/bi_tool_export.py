@@ -512,7 +512,6 @@ def main():
     client = luminoso_data.client
     docs = luminoso_data.docs
     metadata = luminoso_data.metadata
-    driver_fields = luminoso_data.driver_fields
 
     # get the docs no matter what because later data needs the metadata_map
     doc_table, xref_table, metadata_map = create_doc_table(

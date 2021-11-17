@@ -171,7 +171,6 @@ def bi_tool_export():
     client = luminoso_data.client
     docs = luminoso_data.docs
     metadata = luminoso_data.metadata
-    driver_fields = luminoso_data.driver_fields
 
     doc_table, xref_table, metadata_map = create_doc_table(docs, metadata, themes, sentiment=sentiment)
     write_table_to_csv(doc_table, foldername+'doc_table.csv', calc_keys=True)
