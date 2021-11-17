@@ -170,9 +170,8 @@ def bi_tool_export():
     luminoso_data, scl_match_counts, concepts, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
     client = luminoso_data.client
     docs = luminoso_data.docs
-    metadata = luminoso_data.metadata
 
-    doc_table, xref_table, metadata_map = create_doc_table(docs, metadata, themes, sentiment=sentiment)
+    doc_table, xref_table, metadata_map = create_doc_table(luminoso_data, themes)
     write_table_to_csv(doc_table, foldername+'doc_table.csv', calc_keys=True)
     write_table_to_csv(xref_table, foldername+'xref_table.csv')
     

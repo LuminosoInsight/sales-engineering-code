@@ -180,11 +180,10 @@ def create_doc_subset_table(docs, metadata_map):
     return doc_subset_table
 
 
-def create_doc_table(docs, metadata, suggested_concepts):
+def create_doc_table(luminoso_data, suggested_concepts):
     '''
     Create a tabulation of documents and their related subsets & themes
-    :param docs: List of document dictionaries
-    :param metadata: List of metadata dictionaries
+    :param luminoso_data: a LuminosoData object
     :param suggested_concepts: The results from /concepts for
          suggested_concepts (same as themes)
     :return: List of documents with associated themes and list of
@@ -193,14 +192,15 @@ def create_doc_table(docs, metadata, suggested_concepts):
 
     print('Creating doc table...')
     sort_order = {'number': 0, 'score': 0, 'string': 1, 'date': 2}
-    sorted_metadata = sorted(metadata, key=lambda x: sort_order[x['type']])
+    sorted_metadata = sorted(luminoso_data.metadata,
+                             key=lambda x: sort_order[x['type']])
     metadata_map = {}
     for i, field in enumerate(sorted_metadata):
         metadata_map[field['name']] = 'Subset %d' % i
 
     doc_table = []
-        
-    for doc in docs:
+
+    for doc in luminoso_data.docs:
         row = {'doc_id': doc['doc_id'], 'doc_text': doc['text']}
         date_number = 0
         for field in doc['metadata']:
@@ -511,12 +511,9 @@ def main():
     (luminoso_data, scl_match_counts, concepts, skt, themes) = lumi_data
     client = luminoso_data.client
     docs = luminoso_data.docs
-    metadata = luminoso_data.metadata
 
     # get the docs no matter what because later data needs the metadata_map
-    doc_table, xref_table, metadata_map = create_doc_table(
-        docs, metadata, themes
-    )
+    doc_table, xref_table, metadata_map = create_doc_table(luminoso_data, themes)
 
     ui_project_url = root_url + '/app/projects/' + workspace + '/' + proj
 
