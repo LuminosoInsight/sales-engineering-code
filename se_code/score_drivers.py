@@ -9,6 +9,26 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 
 
+class ScoreDrivers:
+    def __init__(self, client, root_url=''):
+        self.client = client
+        self.root_url = root_url
+        self._docs = None
+        self._metadata = None
+
+    @property
+    def docs(self):
+        if self._docs is None:
+            self._docs = get_all_docs(self.client)
+        return self._docs
+
+    @property
+    def metadata(self):
+        if self._metadata is None:
+            self._metadata = self.client.get('metadata')['result']
+        return self._metadata
+
+
 def get_assoc(vector1, vector2):
     '''
     Calculate the association score between two vectors
