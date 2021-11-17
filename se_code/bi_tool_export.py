@@ -598,7 +598,7 @@ def main():
                 return
 
         sdot_table = create_sdot_table(
-            client, driver_fields, date_field_info, args.sdot_end,
+            score_drivers, driver_fields, date_field_info, args.sdot_end,
             int(args.sdot_iterations), args.sdot_range, args.topic_drive,
             root_url=ui_project_url, docs=docs
         )

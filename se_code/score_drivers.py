@@ -342,7 +342,7 @@ def create_drivers_with_subsets_table(client, driver_fields, topic_drive,
     return driver_table
 
 
-def create_sdot_table(client, driver_fields, date_field_info, end_date,
+def create_sdot_table(score_drivers, driver_fields, date_field_info, end_date,
                       iterations, range_type, topic_drive, root_url='',
                       docs=None):
     sd_data_raw = []
@@ -362,7 +362,7 @@ def create_sdot_table(client, driver_fields, date_field_info, end_date,
 
     if range_type is None or range_type not in ['M', 'W', 'D']:
         if docs is None:
-            docs = get_all_docs(client)
+            docs = score_drivers.docs
         range_type = find_best_interval(docs, date_field_name, iterations)
 
     print("sdot threads starting. Date Field: {}, Iterations: {},"
@@ -395,8 +395,8 @@ def create_sdot_table(client, driver_fields, date_field_info, end_date,
                             "minimum": int(start_date_epoch),
                             "maximum": int(end_date_epoch)}]
 
-            sd_data = create_one_sdot_table(client, field_value, topic_drive,
-                                            root_url, filter_list)
+            sd_data = create_one_sdot_table(score_drivers.client, field_value,
+                                            topic_drive, root_url, filter_list)
             sd_data_raw.extend(sd_data)
 
         # move to the nextdate
@@ -496,7 +496,7 @@ def main():
                 return
 
         sdot_table = create_sdot_table(
-            client, driver_fields, date_field_info, args.sdot_end,
+            score_drivers, driver_fields, date_field_info, args.sdot_end,
             int(args.sdot_iterations), args.sdot_range, args.topic_drivers,
             root_url=''
         )
