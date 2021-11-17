@@ -171,7 +171,7 @@ def bi_tool_export():
     client = luminoso_data.client
     docs = luminoso_data.docs
     metadata = luminoso_data.metadata
-    driver_fields = luminoso_data.get_driver_fields()
+    driver_fields = luminoso_data.driver_fields
 
     doc_table, xref_table, metadata_map = create_doc_table(docs, metadata, themes, sentiment=sentiment)
     write_table_to_csv(doc_table, foldername+'doc_table.csv', calc_keys=True)
@@ -216,7 +216,7 @@ def bi_tool_export():
         print("SDOT {},{},{},{}".format(sdot_end, sdot_iterations, sdot_range_type, sdot_date_field_name))
 
         if len(sdot_date_field_name)==0:
-            date_field_info = luminoso_data.get_first_date_field()
+            date_field_info = luminoso_data.first_date_field
             if date_field_info == None:
                 print("ERROR no date field in project")
                 return

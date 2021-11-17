@@ -512,7 +512,7 @@ def main():
     client = luminoso_data.client
     docs = luminoso_data.docs
     metadata = luminoso_data.metadata
-    driver_fields = luminoso_data.get_driver_fields()
+    driver_fields = luminoso_data.driver_fields
 
     # get the docs no matter what because later data needs the metadata_map
     doc_table, xref_table, metadata_map = create_doc_table(
@@ -580,7 +580,7 @@ def main():
     
     if bool(args.sdot):
         if args.sdot_date_field is None:
-            date_field_info = luminoso_data.get_first_date_field()
+            date_field_info = luminoso_data.first_date_field
             if date_field_info is None:
                 print("ERROR no date field in project")
                 return

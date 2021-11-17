@@ -28,7 +28,8 @@ class LuminosoData:
             self._metadata = self.client.get('metadata')['result']
         return self._metadata
 
-    def get_driver_fields(self):
+    @property
+    def driver_fields(self):
         '''
         Get all numeric or score metadata fields from the project in order to
         run drivers against
@@ -38,7 +39,8 @@ class LuminosoData:
                          if m['type'] == 'number' or m['type'] == 'score']
         return driver_fields
 
-    def get_first_date_field(self):
+    @property
+    def first_date_field(self):
         '''
         Get the first date field
         :return: dictionary with the date field info
@@ -292,7 +294,7 @@ def create_one_sdot_table(client, field, topic_drive, root_url, filter_list):
 def create_drivers_table(luminoso_data, topic_drive, root_url='',
                          filter_list="", subset_name=None, subset_value=None):
     all_tables = []
-    for field in luminoso_data.get_driver_fields():
+    for field in luminoso_data.driver_fields:
         table = create_one_table(luminoso_data.client, field, topic_drive,
                                  root_url, filter_list)
         all_tables.extend(table)
@@ -384,7 +386,7 @@ def create_sdot_table(luminoso_data, date_field_info, end_date, iterations,
             start_date_epoch = end_date_epoch - 60*60*24
 
         # if there is a metadata field filter, apply it here
-        for field_value in luminoso_data.get_driver_fields():
+        for field_value in luminoso_data.driver_fields:
             filter_list = [{"name": date_field_name,
                             "minimum": int(start_date_epoch),
                             "maximum": int(end_date_epoch)}]
@@ -470,13 +472,13 @@ def main():
     )
     luminoso_data = LuminosoData(client)
     print('Getting Drivers...')
-    driver_fields = luminoso_data.get_driver_fields()
+    driver_fields = luminoso_data.driver_fields
     print("driver_fields={}".format(driver_fields))
     if bool(args.sdot):
         print("Calculating sdot")
 
         if args.sdot_date_field is None:
-            date_field_info = luminoso_data.get_first_date_field()
+            date_field_info = luminoso_data.first_date_field
             if date_field_info is None:
                 print("ERROR no date field in project")
                 return
