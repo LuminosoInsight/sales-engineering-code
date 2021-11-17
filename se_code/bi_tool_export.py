@@ -10,9 +10,9 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 from se_code.subset_key_terms import subset_key_terms, create_skt_table
 from se_code.score_drivers import (
-    get_all_docs, get_driver_fields, create_drivers_table, create_sdot_table,
+    get_all_docs, create_drivers_table, create_sdot_table,
     get_first_date_field, get_date_field_by_name,
-    create_drivers_with_subsets_table
+    create_drivers_with_subsets_table, ScoreDrivers
 )
 
 
@@ -43,7 +43,8 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     '''
     print('Extracting Lumi data...')
     client = LuminosoClient.connect('{}/projects/{}'.format(api_url, project))
-    
+    score_drivers = ScoreDrivers(client)
+
     if cln:
         concept_list_names = cln.split("|")
         concept_lists_raw = client.get("concept_lists/")
@@ -93,8 +94,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
                 subset_counts[field['name']][value['value']] = value['count']
 
     skt = subset_key_terms(client, subset_counts, terms_per_subset=skt_limit)
-    
-    driver_fields = get_driver_fields(client)
+    driver_fields = score_drivers.get_driver_fields()
     
     themes = client.get(
         'concepts',

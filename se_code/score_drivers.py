@@ -28,6 +28,16 @@ class ScoreDrivers:
             self._metadata = self.client.get('metadata')['result']
         return self._metadata
 
+    def get_driver_fields(self):
+        '''
+        Get all numeric or score metadata fields from the project in order to
+        run drivers against
+        :return: List of fields that contain drivers
+        '''
+        driver_fields = [m['name'] for m in self.metadata
+                         if m['type'] == 'number' or m['type'] == 'score']
+        return driver_fields
+
 
 def get_assoc(vector1, vector2):
     '''
@@ -42,19 +52,6 @@ def get_assoc(vector1, vector2):
 def get_driver_url(root_url, driver):
     texts = urllib.parse.quote(' '.join(driver['texts']))
     return root_url + '/galaxy?suggesting=false&search=' + texts
-
-
-def get_driver_fields(client):
-    '''
-    Get all numeric or score metadata fields from the project in order to run
-    drivers against
-    :param client: LuminosoClient object pointed to project path
-    :return: List of fields that contain drivers
-    '''
-    metadata = client.get('metadata')
-    driver_fields = [m['name'] for m in metadata['result']
-                     if m['type'] == 'number' or m['type'] == 'score']
-    return driver_fields
 
 
 def get_first_date_field(client):
@@ -480,9 +477,9 @@ def main():
         url='%s/projects/%s' % (api_url.strip('/'), project_id),
         user_agent_suffix='se_code:score_drivers'
     )
-
+    score_drivers = ScoreDrivers(client)
     print('Getting Drivers...')
-    driver_fields = get_driver_fields(client)
+    driver_fields = score_drivers.get_driver_fields()
     print("driver_fields={}".format(driver_fields))
     if bool(args.sdot):
         print("Calculating sdot")
