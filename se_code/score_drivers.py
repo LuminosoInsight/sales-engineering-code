@@ -63,6 +63,41 @@ class ScoreDrivers:
                 return df
         return None
 
+    def find_best_interval(self, date_field_name, num_intervals):
+        docs_by_date = []
+        for i, d in enumerate(self.docs):
+            for m in d['metadata']:
+                if m['name'] == date_field_name:
+                    date = datetime.strptime(m['value'],
+                                             '%Y-%m-%dT%H:%M:%S.%fZ')
+                    docs_by_date.append({'date': date, 'doc_id': d['doc_id'],
+                                         'i': 1})
+                    break
+
+        df = pd.DataFrame(docs_by_date)
+        df.set_index(['date'])
+        pd.to_datetime(df.date, unit='s')
+
+        interval_types = ['M', 'W', 'D']
+        df = pd.DataFrame(docs_by_date)
+        df.set_index(['date'])
+        df.index = pd.to_datetime(df.date, unit='s')
+
+        for itype in interval_types:
+            df2 = df.i.resample(itype).sum()
+            if len(df2) > num_intervals:
+                # this is a good interval, check the number of verbatims per
+                # interval
+                interval_avg = df2[df2.index].mean()
+                if interval_avg < 300:
+                    print("Average number of documents per interval is low:"
+                          " {}".format(int(interval_avg)))
+                return itype
+
+        print("Did not find a good range type [M,W,D] for {} intervals."
+              " Using D".format(num_intervals))
+        return "D"
+
 
 def get_assoc(vector1, vector2):
     '''
@@ -77,42 +112,6 @@ def get_assoc(vector1, vector2):
 def get_driver_url(root_url, driver):
     texts = urllib.parse.quote(' '.join(driver['texts']))
     return root_url + '/galaxy?suggesting=false&search=' + texts
-
-
-def find_best_interval(docs, date_field_name, num_intervals):
-    docs_by_date = []
-    for i, d in enumerate(docs):
-        for m in d['metadata']:
-            if m['name'] == date_field_name:
-                date = datetime.strptime(m['value'],
-                                         '%Y-%m-%dT%H:%M:%S.%fZ')
-                docs_by_date.append({'date': date, 'doc_id': d['doc_id'],
-                                     'i': 1})
-                break
-
-    df = pd.DataFrame(docs_by_date)
-    df.set_index(['date'])
-    pd.to_datetime(df.date, unit='s')
-
-    interval_types = ['M', 'W', 'D']
-    df = pd.DataFrame(docs_by_date)
-    df.set_index(['date'])
-    df.index = pd.to_datetime(df.date, unit='s')
-
-    for itype in interval_types:
-        df2 = df.i.resample(itype).sum()
-        if len(df2) > num_intervals:
-            # this is a good interval, check the number of verbatims per
-            # interval
-            interval_avg = df2[df2.index].mean()
-            if interval_avg < 300:
-                print("Average number of documents per interval is low:"
-                      " {}".format(int(interval_avg)))
-            return itype
-
-    print("Did not find a good range type [M,W,D] for {} intervals."
-          " Using D".format(num_intervals))
-    return "D"
 
 
 def last_day_prior_month(dt):
@@ -343,10 +342,8 @@ def create_drivers_with_subsets_table(client, driver_fields, topic_drive,
 
 
 def create_sdot_table(score_drivers, driver_fields, date_field_info, end_date,
-                      iterations, range_type, topic_drive, root_url='',
-                      docs=None):
+                      iterations, range_type, topic_drive, root_url=''):
     sd_data_raw = []
-    futures = []
 
     if end_date is None or len(end_date) == 0:
         end_date = date_field_info['maximum']
@@ -361,9 +358,8 @@ def create_sdot_table(score_drivers, driver_fields, date_field_info, end_date,
     start_date_dt = None
 
     if range_type is None or range_type not in ['M', 'W', 'D']:
-        if docs is None:
-            docs = score_drivers.docs
-        range_type = find_best_interval(docs, date_field_name, iterations)
+        range_type = score_drivers.find_best_interval(date_field_name,
+                                                      iterations)
 
     print("sdot threads starting. Date Field: {}, Iterations: {},"
           " Range Type: {}".format(date_field_name, iterations, range_type))

@@ -596,7 +596,7 @@ def main():
         sdot_table = create_sdot_table(
             score_drivers, driver_fields, date_field_info, args.sdot_end,
             int(args.sdot_iterations), args.sdot_range, args.topic_drive,
-            root_url=ui_project_url, docs=docs
+            root_url=ui_project_url
         )
         write_table_to_csv(sdot_table, 'sdot_table.csv', encoding=args.encoding)
 
