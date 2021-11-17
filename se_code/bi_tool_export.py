@@ -113,8 +113,8 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
         concept['theme_id'] = theme_id
         concept['fvector'] = unpack64(concept['vectors'][0]).tolist()
 
-    return (client, docs, scl_match_counts, concepts, metadata, driver_fields,
-            skt, themes)
+    return (score_drivers, docs, scl_match_counts, concepts, metadata,
+            driver_fields, skt, themes)
 
 
 def create_doc_term_table(docs, concepts, scl_match_counts):
@@ -515,8 +515,9 @@ def main():
     lumi_data = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit),
                                concept_count=int(args.concept_count),
                                cln=args.concept_list_names)
-    (client, docs, scl_match_counts, concepts, metadata, driver_fields, skt,
-     themes) = lumi_data
+    (score_drivers, docs, scl_match_counts, concepts, metadata, driver_fields,
+     skt, themes) = lumi_data
+    client = score_drivers.client
 
     # get the docs no matter what because later data needs the metadata_map
     doc_table, xref_table, metadata_map = create_doc_table(
