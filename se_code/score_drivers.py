@@ -66,7 +66,7 @@ def get_date_field_by_name(client, date_field_name):
     return None
 
 
-def find_best_interval(client, docs, date_field_name, num_intervals):
+def find_best_interval(docs, date_field_name, num_intervals):
     docs_by_date = []
     for i, d in enumerate(docs):
         for m in d['metadata']:
@@ -107,9 +107,7 @@ def last_day_prior_month(dt):
     return dt_new - timedelta(days=1)
 
 
-def get_best_subset_fields(client, metadata=None):
-    if metadata is None:
-        metadata = client.get('/metadata/')['result']
+def get_best_subset_fields(metadata):
     field_names = []
     for md in metadata:
         if 'values' in md:
@@ -121,9 +119,7 @@ def get_best_subset_fields(client, metadata=None):
     return field_names
 
 
-def get_fieldvalues_for_fieldname(client, field_name, metadata=None):
-    if metadata is None:
-        metadata = client.get('/metadata/')['result']
+def get_fieldvalues_for_fieldname(field_name, metadata):
     field_names = [d['name'] for d in metadata]
     if field_name in field_names:
         return [[item['value']] for item in
@@ -305,7 +301,7 @@ def create_drivers_with_subsets_table(client, driver_fields, topic_drive,
 
     # if the user specifies the list of subsets to process
     if subset_fields is None or len(subset_fields) == 0:
-        subset_fields = get_best_subset_fields(client, metadata=metadata)
+        subset_fields = get_best_subset_fields(metadata)
     else:
         subset_fields = subset_fields.split(",")
 
@@ -317,8 +313,7 @@ def create_drivers_with_subsets_table(client, driver_fields, topic_drive,
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
 
         for field_name in subset_fields:
-            field_values = get_fieldvalues_for_fieldname(client, field_name,
-                                                         metadata=metadata)
+            field_values = get_fieldvalues_for_fieldname(field_name, metadata)
             print("{}: field_values = {}".format(field_name, field_values))
             for field_value in field_values:
                 filter_list = [{"name": field_name, "values": field_value}]
@@ -369,8 +364,7 @@ def create_sdot_table(client, driver_fields, date_field_info, end_date,
     if range_type is None or range_type not in ['M', 'W', 'D']:
         if docs is None:
             docs = get_all_docs(client)
-        range_type = find_best_interval(client, docs, date_field_name,
-                                        iterations)
+        range_type = find_best_interval(docs, date_field_name, iterations)
 
     print("sdot threads starting. Date Field: {}, Iterations: {},"
           " Range Type: {}".format(date_field_name, iterations, range_type))
