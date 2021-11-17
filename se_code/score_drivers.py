@@ -1,5 +1,4 @@
 import argparse
-import concurrent.futures
 import csv
 import numpy as np
 import pandas as pd
@@ -307,38 +306,24 @@ def create_drivers_with_subsets_table(client, driver_fields, topic_drive,
 
     # process score drivers by subset
     driver_table = []
-    threads_complete = 1
-    threads_started = 0
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-
-        for field_name in subset_fields:
-            field_values = get_fieldvalues_for_fieldname(field_name, metadata)
-            print("{}: field_values = {}".format(field_name, field_values))
-            for field_value in field_values:
-                filter_list = [{"name": field_name, "values": field_value}]
-                print("filter={}".format(filter_list))
-                futures.append(executor.submit(
-                    create_drivers_table, client, driver_fields, topic_drive,
-                    root_url=root_url, filter_list=filter_list,
-                    subset_name=field_name, subset_value=field_value[0])
-                )
-                threads_started += 1
-
-        for future in concurrent.futures.as_completed(futures):
-            sd_data = future.result()
+    for field_name in subset_fields:
+        field_values = get_fieldvalues_for_fieldname(field_name, metadata)
+        print("{}: field_values = {}".format(field_name, field_values))
+        for field_value in field_values:
+            filter_list = [{"name": field_name, "values": field_value}]
+            print("filter={}".format(filter_list))
+            sd_data = create_drivers_table(
+                client, driver_fields, topic_drive,
+                root_url=root_url, filter_list=filter_list,
+                subset_name=field_name, subset_value=field_value[0]
+            )
             driver_table.extend(sd_data)
             if len(sd_data) > 0:
-                print("Thread [{} of {}] {}:{} complete. len={}".format(
-                    threads_complete, threads_started,
+                print("{}:{} complete. len={}".format(
                     sd_data[0]['subset_name'], sd_data[0]['subset_value'],
                     len(sd_data)
                 ))
-            else:
-                print("Thread [{} of {}] complete. len=0".format(
-                    threads_complete, threads_started
-                ))
-            threads_complete += 1
 
     return driver_table
 
@@ -368,54 +353,41 @@ def create_sdot_table(client, driver_fields, date_field_info, end_date,
 
     print("sdot threads starting. Date Field: {}, Iterations: {},"
           " Range Type: {}".format(date_field_name, iterations, range_type))
-    threads_complete = 1
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+    # run the number of iterations
+    for count in range(iterations):
+        if range_type == "M":
+            if not start_date_dt:
+                if end_date_dt.day == 1:
+                    print("error, cannot start with the beginning of a"
+                          " month. Starting with previous month")
+                    end_date_dt = end_date_dt - timedelta(days=1)
+                start_date_dt = end_date_dt.replace(day=1)
+            else:
+                end_date_dt = last_day_prior_month(start_date_dt)
+                start_date_dt = end_date_dt.replace(day=1)
 
-        # run the number of iterations
-        for count in range(iterations):
-            if range_type == "M":
-                if not start_date_dt:
-                    if end_date_dt.day == 1:
-                        print("error, cannot start with the beginning of a"
-                              " month. Starting with previous month")
-                        end_date_dt = end_date_dt - timedelta(days=1)
-                    start_date_dt = end_date_dt.replace(day=1)
-                else:
-                    end_date_dt = last_day_prior_month(start_date_dt)
-                    start_date_dt = end_date_dt.replace(day=1)
+            end_date_epoch = end_date_dt.timestamp()
+            start_date_epoch = start_date_dt.timestamp()
 
-                end_date_epoch = end_date_dt.timestamp()
-                start_date_epoch = start_date_dt.timestamp()
+        elif range_type == "W":  # week
+            start_date_epoch = end_date_epoch - 60*60*24*7
+        else:  # day
+            start_date_epoch = end_date_epoch - 60*60*24
 
-            elif range_type == "W":  # week
-                start_date_epoch = end_date_epoch - 60*60*24*7
-            else:  # day
-                start_date_epoch = end_date_epoch - 60*60*24
+        # if there is a metadata field filter, apply it here
+        for field_value in driver_fields:
+            filter_list = [{"name": date_field_name,
+                            "minimum": int(start_date_epoch),
+                            "maximum": int(end_date_epoch)}]
 
-            # if there is a metadata field filter, apply it here
-            for field_value in driver_fields:
-                filter_list = [{"name": date_field_name,
-                                "minimum": int(start_date_epoch),
-                                "maximum": int(end_date_epoch)}]
-
-                futures.append(executor.submit(
-                    create_one_sdot_table, client, field_value, topic_drive,
-                    root_url, filter_list
-                ))
-
-            # move to the nextdate
-            end_date_epoch = start_date_epoch
-            end_date_dt = datetime.fromtimestamp(end_date_epoch)
-
-        for future in concurrent.futures.as_completed(futures):
-            sd_data = future.result()
+            sd_data = create_one_sdot_table(client, field_value, topic_drive,
+                                            root_url, filter_list)
             sd_data_raw.extend(sd_data)
 
-            print("Thread {} of {} finished".format(
-                threads_complete, iterations
-            ))
-            threads_complete += 1
+        # move to the nextdate
+        end_date_epoch = start_date_epoch
+        end_date_dt = datetime.fromtimestamp(end_date_epoch)
 
     return sd_data_raw
 
