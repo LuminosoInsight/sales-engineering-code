@@ -11,7 +11,7 @@ from pack64 import unpack64
 from se_code.subset_key_terms import subset_key_terms, create_skt_table
 from se_code.score_drivers import (
     get_all_docs, create_drivers_table, create_sdot_table,
-    get_first_date_field, get_date_field_by_name,
+    get_date_field_by_name,
     create_drivers_with_subsets_table, ScoreDrivers
 )
 
@@ -585,7 +585,7 @@ def main():
     
     if bool(args.sdot):
         if args.sdot_date_field is None:
-            date_field_info = get_first_date_field(client)
+            date_field_info = score_drivers.get_first_date_field()
             if date_field_info is None:
                 print("ERROR no date field in project")
                 return

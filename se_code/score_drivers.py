@@ -38,6 +38,19 @@ class ScoreDrivers:
                          if m['type'] == 'number' or m['type'] == 'score']
         return driver_fields
 
+    def get_first_date_field(self):
+        '''
+        Get the first date field
+        :return: dictionary with the date field info
+        '''
+        date_fields = [df for df in self.metadata if df['type'] == 'date']
+        if len(date_fields) > 1:
+            print("WARNING: multiple date fields. Using first date field"
+                  " found.")
+        if not date_fields:
+            return None
+        return date_fields[0]
+
 
 def get_assoc(vector1, vector2):
     '''
@@ -52,21 +65,6 @@ def get_assoc(vector1, vector2):
 def get_driver_url(root_url, driver):
     texts = urllib.parse.quote(' '.join(driver['texts']))
     return root_url + '/galaxy?suggesting=false&search=' + texts
-
-
-def get_first_date_field(client):
-    '''
-    Get the first date field
-    :param client: LuminosoClient object pointed to project path
-    :return: dictionary with the date field info
-    '''
-    metadata = client.get('metadata')
-    date_fields = [df for df in metadata['result'] if df['type'] == 'date']
-    if len(date_fields) > 1:
-        print("WARNING: multiple date fields. Using first date field found.")
-    if not date_fields:
-        return None
-    return date_fields[0]
 
 
 def get_date_field_by_name(client, date_field_name):
@@ -485,7 +483,7 @@ def main():
         print("Calculating sdot")
 
         if args.sdot_date_field is None:
-            date_field_info = get_first_date_field(client)
+            date_field_info = score_drivers.get_first_date_field()
             if date_field_info is None:
                 print("ERROR no date field in project")
                 return
