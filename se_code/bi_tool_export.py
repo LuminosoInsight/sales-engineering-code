@@ -566,8 +566,8 @@ def main():
         write_table_to_csv(skt_table, 'skt_table.csv', encoding=args.encoding)
 
     if not args.drive:
-        driver_table = create_drivers_table(client, driver_fields,
-                                            args.topic_drive, ui_project_url)
+        driver_table = create_drivers_table(score_drivers, args.topic_drive,
+                                            ui_project_url)
         write_table_to_csv(driver_table, 'drivers_table.csv',
                            encoding=args.encoding)
     

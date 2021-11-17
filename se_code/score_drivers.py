@@ -289,12 +289,12 @@ def create_one_sdot_table(client, field, topic_drive, root_url, filter_list):
     return driver_table
 
 
-def create_drivers_table(client, driver_fields, topic_drive, root_url='',
+def create_drivers_table(score_drivers, topic_drive, root_url='',
                          filter_list="", subset_name=None, subset_value=None):
     all_tables = []
-    for field in driver_fields:
-        table = create_one_table(client, field, topic_drive, root_url,
-                                 filter_list)
+    for field in score_drivers.get_driver_fields():
+        table = create_one_table(score_drivers.client, field, topic_drive,
+                                 root_url, filter_list)
         all_tables.extend(table)
 
     if subset_name is not None:
@@ -325,9 +325,9 @@ def create_drivers_with_subsets_table(score_drivers, topic_drive,
             filter_list = [{"name": field_name, "values": field_value}]
             print("filter={}".format(filter_list))
             sd_data = create_drivers_table(
-                score_drivers.client, score_drivers.get_driver_fields(),
-                topic_drive, root_url=root_url, filter_list=filter_list,
-                subset_name=field_name, subset_value=field_value[0]
+                score_drivers, topic_drive, root_url=root_url,
+                filter_list=filter_list, subset_name=field_name,
+                subset_value=field_value[0]
             )
             driver_table.extend(sd_data)
             if len(sd_data) > 0:
@@ -497,8 +497,7 @@ def main():
         write_table_to_csv(sdot_table, 'sdot_table.csv',
                            encoding=args.encoding)
 
-    driver_table = create_drivers_table(client, driver_fields,
-                                        args.topic_drivers)
+    driver_table = create_drivers_table(score_drivers, args.topic_drivers)
     write_table_to_csv(driver_table, 'drivers_table.csv',
                        encoding=args.encoding)
 

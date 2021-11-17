@@ -205,7 +205,7 @@ def bi_tool_export():
         write_table_to_csv(skt_table, foldername+'skt_table.csv')
     
     if drivers_on:
-        driver_table = create_drivers_table(client, driver_fields, topic_drive)
+        driver_table = create_drivers_table(score_drivers, topic_drive)
         write_table_to_csv(driver_table, foldername+'drivers_table.csv')
 
     if driver_subsets:
