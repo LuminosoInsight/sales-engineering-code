@@ -9,7 +9,7 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 
 
-class ScoreDrivers:
+class LuminosoData:
     def __init__(self, client, root_url=''):
         self.client = client
         self.root_url = root_url
@@ -289,11 +289,11 @@ def create_one_sdot_table(client, field, topic_drive, root_url, filter_list):
     return driver_table
 
 
-def create_drivers_table(score_drivers, topic_drive, root_url='',
+def create_drivers_table(luminoso_data, topic_drive, root_url='',
                          filter_list="", subset_name=None, subset_value=None):
     all_tables = []
-    for field in score_drivers.get_driver_fields():
-        table = create_one_table(score_drivers.client, field, topic_drive,
+    for field in luminoso_data.get_driver_fields():
+        table = create_one_table(luminoso_data.client, field, topic_drive,
                                  root_url, filter_list)
         all_tables.extend(table)
 
@@ -305,9 +305,9 @@ def create_drivers_table(score_drivers, topic_drive, root_url='',
     return all_tables
 
 
-def create_drivers_with_subsets_table(score_drivers, topic_drive,
+def create_drivers_with_subsets_table(luminoso_data, topic_drive,
                                       root_url='', subset_fields=None):
-    metadata = score_drivers.metadata
+    metadata = luminoso_data.metadata
 
     # if the user specifies the list of subsets to process
     if subset_fields is None or len(subset_fields) == 0:
@@ -325,7 +325,7 @@ def create_drivers_with_subsets_table(score_drivers, topic_drive,
             filter_list = [{"name": field_name, "values": field_value}]
             print("filter={}".format(filter_list))
             sd_data = create_drivers_table(
-                score_drivers, topic_drive, root_url=root_url,
+                luminoso_data, topic_drive, root_url=root_url,
                 filter_list=filter_list, subset_name=field_name,
                 subset_value=field_value[0]
             )
@@ -339,7 +339,7 @@ def create_drivers_with_subsets_table(score_drivers, topic_drive,
     return driver_table
 
 
-def create_sdot_table(score_drivers, date_field_info, end_date, iterations,
+def create_sdot_table(luminoso_data, date_field_info, end_date, iterations,
                       range_type, topic_drive, root_url=''):
     sd_data_raw = []
 
@@ -356,7 +356,7 @@ def create_sdot_table(score_drivers, date_field_info, end_date, iterations,
     start_date_dt = None
 
     if range_type is None or range_type not in ['M', 'W', 'D']:
-        range_type = score_drivers.find_best_interval(date_field_name,
+        range_type = luminoso_data.find_best_interval(date_field_name,
                                                       iterations)
 
     print("sdot threads starting. Date Field: {}, Iterations: {},"
@@ -384,12 +384,12 @@ def create_sdot_table(score_drivers, date_field_info, end_date, iterations,
             start_date_epoch = end_date_epoch - 60*60*24
 
         # if there is a metadata field filter, apply it here
-        for field_value in score_drivers.get_driver_fields():
+        for field_value in luminoso_data.get_driver_fields():
             filter_list = [{"name": date_field_name,
                             "minimum": int(start_date_epoch),
                             "maximum": int(end_date_epoch)}]
 
-            sd_data = create_one_sdot_table(score_drivers.client, field_value,
+            sd_data = create_one_sdot_table(luminoso_data.client, field_value,
                                             topic_drive, root_url, filter_list)
             sd_data_raw.extend(sd_data)
 
@@ -468,20 +468,20 @@ def main():
         url='%s/projects/%s' % (api_url.strip('/'), project_id),
         user_agent_suffix='se_code:score_drivers'
     )
-    score_drivers = ScoreDrivers(client)
+    luminoso_data = LuminosoData(client)
     print('Getting Drivers...')
-    driver_fields = score_drivers.get_driver_fields()
+    driver_fields = luminoso_data.get_driver_fields()
     print("driver_fields={}".format(driver_fields))
     if bool(args.sdot):
         print("Calculating sdot")
 
         if args.sdot_date_field is None:
-            date_field_info = score_drivers.get_first_date_field()
+            date_field_info = luminoso_data.get_first_date_field()
             if date_field_info is None:
                 print("ERROR no date field in project")
                 return
         else:
-            date_field_info = score_drivers.get_date_field_by_name(
+            date_field_info = luminoso_data.get_date_field_by_name(
                 args.sdot_date_field
             )
             if date_field_info is None:
@@ -490,21 +490,21 @@ def main():
                 return
 
         sdot_table = create_sdot_table(
-            score_drivers, date_field_info, args.sdot_end,
+            luminoso_data, date_field_info, args.sdot_end,
             int(args.sdot_iterations), args.sdot_range, args.topic_drivers,
             root_url=''
         )
         write_table_to_csv(sdot_table, 'sdot_table.csv',
                            encoding=args.encoding)
 
-    driver_table = create_drivers_table(score_drivers, args.topic_drivers)
+    driver_table = create_drivers_table(luminoso_data, args.topic_drivers)
     write_table_to_csv(driver_table, 'drivers_table.csv',
                        encoding=args.encoding)
 
     # find score drivers by subset
     if bool(args.subset):
         driver_table = create_drivers_with_subsets_table(
-            score_drivers, args.topic_drivers,
+            luminoso_data, args.topic_drivers,
             subset_fields=args.subset_fields
         )
         write_table_to_csv(driver_table, 'subset_drivers_table.csv',

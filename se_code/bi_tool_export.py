@@ -11,7 +11,7 @@ from pack64 import unpack64
 from se_code.subset_key_terms import subset_key_terms, create_skt_table
 from se_code.score_drivers import (
     create_drivers_table, create_sdot_table,
-    create_drivers_with_subsets_table, ScoreDrivers
+    create_drivers_with_subsets_table, LuminosoData
 )
 
 
@@ -42,7 +42,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     '''
     print('Extracting Lumi data...')
     client = LuminosoClient.connect('{}/projects/{}'.format(api_url, project))
-    score_drivers = ScoreDrivers(client)
+    luminoso_data = LuminosoData(client)
 
     if cln:
         concept_list_names = cln.split("|")
@@ -77,7 +77,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     )['match_counts']
     
     subset_counts = {}
-    for field in score_drivers.metadata:
+    for field in luminoso_data.metadata:
         if field['type'] == 'string':
             subset_counts[field['name']] = {}
             if len(field['values']) > 200:
@@ -107,7 +107,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
         concept['theme_id'] = theme_id
         concept['fvector'] = unpack64(concept['vectors'][0]).tolist()
 
-    return (score_drivers, scl_match_counts, concepts, skt, themes)
+    return (luminoso_data, scl_match_counts, concepts, skt, themes)
 
 
 def create_doc_term_table(docs, concepts, scl_match_counts):
@@ -508,11 +508,11 @@ def main():
     lumi_data = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit),
                                concept_count=int(args.concept_count),
                                cln=args.concept_list_names)
-    (score_drivers, scl_match_counts, concepts, skt, themes) = lumi_data
-    client = score_drivers.client
-    docs = score_drivers.docs
-    metadata = score_drivers.metadata
-    driver_fields = score_drivers.get_driver_fields()
+    (luminoso_data, scl_match_counts, concepts, skt, themes) = lumi_data
+    client = luminoso_data.client
+    docs = luminoso_data.docs
+    metadata = luminoso_data.metadata
+    driver_fields = luminoso_data.get_driver_fields()
 
     # get the docs no matter what because later data needs the metadata_map
     doc_table, xref_table, metadata_map = create_doc_table(
@@ -523,7 +523,7 @@ def main():
 
     if not args.driver_subset:
         driver_table = create_drivers_with_subsets_table(
-            score_drivers, args.topic_drive, ui_project_url,
+            luminoso_data, args.topic_drive, ui_project_url,
             args.driver_subset_fields
         )
         write_table_to_csv(driver_table, 'subset_drivers_table.csv',
@@ -566,7 +566,7 @@ def main():
         write_table_to_csv(skt_table, 'skt_table.csv', encoding=args.encoding)
 
     if not args.drive:
-        driver_table = create_drivers_table(score_drivers, args.topic_drive,
+        driver_table = create_drivers_table(luminoso_data, args.topic_drive,
                                             ui_project_url)
         write_table_to_csv(driver_table, 'drivers_table.csv',
                            encoding=args.encoding)
@@ -580,12 +580,12 @@ def main():
     
     if bool(args.sdot):
         if args.sdot_date_field is None:
-            date_field_info = score_drivers.get_first_date_field()
+            date_field_info = luminoso_data.get_first_date_field()
             if date_field_info is None:
                 print("ERROR no date field in project")
                 return
         else:
-            date_field_info = score_drivers.get_date_field_by_name(
+            date_field_info = luminoso_data.get_date_field_by_name(
                 args.sdot_date_field
             )
             if date_field_info is None:
@@ -594,7 +594,7 @@ def main():
                 return
 
         sdot_table = create_sdot_table(
-            score_drivers, date_field_info, args.sdot_end,
+            luminoso_data, date_field_info, args.sdot_end,
             int(args.sdot_iterations), args.sdot_range, args.topic_drive,
             root_url=ui_project_url
         )

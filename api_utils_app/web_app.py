@@ -167,11 +167,11 @@ def bi_tool_export():
     if 'sdot_date_field_name' in request.form:
         sdot_date_field_name = request.form['sdot_date_field_name'].strip()
     
-    score_drivers, scl_match_counts, concepts, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
-    client = score_drivers.client
-    docs = score_drivers.docs
-    metadata = score_drivers.metadata
-    driver_fields = score_drivers.get_driver_fields()
+    luminoso_data, scl_match_counts, concepts, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
+    client = luminoso_data.client
+    docs = luminoso_data.docs
+    metadata = luminoso_data.metadata
+    driver_fields = luminoso_data.get_driver_fields()
 
     doc_table, xref_table, metadata_map = create_doc_table(docs, metadata, themes, sentiment=sentiment)
     write_table_to_csv(doc_table, foldername+'doc_table.csv', calc_keys=True)
@@ -205,28 +205,28 @@ def bi_tool_export():
         write_table_to_csv(skt_table, foldername+'skt_table.csv')
     
     if drivers_on:
-        driver_table = create_drivers_table(score_drivers, topic_drive)
+        driver_table = create_drivers_table(luminoso_data, topic_drive)
         write_table_to_csv(driver_table, foldername+'drivers_table.csv')
 
     if driver_subsets:
-        driver_table = create_drivers_with_subsets_table(score_drivers, topic_drive, subset_fields=driver_subset_fields)
+        driver_table = create_drivers_with_subsets_table(luminoso_data, topic_drive, subset_fields=driver_subset_fields)
         write_table_to_csv(driver_table, 'subset_drivers_table.csv')
      
     if sdot_on:
         print("SDOT {},{},{},{}".format(sdot_end, sdot_iterations, sdot_range_type, sdot_date_field_name))
 
         if len(sdot_date_field_name)==0:
-            date_field_info = score_drivers.get_first_date_field()
+            date_field_info = luminoso_data.get_first_date_field()
             if date_field_info == None:
                 print("ERROR no date field in project")
                 return
         else:
-            date_field_info = score_drivers.get_date_field_by_name(sdot_date_field_name)
+            date_field_info = luminoso_data.get_date_field_by_name(sdot_date_field_name)
             if not date_field_info:
                 print("ERROR: no date field name: {}".format(sdot_date_field_name))
                 return
 
-        sdot_table = create_sdot_table(score_drivers, date_field_info, sdot_end, int(sdot_iterations), sdot_range_type, topic_drive, root_url='')
+        sdot_table = create_sdot_table(luminoso_data, date_field_info, sdot_end, int(sdot_iterations), sdot_range_type, topic_drive, root_url='')
         write_table_to_csv(sdot_table, foldername+'sdot_table.csv')
     
     #if trends:
