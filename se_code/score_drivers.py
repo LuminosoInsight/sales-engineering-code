@@ -51,6 +51,18 @@ class ScoreDrivers:
             return None
         return date_fields[0]
 
+    def get_date_field_by_name(self, date_field_name):
+        '''
+        Get the date field by name
+        :param date_field_name: name of the date field to get
+        :return: dictionary with the date field info, or `None` if no field
+            with that name exists
+        '''
+        for df in self.metadata:
+            if df['name'] == date_field_name:
+                return df
+        return None
+
 
 def get_assoc(vector1, vector2):
     '''
@@ -65,19 +77,6 @@ def get_assoc(vector1, vector2):
 def get_driver_url(root_url, driver):
     texts = urllib.parse.quote(' '.join(driver['texts']))
     return root_url + '/galaxy?suggesting=false&search=' + texts
-
-
-def get_date_field_by_name(client, date_field_name):
-    '''
-    Get the date field by name
-    :param client: LuminosoClient object pointed to project path
-    :return: dictionary with the date field info
-    '''
-    metadata = client.get('metadata')
-    for df in metadata['result']:
-        if df['name'] == date_field_name:
-            return df
-    return None
 
 
 def find_best_interval(docs, date_field_name, num_intervals):
@@ -488,10 +487,12 @@ def main():
                 print("ERROR no date field in project")
                 return
         else:
-            date_field_info = get_date_field_by_name(client,
-                                                     args.sdot_date_field)
+            date_field_info = score_drivers.get_date_field_by_name(
+                args.sdot_date_field
+            )
             if date_field_info is None:
-                print("ERROR: no date field name: {}".format(args.sdot_date_field))
+                print("ERROR: no date field name:"
+                      " {}".format(args.sdot_date_field))
                 return
 
         sdot_table = create_sdot_table(

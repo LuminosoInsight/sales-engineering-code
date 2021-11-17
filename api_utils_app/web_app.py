@@ -9,7 +9,7 @@ from reddit_utilities import get_reddit_api, get_posts_from_past, get_posts_by_n
 from term_utilities import get_terms, ignore_terms, merge_terms
 from se_code.copy_shared_concepts import copy_shared_concepts, delete_shared_concepts
 from se_code.create_train_test_split import create_train_test
-from se_code.bi_tool_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, get_date_field_by_name, create_drivers_with_subsets_table, parse_url
+from se_code.bi_tool_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, create_drivers_with_subsets_table, parse_url
 from subset_utilities import search_subsets, calc_metadata_vectors
 
 # Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
@@ -218,7 +218,7 @@ def bi_tool_export():
                 print("ERROR no date field in project")
                 return
         else:
-            date_field_info = get_date_field_by_name(sdot_date_field_name)
+            date_field_info = score_drivers.get_date_field_by_name(sdot_date_field_name)
             if not date_field_info:
                 print("ERROR: no date field name: {}".format(sdot_date_field_name))
                 return
