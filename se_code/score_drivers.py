@@ -341,8 +341,8 @@ def create_drivers_with_subsets_table(client, driver_fields, topic_drive,
     return driver_table
 
 
-def create_sdot_table(score_drivers, driver_fields, date_field_info, end_date,
-                      iterations, range_type, topic_drive, root_url=''):
+def create_sdot_table(score_drivers, date_field_info, end_date, iterations,
+                      range_type, topic_drive, root_url=''):
     sd_data_raw = []
 
     if end_date is None or len(end_date) == 0:
@@ -386,7 +386,7 @@ def create_sdot_table(score_drivers, driver_fields, date_field_info, end_date,
             start_date_epoch = end_date_epoch - 60*60*24
 
         # if there is a metadata field filter, apply it here
-        for field_value in driver_fields:
+        for field_value in score_drivers.get_driver_fields():
             filter_list = [{"name": date_field_name,
                             "minimum": int(start_date_epoch),
                             "maximum": int(end_date_epoch)}]
@@ -492,7 +492,7 @@ def main():
                 return
 
         sdot_table = create_sdot_table(
-            score_drivers, driver_fields, date_field_info, args.sdot_end,
+            score_drivers, date_field_info, args.sdot_end,
             int(args.sdot_iterations), args.sdot_range, args.topic_drivers,
             root_url=''
         )

@@ -226,7 +226,7 @@ def bi_tool_export():
                 print("ERROR: no date field name: {}".format(sdot_date_field_name))
                 return
 
-        sdot_table = create_sdot_table(score_drivers, driver_fields, date_field_info, sdot_end, int(sdot_iterations), sdot_range_type, topic_drive, root_url='')
+        sdot_table = create_sdot_table(score_drivers, date_field_info, sdot_end, int(sdot_iterations), sdot_range_type, topic_drive, root_url='')
         write_table_to_csv(sdot_table, foldername+'sdot_table.csv')
     
     #if trends:

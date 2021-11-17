@@ -10,7 +10,7 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 from se_code.subset_key_terms import subset_key_terms, create_skt_table
 from se_code.score_drivers import (
-    get_all_docs, create_drivers_table, create_sdot_table,
+    create_drivers_table, create_sdot_table,
     create_drivers_with_subsets_table, ScoreDrivers
 )
 
@@ -594,7 +594,7 @@ def main():
                 return
 
         sdot_table = create_sdot_table(
-            score_drivers, driver_fields, date_field_info, args.sdot_end,
+            score_drivers, date_field_info, args.sdot_end,
             int(args.sdot_iterations), args.sdot_range, args.topic_drive,
             root_url=ui_project_url
         )
