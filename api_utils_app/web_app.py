@@ -167,10 +167,11 @@ def bi_tool_export():
     if 'sdot_date_field_name' in request.form:
         sdot_date_field_name = request.form['sdot_date_field_name'].strip()
     
-    score_drivers, scl_match_counts, concepts, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
+    score_drivers, scl_match_counts, concepts, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
     client = score_drivers.client
     docs = score_drivers.docs
     metadata = score_drivers.metadata
+    driver_fields = score_drivers.get_driver_fields()
 
     doc_table, xref_table, metadata_map = create_doc_table(docs, metadata, themes, sentiment=sentiment)
     write_table_to_csv(doc_table, foldername+'doc_table.csv', calc_keys=True)
