@@ -61,8 +61,6 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     else:
         concept_lists = client.get("concept_lists/")
 
-    metadata = score_drivers.metadata
-    
     # For naming purposes scl = shared_concept_list
     scl_match_counts = {}
     for clist in concept_lists:
@@ -79,7 +77,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     )['match_counts']
     
     subset_counts = {}
-    for field in metadata:
+    for field in score_drivers.metadata:
         if field['type'] == 'string':
             subset_counts[field['name']] = {}
             if len(field['values']) > 200:
@@ -110,8 +108,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
         concept['theme_id'] = theme_id
         concept['fvector'] = unpack64(concept['vectors'][0]).tolist()
 
-    return (score_drivers, scl_match_counts, concepts, metadata,
-            driver_fields, skt, themes)
+    return (score_drivers, scl_match_counts, concepts, driver_fields, skt, themes)
 
 
 def create_doc_term_table(docs, concepts, scl_match_counts):
@@ -512,10 +509,11 @@ def main():
     lumi_data = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit),
                                concept_count=int(args.concept_count),
                                cln=args.concept_list_names)
-    (score_drivers, scl_match_counts, concepts, metadata, driver_fields,
+    (score_drivers, scl_match_counts, concepts, driver_fields,
      skt, themes) = lumi_data
     client = score_drivers.client
     docs = score_drivers.docs
+    metadata = score_drivers.metadata
 
     # get the docs no matter what because later data needs the metadata_map
     doc_table, xref_table, metadata_map = create_doc_table(
