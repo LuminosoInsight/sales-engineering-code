@@ -523,7 +523,7 @@ def main():
 
     if not args.driver_subset:
         driver_table = create_drivers_with_subsets_table(
-            client, driver_fields, args.topic_drive, ui_project_url,
+            score_drivers, args.topic_drive, ui_project_url,
             args.driver_subset_fields
         )
         write_table_to_csv(driver_table, 'subset_drivers_table.csv',

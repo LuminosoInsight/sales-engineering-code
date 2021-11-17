@@ -305,11 +305,9 @@ def create_drivers_table(client, driver_fields, topic_drive, root_url='',
     return all_tables
 
 
-def create_drivers_with_subsets_table(client, driver_fields, topic_drive,
+def create_drivers_with_subsets_table(score_drivers, topic_drive,
                                       root_url='', subset_fields=None):
-    futures = []
-
-    metadata = client.get('/metadata/')['result']
+    metadata = score_drivers.metadata
 
     # if the user specifies the list of subsets to process
     if subset_fields is None or len(subset_fields) == 0:
@@ -327,8 +325,8 @@ def create_drivers_with_subsets_table(client, driver_fields, topic_drive,
             filter_list = [{"name": field_name, "values": field_value}]
             print("filter={}".format(filter_list))
             sd_data = create_drivers_table(
-                client, driver_fields, topic_drive,
-                root_url=root_url, filter_list=filter_list,
+                score_drivers.client, score_drivers.get_driver_fields(),
+                topic_drive, root_url=root_url, filter_list=filter_list,
                 subset_name=field_name, subset_value=field_value[0]
             )
             driver_table.extend(sd_data)
@@ -507,7 +505,7 @@ def main():
     # find score drivers by subset
     if bool(args.subset):
         driver_table = create_drivers_with_subsets_table(
-            client, driver_fields, args.topic_drivers,
+            score_drivers, args.topic_drivers,
             subset_fields=args.subset_fields
         )
         write_table_to_csv(driver_table, 'subset_drivers_table.csv',

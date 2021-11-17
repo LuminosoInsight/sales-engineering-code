@@ -209,7 +209,7 @@ def bi_tool_export():
         write_table_to_csv(driver_table, foldername+'drivers_table.csv')
 
     if driver_subsets:
-        driver_table = create_drivers_with_subsets_table(client, driver_fields, topic_drive, subset_fields=driver_subset_fields)
+        driver_table = create_drivers_with_subsets_table(score_drivers, topic_drive, subset_fields=driver_subset_fields)
         write_table_to_csv(driver_table, 'subset_drivers_table.csv')
      
     if sdot_on:
