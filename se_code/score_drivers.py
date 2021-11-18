@@ -408,15 +408,20 @@ def write_table_to_csv(table, filename, encoding='utf-8'):
     Function for writing lists of dictionaries to a CSV file
     :param table: List of dictionaries to be written
     :param filename: Filename to be written to (string)
+    :param encoding: File encoding (default utf-8)
     :return: None
     '''
-
     print('Writing to file {}.'.format(filename))
     if len(table) == 0:
         print('Warning: No data to write to {}.'.format(filename))
         return
+    # Get the names of all the fields in all the dictionaries in the table.  We
+    # want a set rather then a list--but Python sets don't respect ordering,
+    # and we want to keep the columns in the same order as much as possible,
+    # so we put them into a dictionary with dummy values.
+    fieldnames = {k: None for t_item in table for k in t_item}
     with open(filename, 'w', encoding=encoding, newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=table[0].keys())
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(table)
 

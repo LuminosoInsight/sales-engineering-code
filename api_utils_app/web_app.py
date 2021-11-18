@@ -172,16 +172,16 @@ def bi_tool_export():
     docs = luminoso_data.docs
 
     doc_table, xref_table, metadata_map = create_doc_table(luminoso_data, themes)
-    write_table_to_csv(doc_table, foldername+'doc_table.csv', calc_keys=True)
+    write_table_to_csv(doc_table, foldername+'doc_table.csv')
     write_table_to_csv(xref_table, foldername+'xref_table.csv')
     
     if sentiment:
         sentiment_table = create_sentiment_table(client, scl_match_counts)
-        write_table_to_csv(sentiment_table, foldername+'sentiment.csv', calc_keys=True)
+        write_table_to_csv(sentiment_table, foldername+'sentiment.csv')
 
     if term_table:
         terms_table = create_terms_table(concepts, scl_match_counts)
-        write_table_to_csv(terms_table, foldername+'terms_table.csv', calc_keys=True)
+        write_table_to_csv(terms_table, foldername+'terms_table.csv')
     if doc_term:
         doc_term_table = create_doc_term_table(docs, concepts, scl_match_counts)
         write_table_to_csv(doc_term_table, foldername+'doc_term_table.csv')

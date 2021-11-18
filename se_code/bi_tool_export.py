@@ -1,5 +1,4 @@
 import argparse
-import csv
 import numpy as np
 import re
 import sys
@@ -11,7 +10,7 @@ from pack64 import unpack64
 from se_code.subset_key_terms import subset_key_terms, create_skt_table
 from se_code.score_drivers import (
     create_drivers_table, create_sdot_table,
-    create_drivers_with_subsets_table, LuminosoData
+    create_drivers_with_subsets_table, LuminosoData, write_table_to_csv
 )
 
 
@@ -411,28 +410,6 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
     return sentiment_match_counts
 
 
-def write_table_to_csv(table, filename, calc_keys=False, encoding='utf-8'):
-    '''
-    Function for writing lists of dictionaries to a CSV file
-    :param table: List of dictionaries to be written
-    :param filename: Filename to be written to (string)
-    :return: None
-    '''
-    print('Writing to file {}.'.format(filename))
-    if len(table) == 0:
-        print('Warning: No data to write to {}.'.format(filename))
-        return
-    with open(filename, 'w', newline='', encoding=encoding) as file:
-        if calc_keys:
-            fieldnames = {k for t_item in table for k in t_item.keys()}
-        else:
-            fieldnames = table[0].keys()
-
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(table)
-
-
 def main():
     parser = argparse.ArgumentParser(
         description='Export data to Business Intelligence compatible CSV files.'
@@ -526,9 +503,8 @@ def main():
                            encoding=args.encoding)
 
     if not args.doc:
-        write_table_to_csv(doc_table, 'doc_table.csv', calc_keys=True,
-                           encoding=args.encoding)
-        write_table_to_csv(xref_table, 'xref_table.csv', calc_keys=True,
+        write_table_to_csv(doc_table, 'doc_table.csv', encoding=args.encoding)
+        write_table_to_csv(xref_table, 'xref_table.csv',
                            encoding=args.encoding)
 
     if not args.doc_term_sentiment:
@@ -538,7 +514,7 @@ def main():
 
     if not args.terms:
         terms_table = create_terms_table(concepts, scl_match_counts)
-        write_table_to_csv(terms_table, 'terms_table.csv', calc_keys=True,
+        write_table_to_csv(terms_table, 'terms_table.csv',
                            encoding=args.encoding)
 
     if not args.themes:
@@ -571,7 +547,7 @@ def main():
         print('Creating sentiment table...')
         sentiment_table = create_sentiment_table(client, scl_match_counts,
                                                  root_url=ui_project_url)
-        write_table_to_csv(sentiment_table, 'sentiment.csv', calc_keys=True,
+        write_table_to_csv(sentiment_table, 'sentiment.csv',
                            encoding=args.encoding)
     
     if bool(args.sdot):
