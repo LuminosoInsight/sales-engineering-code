@@ -73,6 +73,18 @@ class LuminosoData:
                 return field
         return None
 
+    def get_best_subset_fields(self):
+        field_names = []
+        for md in self.metadata:
+            if 'values' in md:
+                if len(md['values']) < 200:
+                    field_names.append(md['name'])
+                else:
+                    print(
+                        "Score driver subsets: Too many values in field_name:"
+                        " {}".format(md['name']))
+        return field_names
+
     def find_best_interval(self, date_field_name, num_intervals):
         docs_by_date = []
         for i, d in enumerate(self.docs):
@@ -127,18 +139,6 @@ def get_driver_url(root_url, driver):
 def last_day_prior_month(dt):
     dt_new = dt.replace(day=1)
     return dt_new - timedelta(days=1)
-
-
-def get_best_subset_fields(metadata):
-    field_names = []
-    for md in metadata:
-        if 'values' in md:
-            if len(md['values']) < 200:
-                field_names.append(md['name'])
-            else:
-                print("Score driver subsets: Too many values in field_name:"
-                      " {}".format(md['name']))
-    return field_names
 
 
 def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
@@ -306,11 +306,9 @@ def create_drivers_table(luminoso_data, topic_drive, root_url='',
 
 def create_drivers_with_subsets_table(luminoso_data, topic_drive,
                                       root_url='', subset_fields=None):
-    metadata = luminoso_data.metadata
-
     # if the user specifies the list of subsets to process
-    if subset_fields is None or len(subset_fields) == 0:
-        subset_fields = get_best_subset_fields(metadata)
+    if not subset_fields:
+        subset_fields = luminoso_data.get_best_subset_fields()
     else:
         subset_fields = subset_fields.split(",")
 
