@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 
+DOC_BATCH_SIZE = 5000
+
 
 class LuminosoData:
     def __init__(self, client, root_url=''):
@@ -19,7 +21,16 @@ class LuminosoData:
     @property
     def docs(self):
         if self._docs is None:
-            self._docs = get_all_docs(self.client)
+            self._docs = []
+            while True:
+                new_docs = self.client.get(
+                    'docs', limit=DOC_BATCH_SIZE, offset=len(self._docs),
+                    include_sentiment_on_concepts=True
+                )['result']
+                if new_docs:
+                    self._docs.extend(new_docs)
+                else:
+                    break
         return self._docs
 
     @property
@@ -395,17 +406,6 @@ def create_sdot_table(luminoso_data, date_field_info, end_date, iterations,
         end_date_dt = datetime.fromtimestamp(end_date_epoch)
 
     return sd_data_raw
-
-
-def get_all_docs(client):
-    docs = []
-    while True:
-        new_docs = client.get('docs', limit=25000, offset=len(docs),
-                              include_sentiment_on_concepts=True)['result']
-        if new_docs:
-            docs.extend(new_docs)
-        else:
-            return docs
 
 
 def write_table_to_csv(table, filename, encoding='utf-8'):
