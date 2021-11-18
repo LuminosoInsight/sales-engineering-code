@@ -54,14 +54,12 @@ class LuminosoData:
         return date_fields[0]
 
     def get_fieldvalues_for_fieldname(self, field_name):
-        field_names = [d['name'] for d in self.metadata]
-        if field_name in field_names:
-            return [[item['value']] for item in
-                    [d['values'] for d in self.metadata if d['name'] == field_name][0]]
-        else:
+        field = self.get_field_by_name(field_name)
+        if not field:
             print("Invalid field name:", field_name)
-            print("Fieldnames:", field_names)
+            print("Fieldnames:", [d['name'] for d in self.metadata])
             return
+        return [[item['value']] for item in field['values']]
 
     def get_field_by_name(self, field_name):
         '''
