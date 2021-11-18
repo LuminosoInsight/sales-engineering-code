@@ -63,16 +63,16 @@ class LuminosoData:
             print("Fieldnames:", field_names)
             return
 
-    def get_date_field_by_name(self, date_field_name):
+    def get_field_by_name(self, field_name):
         '''
-        Get the date field by name
-        :param date_field_name: name of the date field to get
-        :return: dictionary with the date field info, or `None` if no field
-            with that name exists
+        Get a field by name
+        :param field_name: name of the date field to get
+        :return: dictionary with the field info, or `None` if no field with
+          that name exists
         '''
-        for df in self.metadata:
-            if df['name'] == date_field_name:
-                return df
+        for field in self.metadata:
+            if field['name'] == field_name:
+                return field
         return None
 
     def find_best_interval(self, date_field_name, num_intervals):
@@ -482,7 +482,7 @@ def main():
                 print("ERROR no date field in project")
                 return
         else:
-            date_field_info = luminoso_data.get_date_field_by_name(
+            date_field_info = luminoso_data.get_field_by_name(
                 args.sdot_date_field
             )
             if date_field_info is None:

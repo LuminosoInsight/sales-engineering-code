@@ -219,7 +219,7 @@ def bi_tool_export():
                 print("ERROR no date field in project")
                 return
         else:
-            date_field_info = luminoso_data.get_date_field_by_name(sdot_date_field_name)
+            date_field_info = luminoso_data.get_field_by_name(sdot_date_field_name)
             if not date_field_info:
                 print("ERROR: no date field name: {}".format(sdot_date_field_name))
                 return

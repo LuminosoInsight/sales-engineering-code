@@ -581,7 +581,7 @@ def main():
                 print("ERROR no date field in project")
                 return
         else:
-            date_field_info = luminoso_data.get_date_field_by_name(
+            date_field_info = luminoso_data.get_field_by_name(
                 args.sdot_date_field
             )
             if date_field_info is None:
