@@ -147,11 +147,6 @@ def get_driver_url(root_url, driver):
     return root_url + '/galaxy?suggesting=false&search=' + texts
 
 
-def last_day_prior_month(dt):
-    dt_new = dt.replace(day=1)
-    return dt_new - timedelta(days=1)
-
-
 def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
     '''
     Create tabulation of ScoreDrivers output, complete with doc counts, example
@@ -380,7 +375,7 @@ def create_sdot_table(luminoso_data, date_field_info, end_date, iterations,
                     end_date_dt = end_date_dt - timedelta(days=1)
                 start_date_dt = end_date_dt.replace(day=1)
             else:
-                end_date_dt = last_day_prior_month(start_date_dt)
+                end_date_dt = start_date_dt.replace(day=1) - timedelta(days=1)
                 start_date_dt = end_date_dt.replace(day=1)
 
             end_date_epoch = end_date_dt.timestamp()
