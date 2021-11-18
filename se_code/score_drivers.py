@@ -53,6 +53,16 @@ class LuminosoData:
             return None
         return date_fields[0]
 
+    def get_fieldvalues_for_fieldname(self, field_name):
+        field_names = [d['name'] for d in self.metadata]
+        if field_name in field_names:
+            return [[item['value']] for item in
+                    [d['values'] for d in self.metadata if d['name'] == field_name][0]]
+        else:
+            print("Invalid field name:", field_name)
+            print("Fieldnames:", field_names)
+            return
+
     def get_date_field_by_name(self, date_field_name):
         '''
         Get the date field by name
@@ -131,17 +141,6 @@ def get_best_subset_fields(metadata):
                 print("Score driver subsets: Too many values in field_name:"
                       " {}".format(md['name']))
     return field_names
-
-
-def get_fieldvalues_for_fieldname(field_name, metadata):
-    field_names = [d['name'] for d in metadata]
-    if field_name in field_names:
-        return [[item['value']] for item in
-                [d['values'] for d in metadata if d['name'] == field_name][0]]
-    else:
-        print("Invalid field name:", field_name)
-        print("Fieldnames:", field_names)
-        return
 
 
 def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
@@ -321,7 +320,7 @@ def create_drivers_with_subsets_table(luminoso_data, topic_drive,
     driver_table = []
 
     for field_name in subset_fields:
-        field_values = get_fieldvalues_for_fieldname(field_name, metadata)
+        field_values = luminoso_data.get_fieldvalues_for_fieldname(field_name)
         print("{}: field_values = {}".format(field_name, field_values))
         for field_value in field_values:
             filter_list = [{"name": field_name, "values": field_value}]
