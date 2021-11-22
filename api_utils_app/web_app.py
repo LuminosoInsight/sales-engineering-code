@@ -212,7 +212,7 @@ def bi_tool_export():
         print("SDOT {},{},{},{}".format(sdot_end, sdot_iterations, sdot_range_type, sdot_date_field_name))
 
         if len(sdot_date_field_name)==0:
-            date_field_info = get_first_date_field(client, True)
+            date_field_info = get_first_date_field(client)
             if date_field_info == None:
                 print("ERROR no date field in project")
                 return

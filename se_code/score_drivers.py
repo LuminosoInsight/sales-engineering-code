@@ -1,5 +1,4 @@
 import argparse
-import concurrent.futures
 import csv
 import numpy as np
 import pandas as pd
@@ -10,15 +9,19 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 
 
-def get_as(vector1, vector2):
+def get_assoc(vector1, vector2):
     '''
     Calculate the association score between two vectors
     :param vector1: First vector
     :param vector2: Second vector
     :return: Cosine similarity of two vectors
     '''
-    return np.dot([float(v) for v in unpack64(vector1)],
-                  [float(v) for v in unpack64(vector2)])
+    return float(np.dot(unpack64(vector1), unpack64(vector2)))
+
+
+def get_driver_url(root_url, driver):
+    texts = urllib.parse.quote(' '.join(driver['texts']))
+    return root_url + '/galaxy?suggesting=false&search=' + texts
 
 
 def get_driver_fields(client):
@@ -34,21 +37,19 @@ def get_driver_fields(client):
     return driver_fields
 
 
-def get_first_date_field(client, warn_too_many_dates=False):
+def get_first_date_field(client):
     '''
     Get the first date field
     :param client: LuminosoClient object pointed to project path
     :return: dictionary with the date field info
     '''
     metadata = client.get('metadata')
-
-    if len([df['name'] for df in metadata['result'] if df['type'] == 'date']) > 1:
+    date_fields = [df for df in metadata['result'] if df['type'] == 'date']
+    if len(date_fields) > 1:
         print("WARNING: multiple date fields. Using first date field found.")
-
-    for df in metadata['result']:
-        if df['type'] == 'date':
-            return df
-    return None
+    if not date_fields:
+        return None
+    return date_fields[0]
 
 
 def get_date_field_by_name(client, date_field_name):
@@ -64,7 +65,7 @@ def get_date_field_by_name(client, date_field_name):
     return None
 
 
-def find_best_interval(client, docs, date_field_name, num_intervals):
+def find_best_interval(docs, date_field_name, num_intervals):
     docs_by_date = []
     for i, d in enumerate(docs):
         for m in d['metadata']:
@@ -105,9 +106,7 @@ def last_day_prior_month(dt):
     return dt_new - timedelta(days=1)
 
 
-def get_best_subset_fields(client, metadata=None):
-    if metadata is None:
-        metadata = client.get('/metadata/')['result']
+def get_best_subset_fields(metadata):
     field_names = []
     for md in metadata:
         if 'values' in md:
@@ -119,9 +118,7 @@ def get_best_subset_fields(client, metadata=None):
     return field_names
 
 
-def get_fieldvalues_for_fieldname(client, field_name, metadata=None):
-    if metadata is None:
-        metadata = client.get('/metadata/')['result']
+def get_fieldvalues_for_fieldname(field_name, metadata):
     field_names = [d['name'] for d in metadata]
     if field_name in field_names:
         return [[item['value']] for item in
@@ -160,9 +157,7 @@ def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
                    'doc_count': driver['exact_match_count']}
 
             if len(root_url) > 0:
-                row['url'] = (root_url +
-                              "/galaxy?suggesting=false&search=" +
-                              urllib.parse.quote(" ".join(driver['texts'])))
+                row['url'] = get_driver_url(root_url, driver)
 
             # Use the driver term to find related documents
             search_docs = client.get('docs', search={'texts': driver['texts']},
@@ -171,7 +166,7 @@ def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
             # Sort documents based on their association with the coefficient
             # vector
             for doc in search_docs['result']:
-                doc['driver_as'] = get_as(driver['vector'], doc['vector'])
+                doc['driver_as'] = get_assoc(driver['vector'], doc['vector'])
 
             docs = sorted(search_docs['result'], key=lambda k: k['driver_as'])
             row['example_doc'] = ''
@@ -203,9 +198,7 @@ def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
                    'doc_count': driver['exact_match_count']}
 
             if len(root_url) > 0:
-                row['url'] = (root_url +
-                              "/galaxy?suggesting=false&search=" +
-                              urllib.parse.quote(" ".join(driver['texts'])))
+                row['url'] = get_driver_url(root_url, driver)
 
             # Use the driver term to find related documents
             search_docs = client.get('docs', search={'texts': driver['texts']},
@@ -214,7 +207,7 @@ def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
             # Sort documents based on their association with the coefficient
             # vector
             for doc in search_docs['result']:
-                doc['driver_as'] = get_as(driver['vector'], doc['vector'])
+                doc['driver_as'] = get_assoc(driver['vector'], doc['vector'])
 
             docs = sorted(search_docs['result'], key=lambda k: k['driver_as'])
             row['example_doc'] = ''
@@ -244,9 +237,7 @@ def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
                'doc_count': driver['exact_match_count']}
 
         if len(root_url) > 0:
-            row['url'] = (root_url +
-                          "/galaxy?suggesting=false&search=" +
-                          urllib.parse.quote(" ".join(driver['texts'])))
+            row['url'] = get_driver_url(root_url, driver)
 
         # Use the driver term to find related documents
         search_docs = client.get('docs', search={'texts': driver['texts']},
@@ -254,7 +245,7 @@ def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
 
         # Sort documents based on their association with the coefficient vector
         for doc in search_docs['result']:
-            doc['driver_as'] = get_as(driver['vectors'][0], doc['vector'])
+            doc['driver_as'] = get_assoc(driver['vectors'][0], doc['vector'])
 
         docs = sorted(search_docs['result'], key=lambda k: k['driver_as'])
         row['example_doc'] = ''
@@ -309,45 +300,30 @@ def create_drivers_with_subsets_table(client, driver_fields, topic_drive,
 
     # if the user specifies the list of subsets to process
     if subset_fields is None or len(subset_fields) == 0:
-        subset_fields = get_best_subset_fields(client, metadata=metadata)
+        subset_fields = get_best_subset_fields(metadata)
     else:
         subset_fields = subset_fields.split(",")
 
     # process score drivers by subset
     driver_table = []
-    threads_complete = 1
-    threads_started = 0
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-
-        for field_name in subset_fields:
-            field_values = get_fieldvalues_for_fieldname(client, field_name,
-                                                         metadata=metadata)
-            print("{}: field_values = {}".format(field_name, field_values))
-            for field_value in field_values:
-                filter_list = [{"name": field_name, "values": field_value}]
-                print("filter={}".format(filter_list))
-                futures.append(executor.submit(
-                    create_drivers_table, client, driver_fields, topic_drive,
-                    root_url=root_url, filter_list=filter_list,
-                    subset_name=field_name, subset_value=field_value[0])
-                )
-                threads_started += 1
-
-        for future in concurrent.futures.as_completed(futures):
-            sd_data = future.result()
+    for field_name in subset_fields:
+        field_values = get_fieldvalues_for_fieldname(field_name, metadata)
+        print("{}: field_values = {}".format(field_name, field_values))
+        for field_value in field_values:
+            filter_list = [{"name": field_name, "values": field_value}]
+            print("filter={}".format(filter_list))
+            sd_data = create_drivers_table(
+                client, driver_fields, topic_drive,
+                root_url=root_url, filter_list=filter_list,
+                subset_name=field_name, subset_value=field_value[0]
+            )
             driver_table.extend(sd_data)
             if len(sd_data) > 0:
-                print("Thread [{} of {}] {}:{} complete. len={}".format(
-                    threads_complete, threads_started,
+                print("{}:{} complete. len={}".format(
                     sd_data[0]['subset_name'], sd_data[0]['subset_value'],
                     len(sd_data)
                 ))
-            else:
-                print("Thread [{} of {}] complete. len=0".format(
-                    threads_complete, threads_started
-                ))
-            threads_complete += 1
 
     return driver_table
 
@@ -373,59 +349,45 @@ def create_sdot_table(client, driver_fields, date_field_info, end_date,
     if range_type is None or range_type not in ['M', 'W', 'D']:
         if docs is None:
             docs = get_all_docs(client)
-        range_type = find_best_interval(client, docs, date_field_name,
-                                        iterations)
+        range_type = find_best_interval(docs, date_field_name, iterations)
 
     print("sdot threads starting. Date Field: {}, Iterations: {},"
           " Range Type: {}".format(date_field_name, iterations, range_type))
-    threads_complete = 1
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+    # run the number of iterations
+    for count in range(iterations):
+        if range_type == "M":
+            if not start_date_dt:
+                if end_date_dt.day == 1:
+                    print("error, cannot start with the beginning of a"
+                          " month. Starting with previous month")
+                    end_date_dt = end_date_dt - timedelta(days=1)
+                start_date_dt = end_date_dt.replace(day=1)
+            else:
+                end_date_dt = last_day_prior_month(start_date_dt)
+                start_date_dt = end_date_dt.replace(day=1)
 
-        # run the number of iterations
-        for count in range(iterations):
-            if range_type == "M":
-                if not start_date_dt:
-                    if end_date_dt.day == 1:
-                        print("error, cannot start with the beginning of a"
-                              " month. Starting with previous month")
-                        end_date_dt = end_date_dt - timedelta(days=1)
-                    start_date_dt = end_date_dt.replace(day=1)
-                else:
-                    end_date_dt = last_day_prior_month(start_date_dt)
-                    start_date_dt = end_date_dt.replace(day=1)
+            end_date_epoch = end_date_dt.timestamp()
+            start_date_epoch = start_date_dt.timestamp()
 
-                end_date_epoch = end_date_dt.timestamp()
-                start_date_epoch = start_date_dt.timestamp()
+        elif range_type == "W":  # week
+            start_date_epoch = end_date_epoch - 60*60*24*7
+        else:  # day
+            start_date_epoch = end_date_epoch - 60*60*24
 
-            elif range_type == "W":  # week
-                start_date_epoch = end_date_epoch - 60*60*24*7
-            else:  # day
-                start_date_epoch = end_date_epoch - 60*60*24
+        # if there is a metadata field filter, apply it here
+        for field_value in driver_fields:
+            filter_list = [{"name": date_field_name,
+                            "minimum": int(start_date_epoch),
+                            "maximum": int(end_date_epoch)}]
 
-            # if there is a metadata field filter, apply it here
-            for field_value in driver_fields:
-                filter_list = [{"name": date_field_name,
-                                "minimum": int(start_date_epoch),
-                                "maximum": int(end_date_epoch)}]
-
-                futures.append(executor.submit(
-                    create_one_sdot_table, client, field_value, topic_drive,
-                    root_url, filter_list
-                ))
-
-            # move to the nextdate
-            end_date_epoch = start_date_epoch
-            end_date_dt = datetime.fromtimestamp(end_date_epoch)
-
-        for future in concurrent.futures.as_completed(futures):
-            sd_data = future.result()
+            sd_data = create_one_sdot_table(client, field_value, topic_drive,
+                                            root_url, filter_list)
             sd_data_raw.extend(sd_data)
 
-            print("Thread {} of {} finished".format(
-                threads_complete, iterations
-            ))
-            threads_complete += 1
+        # move to the nextdate
+        end_date_epoch = start_date_epoch
+        end_date_dt = datetime.fromtimestamp(end_date_epoch)
 
     return sd_data_raw
 
@@ -453,20 +415,10 @@ def write_table_to_csv(table, filename, encoding='utf-8'):
     if len(table) == 0:
         print('Warning: No data to write to {}.'.format(filename))
         return
-    try:
-        with open(filename, 'w', encoding=encoding, newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=table[0].keys())
-            writer.writeheader()
-            writer.writerows(table)
-    except UnicodeEncodeError as e:
-        print('WARNING: Unicode Decode Error occurred, attempting to handle.'
-              ' Error was: %s' % e)
-        write_table = [{k: v for k, v in t.items()} for t in table]
-        with open(filename, 'w', encoding=encoding, newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=write_table[0].keys())
-            writer.writeheader()
-            writer.writerows(write_table)
-        print('Unicode Decode Error was handled')
+    with open(filename, 'w', encoding=encoding, newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=table[0].keys())
+        writer.writeheader()
+        writer.writerows(table)
 
 
 def main():
@@ -516,7 +468,7 @@ def main():
         print("Calculating sdot")
 
         if args.sdot_date_field is None:
-            date_field_info = get_first_date_field(client, True)
+            date_field_info = get_first_date_field(client)
             if date_field_info is None:
                 print("ERROR no date field in project")
                 return
