@@ -540,8 +540,7 @@ def main():
         write_table_to_csv(skt_table, 'skt_table.csv', encoding=args.encoding)
 
     if not args.drive:
-        driver_table = create_drivers_table(luminoso_data, args.topic_drive,
-                                            luminoso_data.root_url)
+        driver_table = create_drivers_table(luminoso_data, args.topic_drive)
         write_table_to_csv(driver_table, 'drivers_table.csv',
                            encoding=args.encoding)
     

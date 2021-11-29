@@ -302,12 +302,12 @@ def create_one_sdot_table(client, field, topic_drive, root_url, filter_list):
     return driver_table
 
 
-def create_drivers_table(luminoso_data, topic_drive, root_url='',
-                         filter_list="", subset_name=None, subset_value=None):
+def create_drivers_table(luminoso_data, topic_drive, filter_list="",
+                         subset_name=None, subset_value=None):
     all_tables = []
     for field in luminoso_data.driver_fields:
         table = create_one_table(luminoso_data.client, field, topic_drive,
-                                 root_url, filter_list)
+                                 luminoso_data.root_url, filter_list)
         all_tables.extend(table)
 
     if subset_name is not None:
@@ -336,7 +336,7 @@ def create_drivers_with_subsets_table(luminoso_data, topic_drive,
             filter_list = [{"name": field_name, "values": field_value}]
             print("filter={}".format(filter_list))
             sd_data = create_drivers_table(
-                luminoso_data, topic_drive, root_url=luminoso_data.root_url,
+                luminoso_data, topic_drive,
                 filter_list=filter_list, subset_name=field_name,
                 subset_value=field_value[0]
             )
