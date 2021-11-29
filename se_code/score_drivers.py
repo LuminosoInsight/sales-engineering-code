@@ -155,15 +155,17 @@ def get_driver_url(root_url, driver):
     return root_url + '/galaxy?suggesting=false&search=' + texts
 
 
-def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
+def create_one_table(luminoso_data, field, topic_drive, filter_list=""):
     '''
     Create tabulation of ScoreDrivers output, complete with doc counts, example
     docs, scores and driver clusters
-    :param client: LuminosoClient object pointed to project path
-    :param driver_fields: List of driver fields (string list)
+    :param luminoso_data: a LuminosoData object
+    :param field: string representing the score field to use
     :param topic_drive: Whether or not to include saved/top concepts as drivers (bool)
     :return: List of drivers with scores, example docs, clusters and type
     '''
+    client = luminoso_data.client
+    root_url = luminoso_data.root_url
     driver_table = []
     if topic_drive:
         if len(filter_list) > 0:
@@ -292,8 +294,8 @@ def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
 def create_one_sdot_table(luminoso_data, field, topic_drive, filter_list):
     print("{}:{} sdot starting".format(filter_list[0]['maximum'], field))
 
-    driver_table = create_one_table(luminoso_data.client, field, topic_drive,
-                                    luminoso_data.root_url, filter_list)
+    driver_table = create_one_table(luminoso_data, field, topic_drive,
+                                    filter_list)
     for d in driver_table:
         d['end_date'] = filter_list[0]['maximum']
     print("{}:{} sdot done data len={}".format(
@@ -306,8 +308,8 @@ def create_drivers_table(luminoso_data, topic_drive, filter_list="",
                          subset_name=None, subset_value=None):
     all_tables = []
     for field in luminoso_data.driver_fields:
-        table = create_one_table(luminoso_data.client, field, topic_drive,
-                                 luminoso_data.root_url, filter_list)
+        table = create_one_table(luminoso_data, field, topic_drive,
+                                 filter_list)
         all_tables.extend(table)
 
     if subset_name is not None:
