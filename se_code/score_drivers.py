@@ -289,11 +289,11 @@ def create_one_table(client, field, topic_drive, root_url='', filter_list=""):
     return driver_table
 
 
-def create_one_sdot_table(client, field, topic_drive, root_url, filter_list):
+def create_one_sdot_table(luminoso_data, field, topic_drive, filter_list):
     print("{}:{} sdot starting".format(filter_list[0]['maximum'], field))
 
-    driver_table = create_one_table(client, field, topic_drive, root_url,
-                                    filter_list)
+    driver_table = create_one_table(luminoso_data.client, field, topic_drive,
+                                    luminoso_data.root_url, filter_list)
     for d in driver_table:
         d['end_date'] = filter_list[0]['maximum']
     print("{}:{} sdot done data len={}".format(
@@ -351,7 +351,7 @@ def create_drivers_with_subsets_table(luminoso_data, topic_drive,
 
 
 def create_sdot_table(luminoso_data, date_field_info, end_date, iterations,
-                      range_type, topic_drive, root_url=''):
+                      range_type, topic_drive):
     sd_data_raw = []
 
     if end_date is None or len(end_date) == 0:
@@ -400,8 +400,8 @@ def create_sdot_table(luminoso_data, date_field_info, end_date, iterations,
                             "minimum": int(start_date_epoch),
                             "maximum": int(end_date_epoch)}]
 
-            sd_data = create_one_sdot_table(luminoso_data.client, field_value,
-                                            topic_drive, root_url, filter_list)
+            sd_data = create_one_sdot_table(luminoso_data, field_value,
+                                            topic_drive, filter_list)
             sd_data_raw.extend(sd_data)
 
         # move to the nextdate
@@ -496,8 +496,7 @@ def main():
 
         sdot_table = create_sdot_table(
             luminoso_data, date_field_info, args.sdot_end,
-            int(args.sdot_iterations), args.sdot_range, args.topic_drivers,
-            root_url=''
+            int(args.sdot_iterations), args.sdot_range, args.topic_drivers
         )
         write_table_to_csv(sdot_table, 'sdot_table.csv',
                            encoding=args.encoding)
