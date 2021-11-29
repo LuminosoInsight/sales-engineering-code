@@ -18,6 +18,14 @@ class LuminosoData:
         self._docs = None
         self._metadata = None
 
+    def set_root_url(self, root_url):
+        """
+        root_url can (and perhaps should) be set on initialization, but to
+        simplify matters for its use in pull_lumi_data, we make it possible to
+        set it after.
+        """
+        self.root_url = root_url
+
     @property
     def docs(self):
         if self._docs is None:

@@ -492,11 +492,13 @@ def main():
     # get the docs no matter what because later data needs the metadata_map
     doc_table, xref_table, metadata_map = create_doc_table(luminoso_data, themes)
 
-    ui_project_url = root_url + '/app/projects/' + workspace + '/' + proj
+    luminoso_data.set_root_url(
+        root_url + '/app/projects/' + workspace + '/' + proj
+    )
 
     if not args.driver_subset:
         driver_table = create_drivers_with_subsets_table(
-            luminoso_data, args.topic_drive, ui_project_url,
+            luminoso_data, args.topic_drive, luminoso_data.root_url,
             args.driver_subset_fields
         )
         write_table_to_csv(driver_table, 'subset_drivers_table.csv',
@@ -539,14 +541,14 @@ def main():
 
     if not args.drive:
         driver_table = create_drivers_table(luminoso_data, args.topic_drive,
-                                            ui_project_url)
+                                            luminoso_data.root_url)
         write_table_to_csv(driver_table, 'drivers_table.csv',
                            encoding=args.encoding)
     
     if not args.sentiment:
         print('Creating sentiment table...')
         sentiment_table = create_sentiment_table(client, scl_match_counts,
-                                                 root_url=ui_project_url)
+                                                 root_url=luminoso_data.root_url)
         write_table_to_csv(sentiment_table, 'sentiment.csv',
                            encoding=args.encoding)
     
@@ -568,7 +570,7 @@ def main():
         sdot_table = create_sdot_table(
             luminoso_data, date_field_info, args.sdot_end,
             int(args.sdot_iterations), args.sdot_range, args.topic_drive,
-            root_url=ui_project_url
+            root_url=luminoso_data.root_url
         )
         write_table_to_csv(sdot_table, 'sdot_table.csv', encoding=args.encoding)
 
