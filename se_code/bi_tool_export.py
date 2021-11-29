@@ -498,8 +498,8 @@ def main():
 
     if not args.driver_subset:
         driver_table = create_drivers_with_subsets_table(
-            luminoso_data, args.topic_drive, luminoso_data.root_url,
-            args.driver_subset_fields
+            luminoso_data, args.topic_drive,
+            subset_fields=args.driver_subset_fields
         )
         write_table_to_csv(driver_table, 'subset_drivers_table.csv',
                            encoding=args.encoding)

@@ -319,7 +319,7 @@ def create_drivers_table(luminoso_data, topic_drive, root_url='',
 
 
 def create_drivers_with_subsets_table(luminoso_data, topic_drive,
-                                      root_url='', subset_fields=None):
+                                      subset_fields=None):
     # if the user specifies the list of subsets to process
     if not subset_fields:
         subset_fields = luminoso_data.get_best_subset_fields()
@@ -336,7 +336,7 @@ def create_drivers_with_subsets_table(luminoso_data, topic_drive,
             filter_list = [{"name": field_name, "values": field_value}]
             print("filter={}".format(filter_list))
             sd_data = create_drivers_table(
-                luminoso_data, topic_drive, root_url=root_url,
+                luminoso_data, topic_drive, root_url=luminoso_data.root_url,
                 filter_list=filter_list, subset_name=field_name,
                 subset_value=field_value[0]
             )
