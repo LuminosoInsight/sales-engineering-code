@@ -139,6 +139,17 @@ class LuminosoData:
               " Using D".format(num_intervals))
         return "D"
 
+    def get_galaxy_url_from_concept(self, concept):
+        """
+        Given a concept as returned by the API (i.e., a dict that contains a
+        list of texts in its "texts" field), return the URL for a search on
+        those texts in the Galaxy view.  Returns None if there is no root_url.
+        """
+        if not self.root_url:
+            return None
+        texts = urllib.parse.quote(' '.join(concept['texts']))
+        return self.root_url + '/galaxy?suggesting=false&search=' + texts
+
 
 def get_assoc(vector1, vector2):
     '''
@@ -148,11 +159,6 @@ def get_assoc(vector1, vector2):
     :return: Cosine similarity of two vectors
     '''
     return float(np.dot(unpack64(vector1), unpack64(vector2)))
-
-
-def get_driver_url(root_url, driver):
-    texts = urllib.parse.quote(' '.join(driver['texts']))
-    return root_url + '/galaxy?suggesting=false&search=' + texts
 
 
 def _create_rows_from_drivers(luminoso_data, score_drivers, field, driver_type):
@@ -166,8 +172,9 @@ def _create_rows_from_drivers(luminoso_data, score_drivers, field, driver_type):
                'related_terms': driver['texts'],
                'doc_count': driver['exact_match_count']}
 
-        if luminoso_data.root_url:
-            row['url'] = get_driver_url(luminoso_data.root_url, driver)
+        url = luminoso_data.get_galaxy_url_from_concept(driver)
+        if url:
+            row['url'] = url
 
         # Use the driver term to find related documents
         docs = luminoso_data.client.get(
