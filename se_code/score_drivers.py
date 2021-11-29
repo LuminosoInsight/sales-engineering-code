@@ -155,123 +155,28 @@ def get_driver_url(root_url, driver):
     return root_url + '/galaxy?suggesting=false&search=' + texts
 
 
-def create_one_table(luminoso_data, field, topic_drive, filter_list=""):
-    '''
-    Create tabulation of ScoreDrivers output, complete with doc counts, example
-    docs, scores and driver clusters
-    :param luminoso_data: a LuminosoData object
-    :param field: string representing the score field to use
-    :param topic_drive: Whether or not to include saved/top concepts as drivers (bool)
-    :return: List of drivers with scores, example docs, clusters and type
-    '''
-    client = luminoso_data.client
-    root_url = luminoso_data.root_url
-    driver_table = []
-    if topic_drive:
-        if len(filter_list) > 0:
-            score_drivers = client.get(
-                'concepts/score_drivers', score_field=field,
-                concept_selector={'type': 'saved'}, filter=filter_list
-            )
-        else:
-            score_drivers = client.get(
-                'concepts/score_drivers', score_field=field,
-                concept_selector={'type': 'saved'}
-            )
-        for driver in score_drivers:
-            row = {'driver': driver['name'], 'type': 'saved',
-                   'driver_field': field, 'impact': driver['impact'],
-                   'related_terms': driver['texts'],
-                   'doc_count': driver['exact_match_count']}
-
-            if len(root_url) > 0:
-                row['url'] = get_driver_url(root_url, driver)
-
-            # Use the driver term to find related documents
-            search_docs = client.get('docs', search={'texts': driver['texts']},
-                                     limit=500, match_type='exact')
-
-            # Sort documents based on their association with the coefficient
-            # vector
-            for doc in search_docs['result']:
-                doc['driver_as'] = get_assoc(driver['vector'], doc['vector'])
-
-            docs = sorted(search_docs['result'], key=lambda k: k['driver_as'])
-            row['example_doc'] = ''
-            row['example_doc2'] = ''
-            row['example_doc3'] = ''
-            # excel has a max csv cell length of 32767       
-            if len(docs) >= 1:
-                row['example_doc'] = docs[0]['text'][:32700]
-            if len(docs) >= 2:
-                row['example_doc2'] = docs[1]['text'][:32700]
-            if len(docs) >= 3:
-                row['example_doc3'] = docs[2]['text'][:32700]
-            driver_table.append(row)
-
-        if len(filter_list) > 0:
-            score_drivers = client.get(
-                'concepts/score_drivers', score_field=field,
-                concept_selector={'type': 'top'}, filter=filter_list
-            )
-        else:
-            score_drivers = client.get(
-                'concepts/score_drivers', score_field=field,
-                concept_selector={'type': 'top'}
-            )
-        for driver in score_drivers:
-            row = {'driver': driver['name'], 'type': 'top',
-                   'driver_field': field, 'impact': driver['impact'],
-                   'related_terms': driver['texts'],
-                   'doc_count': driver['exact_match_count']}
-
-            if len(root_url) > 0:
-                row['url'] = get_driver_url(root_url, driver)
-
-            # Use the driver term to find related documents
-            search_docs = client.get('docs', search={'texts': driver['texts']},
-                                     limit=500, match_type='exact')
-
-            # Sort documents based on their association with the coefficient
-            # vector
-            for doc in search_docs['result']:
-                doc['driver_as'] = get_assoc(driver['vector'], doc['vector'])
-
-            docs = sorted(search_docs['result'], key=lambda k: k['driver_as'])
-            row['example_doc'] = ''
-            row['example_doc2'] = ''
-            row['example_doc3'] = ''
-            # excel has a max csv cell length of 32767
-            if len(docs) >= 1:
-                row['example_doc'] = docs[0]['text'][:32700]
-            if len(docs) >= 2:
-                row['example_doc2'] = docs[1]['text'][:32700]
-            if len(docs) >= 3:
-                row['example_doc3'] = docs[2]['text'][:32700]
-
-            driver_table.append(row)
-
-    if len(filter_list) > 0:
-        score_drivers = client.get('concepts/score_drivers', score_field=field,
-                                   limit=100, filter=filter_list)
-    else:
-        score_drivers = client.get('concepts/score_drivers', score_field=field,
-                                   limit=100)
-    score_drivers = [d for d in score_drivers if d['importance'] >= .4]
+def _create_rows_from_drivers(luminoso_data, score_drivers, field, driver_type):
+    """
+    Helper function for create_one_table().
+    """
+    rows = []
     for driver in score_drivers:
-        row = {'driver': driver['name'], 'type': 'auto_found',
+        row = {'driver': driver['name'], 'type': driver_type,
                'driver_field': field, 'impact': driver['impact'],
                'related_terms': driver['texts'],
                'doc_count': driver['exact_match_count']}
 
-        if len(root_url) > 0:
-            row['url'] = get_driver_url(root_url, driver)
+        if luminoso_data.root_url:
+            row['url'] = get_driver_url(luminoso_data.root_url, driver)
 
         # Use the driver term to find related documents
-        search_docs = client.get('docs', search={'texts': driver['texts']},
-                                 limit=500, match_type='exact')
+        search_docs = luminoso_data.client.get(
+            'docs', search={'texts': driver['texts']}, limit=500,
+            match_type='exact', fields=('text', 'vector')
+        )
 
-        # Sort documents based on their association with the coefficient vector
+        # Sort documents based on their association with the coefficient
+        # vector
         for doc in search_docs['result']:
             doc['driver_as'] = get_assoc(driver['vectors'][0], doc['vector'])
 
@@ -286,7 +191,60 @@ def create_one_table(luminoso_data, field, topic_drive, filter_list=""):
             row['example_doc2'] = docs[1]['text'][:32700]
         if len(docs) >= 3:
             row['example_doc3'] = docs[2]['text'][:32700]
-        driver_table.append(row)
+        rows.append(row)
+    return rows
+
+
+def create_one_table(luminoso_data, field, topic_drive, filter_list=""):
+    '''
+    Create tabulation of ScoreDrivers output, complete with doc counts, example
+    docs, scores and driver clusters
+    :param luminoso_data: a LuminosoData object
+    :param field: string representing the score field to use
+    :param topic_drive: Whether or not to include saved/top concepts as drivers (bool)
+    :return: List of drivers with scores, example docs, clusters and type
+    '''
+    client = luminoso_data.client
+    driver_table = []
+    if topic_drive:
+        if len(filter_list) > 0:
+            score_drivers = client.get(
+                'concepts/score_drivers', score_field=field,
+                concept_selector={'type': 'saved'}, filter=filter_list
+            )
+        else:
+            score_drivers = client.get(
+                'concepts/score_drivers', score_field=field,
+                concept_selector={'type': 'saved'}
+            )
+        driver_table.extend(_create_rows_from_drivers(
+            luminoso_data, score_drivers, field, 'saved'
+        ))
+
+        if len(filter_list) > 0:
+            score_drivers = client.get(
+                'concepts/score_drivers', score_field=field,
+                concept_selector={'type': 'top'}, filter=filter_list
+            )
+        else:
+            score_drivers = client.get(
+                'concepts/score_drivers', score_field=field,
+                concept_selector={'type': 'top'}
+            )
+        driver_table.extend(_create_rows_from_drivers(
+            luminoso_data, score_drivers, field, 'top'
+        ))
+
+    if len(filter_list) > 0:
+        score_drivers = client.get('concepts/score_drivers', score_field=field,
+                                   limit=100, filter=filter_list)
+    else:
+        score_drivers = client.get('concepts/score_drivers', score_field=field,
+                                   limit=100)
+    score_drivers = [d for d in score_drivers if d['importance'] >= .4]
+    driver_table.extend(_create_rows_from_drivers(
+        luminoso_data, score_drivers, field, 'auto_found'
+    ))
 
     return driver_table
 
