@@ -384,6 +384,8 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
         for concept in results_top
     ])
 
+    # FIXME: very similar to _create_rows_from_drivers(), except that it only
+    #  needs the top 3 (and therefore doesn't need to sort them)
     # add three sample documents to each row
     for srow in sentiment_match_counts:
         if len(root_url)>0:

@@ -170,17 +170,17 @@ def _create_rows_from_drivers(luminoso_data, score_drivers, field, driver_type):
             row['url'] = get_driver_url(luminoso_data.root_url, driver)
 
         # Use the driver term to find related documents
-        search_docs = luminoso_data.client.get(
+        docs = luminoso_data.client.get(
             'docs', search={'texts': driver['texts']}, limit=500,
             match_type='exact', fields=('text', 'vector')
-        )
+        )['result']
 
         # Sort documents based on their association with the coefficient
         # vector
-        for doc in search_docs['result']:
+        for doc in docs:
             doc['driver_as'] = get_assoc(driver['vectors'][0], doc['vector'])
+        docs.sort(key=lambda k: k['driver_as'], reverse=True)
 
-        docs = sorted(search_docs['result'], key=lambda k: k['driver_as'])
         row['example_doc'] = ''
         row['example_doc2'] = ''
         row['example_doc3'] = ''
