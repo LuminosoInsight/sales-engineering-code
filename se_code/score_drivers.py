@@ -202,52 +202,43 @@ def _create_rows_from_drivers(luminoso_data, score_drivers, field, driver_type):
     return rows
 
 
-def create_one_table(luminoso_data, field, topic_drive, filter_list=""):
+def create_one_table(luminoso_data, field, topic_drive, filter_list=None):
     '''
     Create tabulation of ScoreDrivers output, complete with doc counts, example
     docs, scores and driver clusters
     :param luminoso_data: a LuminosoData object
     :param field: string representing the score field to use
     :param topic_drive: Whether or not to include saved/top concepts as drivers (bool)
+    :param filter_list: document filter (as a list of dicts)
     :return: List of drivers with scores, example docs, clusters and type
     '''
     client = luminoso_data.client
     driver_table = []
+
+    # Set up a dict that's either empty or contains "filter", so we can use it
+    # in keyword arguments to client.get()
+    filter_param = {}
+    if filter_list:
+        filter_param['filter'] = filter_list
     if topic_drive:
-        if len(filter_list) > 0:
-            score_drivers = client.get(
-                'concepts/score_drivers', score_field=field,
-                concept_selector={'type': 'saved'}, filter=filter_list
-            )
-        else:
-            score_drivers = client.get(
-                'concepts/score_drivers', score_field=field,
-                concept_selector={'type': 'saved'}
-            )
+        score_drivers = client.get(
+            'concepts/score_drivers', score_field=field,
+            concept_selector={'type': 'saved'}, **filter_param
+        )
         driver_table.extend(_create_rows_from_drivers(
             luminoso_data, score_drivers, field, 'saved'
         ))
 
-        if len(filter_list) > 0:
-            score_drivers = client.get(
-                'concepts/score_drivers', score_field=field,
-                concept_selector={'type': 'top'}, filter=filter_list
-            )
-        else:
-            score_drivers = client.get(
-                'concepts/score_drivers', score_field=field,
-                concept_selector={'type': 'top'}
-            )
+        score_drivers = client.get(
+            'concepts/score_drivers', score_field=field,
+            concept_selector={'type': 'top'}, **filter_param
+        )
         driver_table.extend(_create_rows_from_drivers(
             luminoso_data, score_drivers, field, 'top'
         ))
 
-    if len(filter_list) > 0:
-        score_drivers = client.get('concepts/score_drivers', score_field=field,
-                                   limit=100, filter=filter_list)
-    else:
-        score_drivers = client.get('concepts/score_drivers', score_field=field,
-                                   limit=100)
+    score_drivers = client.get('concepts/score_drivers', score_field=field,
+                               limit=100, **filter_param)
     score_drivers = [d for d in score_drivers if d['importance'] >= .4]
     driver_table.extend(_create_rows_from_drivers(
         luminoso_data, score_drivers, field, 'auto_found'
@@ -260,7 +251,7 @@ def create_one_sdot_table(luminoso_data, field, topic_drive, filter_list):
     print("{}:{} sdot starting".format(filter_list[0]['maximum'], field))
 
     driver_table = create_one_table(luminoso_data, field, topic_drive,
-                                    filter_list)
+                                    filter_list=filter_list)
     for d in driver_table:
         d['end_date'] = filter_list[0]['maximum']
     print("{}:{} sdot done data len={}".format(
@@ -269,12 +260,12 @@ def create_one_sdot_table(luminoso_data, field, topic_drive, filter_list):
     return driver_table
 
 
-def create_drivers_table(luminoso_data, topic_drive, filter_list="",
+def create_drivers_table(luminoso_data, topic_drive, filter_list=None,
                          subset_name=None, subset_value=None):
     all_tables = []
     for field in luminoso_data.driver_fields:
         table = create_one_table(luminoso_data, field, topic_drive,
-                                 filter_list)
+                                 filter_list=filter_list)
         all_tables.extend(table)
 
     if subset_name is not None:
