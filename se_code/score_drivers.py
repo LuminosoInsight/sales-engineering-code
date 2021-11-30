@@ -161,11 +161,17 @@ def get_assoc(vector1, vector2):
     return float(np.dot(unpack64(vector1), unpack64(vector2)))
 
 
-def _create_rows_from_drivers(luminoso_data, score_drivers, field, driver_type):
+def _create_rows_from_drivers(luminoso_data, field, api_params, driver_type):
     """
     Helper function for create_one_table().
     """
     rows = []
+    score_drivers = luminoso_data.client.get(
+        'concepts/score_drivers', score_field=field, **api_params
+    )
+    if 'concept_selector' not in api_params:
+        score_drivers = [d for d in score_drivers if d['importance'] >= .4]
+
     for driver in score_drivers:
         row = {'driver': driver['name'], 'type': driver_type,
                'driver_field': field, 'impact': driver['impact'],
@@ -212,36 +218,27 @@ def create_one_table(luminoso_data, field, topic_drive, filter_list=None):
     :param filter_list: document filter (as a list of dicts)
     :return: List of drivers with scores, example docs, clusters and type
     '''
-    client = luminoso_data.client
     driver_table = []
 
     # Set up a dict that's either empty or contains "filter", so we can use it
     # in keyword arguments to client.get()
-    filter_param = {}
+    api_params = {}
     if filter_list:
-        filter_param['filter'] = filter_list
+        api_params['filter'] = filter_list
     if topic_drive:
-        score_drivers = client.get(
-            'concepts/score_drivers', score_field=field,
-            concept_selector={'type': 'saved'}, **filter_param
-        )
+        saved_params = dict(api_params, concept_selector={'type': 'saved'})
         driver_table.extend(_create_rows_from_drivers(
-            luminoso_data, score_drivers, field, 'saved'
+            luminoso_data, field, saved_params, 'saved'
         ))
 
-        score_drivers = client.get(
-            'concepts/score_drivers', score_field=field,
-            concept_selector={'type': 'top'}, **filter_param
-        )
+        top_params = dict(api_params, concept_selector={'type': 'top'})
         driver_table.extend(_create_rows_from_drivers(
-            luminoso_data, score_drivers, field, 'top'
+            luminoso_data, field, top_params, 'top'
         ))
 
-    score_drivers = client.get('concepts/score_drivers', score_field=field,
-                               limit=100, **filter_param)
-    score_drivers = [d for d in score_drivers if d['importance'] >= .4]
+    driver_params = dict(api_params, limit=100)
     driver_table.extend(_create_rows_from_drivers(
-        luminoso_data, score_drivers, field, 'auto_found'
+        luminoso_data, field, driver_params, 'auto_found'
     ))
 
     return driver_table
