@@ -9,7 +9,7 @@ from reddit_utilities import get_reddit_api, get_posts_from_past, get_posts_by_n
 from term_utilities import get_terms, ignore_terms, merge_terms
 from se_code.copy_shared_concepts import copy_shared_concepts, delete_shared_concepts
 from se_code.create_train_test_split import create_train_test
-from se_code.bi_tool_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, get_first_date_field, get_date_field_by_name, create_drivers_with_subsets_table, parse_url
+from se_code.bi_tool_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, create_drivers_with_subsets_table, parse_url
 from subset_utilities import search_subsets, calc_metadata_vectors
 
 # Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
@@ -167,19 +167,21 @@ def bi_tool_export():
     if 'sdot_date_field_name' in request.form:
         sdot_date_field_name = request.form['sdot_date_field_name'].strip()
     
-    client, docs, scl_match_counts, concepts, metadata, driver_fields, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
+    luminoso_data, scl_match_counts, concepts, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
+    client = luminoso_data.client
+    docs = luminoso_data.docs
 
-    doc_table, xref_table, metadata_map = create_doc_table(docs, metadata, themes, sentiment=sentiment)
-    write_table_to_csv(doc_table, foldername+'doc_table.csv', calc_keys=True)
+    doc_table, xref_table, metadata_map = create_doc_table(luminoso_data, themes)
+    write_table_to_csv(doc_table, foldername+'doc_table.csv')
     write_table_to_csv(xref_table, foldername+'xref_table.csv')
     
     if sentiment:
         sentiment_table = create_sentiment_table(client, scl_match_counts)
-        write_table_to_csv(sentiment_table, foldername+'sentiment.csv', calc_keys=True)
+        write_table_to_csv(sentiment_table, foldername+'sentiment.csv')
 
     if term_table:
         terms_table = create_terms_table(concepts, scl_match_counts)
-        write_table_to_csv(terms_table, foldername+'terms_table.csv', calc_keys=True)
+        write_table_to_csv(terms_table, foldername+'terms_table.csv')
     if doc_term:
         doc_term_table = create_doc_term_table(docs, concepts, scl_match_counts)
         write_table_to_csv(doc_term_table, foldername+'doc_term_table.csv')
@@ -201,28 +203,28 @@ def bi_tool_export():
         write_table_to_csv(skt_table, foldername+'skt_table.csv')
     
     if drivers_on:
-        driver_table = create_drivers_table(client, driver_fields, topic_drive)
+        driver_table = create_drivers_table(luminoso_data, topic_drive)
         write_table_to_csv(driver_table, foldername+'drivers_table.csv')
 
     if driver_subsets:
-        driver_table = create_drivers_with_subsets_table(client, driver_fields, topic_drive, subset_fields=driver_subset_fields)
+        driver_table = create_drivers_with_subsets_table(luminoso_data, topic_drive, subset_fields=driver_subset_fields)
         write_table_to_csv(driver_table, 'subset_drivers_table.csv')
      
     if sdot_on:
         print("SDOT {},{},{},{}".format(sdot_end, sdot_iterations, sdot_range_type, sdot_date_field_name))
 
         if len(sdot_date_field_name)==0:
-            date_field_info = get_first_date_field(client)
+            date_field_info = luminoso_data.first_date_field
             if date_field_info == None:
                 print("ERROR no date field in project")
                 return
         else:
-            date_field_info = get_date_field_by_name(sdot_date_field_name)
+            date_field_info = luminoso_data.get_field_by_name(sdot_date_field_name)
             if not date_field_info:
                 print("ERROR: no date field name: {}".format(sdot_date_field_name))
                 return
 
-        sdot_table = create_sdot_table(client, driver_fields, date_field_info, sdot_end, int(sdot_iterations), sdot_range_type, topic_drive, root_url='', docs=docs)
+        sdot_table = create_sdot_table(luminoso_data, date_field_info, sdot_end, int(sdot_iterations), sdot_range_type, topic_drive)
         write_table_to_csv(sdot_table, foldername+'sdot_table.csv')
     
     #if trends:

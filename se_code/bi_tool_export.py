@@ -1,5 +1,4 @@
 import argparse
-import csv
 import numpy as np
 import re
 import sys
@@ -10,9 +9,8 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 from se_code.subset_key_terms import subset_key_terms, create_skt_table
 from se_code.score_drivers import (
-    get_all_docs, get_driver_fields, create_drivers_table, create_sdot_table,
-    get_first_date_field, get_date_field_by_name,
-    create_drivers_with_subsets_table
+    create_drivers_table, create_sdot_table,
+    create_drivers_with_subsets_table, LuminosoData, write_table_to_csv
 )
 
 
@@ -43,7 +41,8 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     '''
     print('Extracting Lumi data...')
     client = LuminosoClient.connect('{}/projects/{}'.format(api_url, project))
-    
+    luminoso_data = LuminosoData(client)
+
     if cln:
         concept_list_names = cln.split("|")
         concept_lists_raw = client.get("concept_lists/")
@@ -61,10 +60,6 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     else:
         concept_lists = client.get("concept_lists/")
 
-    docs = get_all_docs(client)
-    
-    metadata = client.get('metadata')['result']
-    
     # For naming purposes scl = shared_concept_list
     scl_match_counts = {}
     for clist in concept_lists:
@@ -81,7 +76,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     )['match_counts']
     
     subset_counts = {}
-    for field in metadata:
+    for field in luminoso_data.metadata:
         if field['type'] == 'string':
             subset_counts[field['name']] = {}
             if len(field['values']) > 200:
@@ -93,8 +88,6 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
                 subset_counts[field['name']][value['value']] = value['count']
 
     skt = subset_key_terms(client, subset_counts, terms_per_subset=skt_limit)
-    
-    driver_fields = get_driver_fields(client)
     
     themes = client.get(
         'concepts',
@@ -113,8 +106,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
         concept['theme_id'] = theme_id
         concept['fvector'] = unpack64(concept['vectors'][0]).tolist()
 
-    return (client, docs, scl_match_counts, concepts, metadata, driver_fields,
-            skt, themes)
+    return (luminoso_data, scl_match_counts, concepts, skt, themes)
 
 
 def create_doc_term_table(docs, concepts, scl_match_counts):
@@ -187,11 +179,10 @@ def create_doc_subset_table(docs, metadata_map):
     return doc_subset_table
 
 
-def create_doc_table(docs, metadata, suggested_concepts):
+def create_doc_table(luminoso_data, suggested_concepts):
     '''
     Create a tabulation of documents and their related subsets & themes
-    :param docs: List of document dictionaries
-    :param metadata: List of metadata dictionaries
+    :param luminoso_data: a LuminosoData object
     :param suggested_concepts: The results from /concepts for
          suggested_concepts (same as themes)
     :return: List of documents with associated themes and list of
@@ -200,14 +191,15 @@ def create_doc_table(docs, metadata, suggested_concepts):
 
     print('Creating doc table...')
     sort_order = {'number': 0, 'score': 0, 'string': 1, 'date': 2}
-    sorted_metadata = sorted(metadata, key=lambda x: sort_order[x['type']])
+    sorted_metadata = sorted(luminoso_data.metadata,
+                             key=lambda x: sort_order[x['type']])
     metadata_map = {}
     for i, field in enumerate(sorted_metadata):
         metadata_map[field['name']] = 'Subset %d' % i
 
     doc_table = []
-        
-    for doc in docs:
+
+    for doc in luminoso_data.docs:
         row = {'doc_id': doc['doc_id'], 'doc_text': doc['text']}
         date_number = 0
         for field in doc['metadata']:
@@ -392,6 +384,8 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
         for concept in results_top
     ])
 
+    # FIXME: very similar to _create_rows_from_drivers(), except that it only
+    #  needs the top 3 (and therefore doesn't need to sort them)
     # add three sample documents to each row
     for srow in sentiment_match_counts:
         if len(root_url)>0:
@@ -416,28 +410,6 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
             srow['example_doc3'] = search_docs[2]['text']
 
     return sentiment_match_counts
-
-
-def write_table_to_csv(table, filename, calc_keys=False, encoding='utf-8'):
-    '''
-    Function for writing lists of dictionaries to a CSV file
-    :param table: List of dictionaries to be written
-    :param filename: Filename to be written to (string)
-    :return: None
-    '''
-    print('Writing to file {}.'.format(filename))
-    if len(table) == 0:
-        print('Warning: No data to write to {}.'.format(filename))
-        return
-    with open(filename, 'w', newline='', encoding=encoding) as file:
-        if calc_keys:
-            fieldnames = {k for t_item in table for k in t_item.keys()}
-        else:
-            fieldnames = table[0].keys()
-
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(table)
 
 
 def main():
@@ -515,28 +487,28 @@ def main():
     lumi_data = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit),
                                concept_count=int(args.concept_count),
                                cln=args.concept_list_names)
-    (client, docs, scl_match_counts, concepts, metadata, driver_fields, skt,
-     themes) = lumi_data
+    (luminoso_data, scl_match_counts, concepts, skt, themes) = lumi_data
+    client = luminoso_data.client
+    docs = luminoso_data.docs
 
     # get the docs no matter what because later data needs the metadata_map
-    doc_table, xref_table, metadata_map = create_doc_table(
-        docs, metadata, themes
-    )
+    doc_table, xref_table, metadata_map = create_doc_table(luminoso_data, themes)
 
-    ui_project_url = root_url + '/app/projects/' + workspace + '/' + proj
+    luminoso_data.set_root_url(
+        root_url + '/app/projects/' + workspace + '/' + proj
+    )
 
     if not args.driver_subset:
         driver_table = create_drivers_with_subsets_table(
-            client, driver_fields, args.topic_drive, ui_project_url,
-            args.driver_subset_fields
+            luminoso_data, args.topic_drive,
+            subset_fields=args.driver_subset_fields
         )
         write_table_to_csv(driver_table, 'subset_drivers_table.csv',
                            encoding=args.encoding)
 
     if not args.doc:
-        write_table_to_csv(doc_table, 'doc_table.csv', calc_keys=True,
-                           encoding=args.encoding)
-        write_table_to_csv(xref_table, 'xref_table.csv', calc_keys=True,
+        write_table_to_csv(doc_table, 'doc_table.csv', encoding=args.encoding)
+        write_table_to_csv(xref_table, 'xref_table.csv',
                            encoding=args.encoding)
 
     if not args.doc_term_sentiment:
@@ -546,7 +518,7 @@ def main():
 
     if not args.terms:
         terms_table = create_terms_table(concepts, scl_match_counts)
-        write_table_to_csv(terms_table, 'terms_table.csv', calc_keys=True,
+        write_table_to_csv(terms_table, 'terms_table.csv',
                            encoding=args.encoding)
 
     if not args.themes:
@@ -570,36 +542,35 @@ def main():
         write_table_to_csv(skt_table, 'skt_table.csv', encoding=args.encoding)
 
     if not args.drive:
-        driver_table = create_drivers_table(client, driver_fields,
-                                            args.topic_drive, ui_project_url)
+        driver_table = create_drivers_table(luminoso_data, args.topic_drive)
         write_table_to_csv(driver_table, 'drivers_table.csv',
                            encoding=args.encoding)
     
     if not args.sentiment:
         print('Creating sentiment table...')
         sentiment_table = create_sentiment_table(client, scl_match_counts,
-                                                 root_url=ui_project_url)
-        write_table_to_csv(sentiment_table, 'sentiment.csv', calc_keys=True,
+                                                 root_url=luminoso_data.root_url)
+        write_table_to_csv(sentiment_table, 'sentiment.csv',
                            encoding=args.encoding)
     
     if bool(args.sdot):
         if args.sdot_date_field is None:
-            date_field_info = get_first_date_field(client)
+            date_field_info = luminoso_data.first_date_field
             if date_field_info is None:
                 print("ERROR no date field in project")
                 return
         else:
-            date_field_info = get_date_field_by_name(client,
-                                                     args.sdot_date_field)
+            date_field_info = luminoso_data.get_field_by_name(
+                args.sdot_date_field
+            )
             if date_field_info is None:
                 print("ERROR: no date field name:"
                       " {}".format(args.sdot_date_field))
                 return
 
         sdot_table = create_sdot_table(
-            client, driver_fields, date_field_info, args.sdot_end,
-            int(args.sdot_iterations), args.sdot_range, args.topic_drive,
-            root_url=ui_project_url, docs=docs
+            luminoso_data, date_field_info, args.sdot_end,
+            int(args.sdot_iterations), args.sdot_range, args.topic_drive
         )
         write_table_to_csv(sdot_table, 'sdot_table.csv', encoding=args.encoding)
 
