@@ -1,6 +1,7 @@
 '''
-Create a Luminoso Daylight project from a CSV file. Useful if the file is too
-large for UI or building without the UI for things like search_enhancement
+Create (or append to) a Luminoso Daylight project from a CSV file. Useful 
+if the file is too large for UI or building without the UI for things like 
+search_enhancement
 '''
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from ignore_terms import ignore_csv_file
@@ -52,6 +53,35 @@ def create_project(client, input_file, project_name, workspace_id,
 
     print('Done uploading. Starting build')
 
+    return client_prj
+
+
+def append_to_project(input_file, project_url, max_len=0):
+    # convert max_len into None if it's 0, to allow indexing later
+    if not max_len:
+        max_len = None
+
+    # convert the project url into an api url
+    project_id = project_url.strip('/').split('/')[6]
+    api_url = '/'.join(project_url.strip('/').split('/')[:3]).strip('/') + '/api/v5'
+    proj_apiv5 = '{}/projects/{}'.format(api_url, project_id)
+
+    # open the project
+    client_prj = LuminosoClient.connect(proj_apiv5)
+
+    # Extract the documents from the CSV file and upload them in batches.
+    with open(input_file, 'r', encoding='utf-8-sig') as file:
+        for i, docs in parse_csv_file(file, max_len):
+            print('Uploading at {}, {} new documents'.format(i, len(docs)))
+            client_prj.post('upload', docs=docs)
+
+    print('Done uploading. Starting build')
+
+    return client_prj
+
+
+def build_project(client_prj, keyword_expansion_terms=None,
+                  skip_sentiment_build=False):
     options = {}
     if skip_sentiment_build:
         options['sentiment_configuration'] = {'type': 'none'}
@@ -186,16 +216,23 @@ def main():
         description='Create a Luminoso project using a CSV file.'
     )
     parser.add_argument('input_file', help='CSV file with project data')
-    parser.add_argument(
-        '-n', '--project_name', default='', required=True,
+
+    new_or_existing = parser.add_mutually_exclusive_group(required=True)
+    new_or_existing.add_argument(
+        '-n', '--project_name', default='', required=False,
         help='New project name'
     )
+    new_or_existing.add_argument(
+        '-u', '--project_url', default='', required=False,
+        help='Existing project to append documents to'
+    )
+
     parser.add_argument(
         '-w', '--workspace_id', default='', required=False,
         help='Luminoso account ID'
     )
     parser.add_argument(
-        '-u', '--api_url', default='https://daylight.luminoso.com/api/v5/',
+        '-a', '--api_url', default='https://daylight.luminoso.com/api/v5/',
         help='The host url. Default=https://daylight.luminoso.com/api/v5/'
     )
     parser.add_argument(
@@ -222,42 +259,58 @@ def main():
     args = parser.parse_args()
 
     project_name = args.project_name
+    project_url = args.project_url
     input_file = args.input_file
     workspace_id = args.workspace_id
     max_len = args.max_text_length
 
     api_url = args.api_url
 
-    # get the default account id if none given
-    if len(workspace_id) == 0:
-        # connect to v5 api
-        client = LuminosoClient.connect(
-            url=api_url,
-            user_agent_suffix='se_code:create_daylight_project_from_csv'
-        )
-        workspace_id = client.get('/profile')['default_workspace']
-        client = client.client_for_path('/projects/')
-    else:
-        # connect to v5 api
-        client = LuminosoClient.connect(
-            url=api_url + '/projects/',
-            user_agent_suffix='se_code:create_daylight_project_from_csv'
-        )
-
-    # the ignore terms will cause a second build and doesn't need sentiment built
+    # the ignore terms will cause a second build
+    # and doesn't need sentiment built
     save_skip_sentiment_build = args.skip_sentiment_build
     if args.ignore_terms_csv_file:
         args.skip_sentiment_build = True
 
-    try:
-        client_prj = create_project(
-            client, input_file, project_name, workspace_id,
-            keyword_expansion_terms=args.keyword_expansion_terms,
-            max_len=max_len, skip_sentiment_build=args.skip_sentiment_build
-        )
-    except RuntimeError as e:
-        parser.exit(1, 'Error creating project: {}'.format(str(e)))
-        return  # unreachable; lets the IDE knows client_prj has been defined
+    # if a project_name is given create a new project otherwise append
+    if project_name:
+        # get the default account id if none given
+        if len(workspace_id) == 0:
+            # connect to v5 api
+            client = LuminosoClient.connect(
+                url=api_url,
+                user_agent_suffix='se_code:create_daylight_project_from_csv'
+            )
+            workspace_id = client.get('/profile')['default_workspace']
+            client = client.client_for_path('/projects/')
+        else:
+            # connect to v5 api
+            client = LuminosoClient.connect(
+                url=api_url + '/projects/',
+                user_agent_suffix='se_code:create_daylight_project_from_csv'
+            )
+
+        try:
+            client_prj = create_project(
+                client, input_file, project_name, workspace_id,
+                keyword_expansion_terms=args.keyword_expansion_terms,
+                max_len=max_len, skip_sentiment_build=args.skip_sentiment_build
+            )
+        except RuntimeError as e:
+            parser.exit(1, 'Error creating project: {}'.format(str(e)))
+            return  # unreachable; lets the IDE knows client_prj has been defined
+    elif project_url:
+        try:
+            client_prj = append_to_project(
+                input_file, project_url, max_len=max_len
+            )
+        except RuntimeError as e:
+            parser.exit(1, 'Error appending to project: {}'.format(str(e)))
+            return  # unreachable; lets the IDE knows client_prj has been defined
+
+    build_project(
+        client_prj, keyword_expansion_terms=args.keyword_expansion_terms,
+        skip_sentiment_build=args.skip_sentiment_build)
 
     if (args.wait_for_build_complete or args.ignore_terms_csv_file):
         print("waiting for build to complete...")
