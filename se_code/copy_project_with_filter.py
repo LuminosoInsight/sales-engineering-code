@@ -5,15 +5,18 @@ import json
 
 
 def load_filter(args):
-    if args.filter:
-        return json.loads(args.filter)
-    elif args.filter_json_file:
-        with open(args.filter_json_file, "r") as read_file:
-            return json.load(read_file)
-    else:
-        print("No filter given, must be a string or file")
+    try:
+        if args.filter:
+            return json.loads(args.filter)
+        elif args.filter_json_file:
+            with open(args.filter_json_file, "r") as read_file:
+                return json.load(read_file)
+        else:
+            print("No filter given, must be a string or file")
+            return None
+    except Exception as e:
+        print("ERROR parsing filter: {}".format(e))
         return None
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -58,12 +61,16 @@ def main():
         if not jfilter:
             return
 
-        if args.workspace_id:
-            project_client.post("copy/", workspace_id=args.workspace_id,
-                                filter=jfilter, name=args.project_name)
-        else:
-            project_client.post("copy/", filter=jfilter, 
-                                name=args.project_name)
+        try:
+            if args.workspace_id:
+                project_client.post("copy/", workspace_id=args.workspace_id,
+                                    filter=jfilter, name=args.project_name)
+            else:
+                project_client.post("copy/", filter=jfilter,
+                                    name=args.project_name)
+        except Exception as e:
+            print("ERROR copying data: {}".format(e))
+            return
 
         print('Project copy to new project complete')
     elif args.to_url:
@@ -77,8 +84,13 @@ def main():
         if not jfilter:
             return
 
-        project_client.post("copy/", destination=to_project_id,
-                            filter=jfilter)
+        try:
+            project_client.post("copy/", destination=to_project_id,
+                                filter=jfilter)
+        except Exception as e:
+            print("ERROR copying data: {}".format(e))
+            return
+
         print('Project copy to existing project complete - rebuild started')
 
     else:
