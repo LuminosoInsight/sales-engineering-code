@@ -47,7 +47,7 @@ def main():
     api_url = '/'.join(args.project_url.strip('/').split('/')[:3]) + '/api/v5'
     proj_apiv5 = '{}/projects/{}'.format(api_url, project_id)
 
-    project_client = LuminosoClient.connect(proj_apiv5)
+    project_client = LuminosoClient.connect(proj_apiv5, user_agent_suffix='se_code:copy_project_with_filter')
 
     if args.metadata:
         # just show the metadata
