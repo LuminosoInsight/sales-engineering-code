@@ -29,7 +29,7 @@ def main():
 
     filter_group = parser.add_mutually_exclusive_group()
     filter_group.add_argument('-f', '--filter', default=None, 
-                              help=('JSON string filter to use in selecting documents to copy. Example: [{"name": "Bank Name", "values": ["Your Bank"]},{"name": "Version", "values": ["2.2.108"]}]"]'))
+                              help=('JSON string filter to use in selecting documents to copy. Example: [{"name": "Bank Name", "values": ["Your Bank"]},{"name": "Version", "values": ["2.2.108"]}]'))
     filter_group.add_argument('-j', '--filter_json_file', default=None,
                               help=('JSON file filter to use in selecting documents to copy'))
 
