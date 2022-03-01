@@ -41,8 +41,7 @@ def main():
     args = parser.parse_args()
 
     project_id = args.project_url.strip('/').split('/')[6]
-    api_url = '/'.join(args.project_url.strip('/').split('/')[:3]).strip(
-                       '/') + '/api/v5'
+    api_url = '/'.join(args.project_url.strip('/').split('/')[:3]) + '/api/v5'
     proj_apiv5 = '{}/projects/{}'.format(api_url, project_id)
 
     project_client = LuminosoClient.connect(proj_apiv5)
