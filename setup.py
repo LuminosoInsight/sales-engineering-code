@@ -17,7 +17,9 @@ setup(
     entry_points={
         'console_scripts': [
             'lumi-add-concept-relations-to-project = se_code.add_concept_relations_to_project:main',
+            'lumi-bi-tool-export = se_code.bi_tool_export:main',
             'lumi-capitalize-saved-concepts = se_code.capitalize_saved_concepts:main',
+            'lumi-copy-project-with-filter = se_code.copy_project_with_filter:main',
             'lumi-copy-shared-concepts = se_code.copy_shared_concepts:main',
             'lumi-create-train-test-split = se_code.create_train_test_split:main',
             'lumi-doc-downloader = se_code.doc_downloader:main',
@@ -26,11 +28,8 @@ setup(
             'lumi-notice-terms = se_code.notice_terms:main',
             'lumi-list-metadata = se_code.list_metadata:main',
             'lumi-load-shared-concepts = se_code.load_shared_concepts:main',
-            'lumi-onsite-list-users = se_code.onsite_list_users:main',
-            'lumi-onsite-usage = se_code.onsite_usage:main',
             'lumi-project-migration = se_code.project_migration:main',
             'lumi-score-drivers = se_code.score_drivers:main',
-            'lumi-bi-tool-export = se_code.bi_tool_export:main',
-
+            'lumi-wheel-info = se_code.wheel_info:main',
         ]},
 )
