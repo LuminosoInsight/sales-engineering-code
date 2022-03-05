@@ -142,7 +142,7 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
             continue
 
         concepts_in_doc = set()
-        for term in doc['terms']:
+        for term in doc['terms'] + doc['fragments']:
             term_id = term['term_id']
             if term_id in concept_ids:
                 for triple in concept_ids[term_id]:
