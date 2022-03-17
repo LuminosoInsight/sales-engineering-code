@@ -15,6 +15,9 @@ lumi-copy-project-with-filter
     specific documents based on metadata fields.
 lumi-copy-shared-concepts
     Copy shared concepts from one project to another.
+lumi-create-daylight-project-from-csv
+    Create a daylight project from a csv file. The CSV has the exact same
+    format required by the UI and allows programmatic project creation.
 lumi-create-train-test-split
     Will split a Compass voting classifier file into a training and test set.
 lumi-doc-downloader
@@ -52,6 +55,7 @@ lumi-bi-tool-export
 lumi-capitalize-saved-concepts
 lumi-copy-project-with-filter
 lumi-copy-shared-concepts
+lumi-create-daylight-project-from-csv
 lumi-create-train-test-split
 lumi-doc-downloader
 lumi-format-multiple-text-fields

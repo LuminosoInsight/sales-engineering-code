@@ -21,6 +21,7 @@ setup(
             'lumi-capitalize-saved-concepts = se_code.capitalize_saved_concepts:main',
             'lumi-copy-project-with-filter = se_code.copy_project_with_filter:main',
             'lumi-copy-shared-concepts = se_code.copy_shared_concepts:main',
+            'lumi-create-daylight-project-from-csv = se_code.create_daylight_project_from_csv.py',
             'lumi-create-train-test-split = se_code.create_train_test_split:main',
             'lumi-doc-downloader = se_code.doc_downloader:main',
             'lumi-format-multiple-text-fields = se_code.format_multiple_text_fields:main',
