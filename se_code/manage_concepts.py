@@ -119,7 +119,6 @@ def main():
                              action='store_true',
                              help=('Action to apply to concepts. Will collocate'
                                    ' any concepts specified'))
-    # figure out how if someone does -m they also have to do merge_into_text
     manage_type.add_argument('-m', '--merge_concept', default=None,
                              help=('Action to apply to concepts. Will merge any'
                                    ' concepts specified to the concept that is'
@@ -141,7 +140,6 @@ def main():
     client = LuminosoClient.connect(endpoint,
                                 user_agent_suffix='se_code:manage_concepts')
 
-    # maintain for all concepts
     if args.single_concept:
         concepts_to_manage = args.single_concept
     elif args.filename:
@@ -155,7 +153,6 @@ def main():
             manage_concept = input('No concept specified, please input a concept now: ')
         concepts_to_manage = [manage_concept]
 
-    # create diff try/catch blocks for each action
     if args.ignore_concept == True:
         try:
             manage_result = ignore_concepts(concepts_to_manage, client, args.overwrite)
@@ -181,9 +178,6 @@ def main():
             print(f'Error encountered: {e}.  Not rebuilding!')
             sys.exit()
             
-        
-
-    # stick the flag in here 
     if args.build == True:
         print(json.dumps(manage_result, ensure_ascii=False, indent=2))
         client.post('build')
