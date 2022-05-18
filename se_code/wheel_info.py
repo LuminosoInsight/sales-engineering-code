@@ -26,13 +26,11 @@ lumi-doc-downloader
 lumi-format-multiple-text-fields
     This will take a CSV file with multiple text fields and combine them into
     a single text field with a new metadata column
-lumi-ignore-terms
-    Uses the /terms/manage endpoint which requires a project rebuild after 
-    setting the ignore terms.
-lumi-notice-terms
-    Notice concepts in a project. "Noticing" a concept means taking a text
-    that the project ignored as unimportant, such as a number or a 
-    preposition, and telling the project not to ignore it.
+lumi-manage-concepts
+    Uses the /concepts/manage endpoint to fine-tune the concepts in a
+    number of ways: marking texts for exclusion from the build process, 
+    marking inherently ignored texts for inclusion, marking two different 
+    texts to be treated as the same text,
 lumi-list-metadata
     This simply lists all the metadata fields and how many unique values 
     there are in each field.
@@ -59,8 +57,7 @@ lumi-create-daylight-project-from-csv
 lumi-create-train-test-split
 lumi-doc-downloader
 lumi-format-multiple-text-fields
-lumi-ignore-terms
-lumi-notice-terms
+lumi-manage-concepts
 lumi-list-metadata
 lumi-load-shared-concepts
 lumi-project-migration
