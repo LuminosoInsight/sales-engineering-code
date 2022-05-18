@@ -71,7 +71,12 @@ Click publish release.
 
 The se_code can be packaged for sharing with customers by using a wheel file.
 
-`cd sales-engineering-code`
+You first may need to have the Python wheel file package installed<br/>
+`pip install wheel`
+
+The commands to build the wheel file.
+
+`cd sales-engineering-code`<br/>
 `python setup.py sdist bdist_wheel`
 
 This will create a folder called dist with two files in it.
