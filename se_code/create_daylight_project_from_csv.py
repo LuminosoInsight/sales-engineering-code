@@ -47,7 +47,7 @@ def create_project(client, input_file, project_name, workspace_id,
     with open(input_file, 'r', encoding='utf-8-sig') as file:
         for i, docs in parse_csv_file(file, max_len):
             print('Uploading at {}, {} new documents'.format(i, len(docs)))
-            client.post('upload', docs=docs)
+            client_prj.post('upload', docs=docs)
 
     print('Done uploading. Starting build')
 
