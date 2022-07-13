@@ -1,7 +1,7 @@
 import csv
 import argparse
 
-def file_to_dict(file_name, encoding="utf-8"):
+def file_to_dict(file_name, encoding="utf-8-sig"):
     table = []
     with open(file_name, encoding=encoding) as f:
         reader = csv.DictReader(f)
@@ -9,7 +9,7 @@ def file_to_dict(file_name, encoding="utf-8"):
             table.append(row)
     return table
 
-def file_to_list(file_name, encoding="utf-8"):
+def file_to_list(file_name, encoding="utf-8-sig"):
     table = []
     with open(file_name, encoding=encoding) as f:
         reader = csv.reader(f)
@@ -56,7 +56,7 @@ def main():
         )
     parser.add_argument(
         '--encoding',
-        default='utf-8',
+        default='utf-8-sig',
         help="Encoding type of the files to read from"
     )
     args = parser.parse_args()
