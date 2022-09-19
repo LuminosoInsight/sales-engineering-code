@@ -15,6 +15,7 @@ class LuminosoData:
     def __init__(self, client, root_url=''):
         self.client = client
         self.root_url = root_url
+        self.cache_docs = {}
         self._docs = None
         self._metadata = None
 
@@ -182,28 +183,32 @@ def _create_rows_from_drivers(luminoso_data, field, api_params, driver_type):
         if url:
             row['url'] = url
 
-        # Use the driver term to find related documents
-        docs = luminoso_data.client.get(
-            'docs', search={'texts': driver['texts']}, limit=500,
-            match_type='exact', fields=('text', 'vector')
-        )['result']
+        texts_key = "_".join(driver['texts'])
+        if texts_key not in luminoso_data.cache_docs:
+            # Use the driver term to find related documents
+            docs = luminoso_data.client.get(
+                'docs', search={'texts': driver['texts']}, limit=500,
+                match_type='exact', fields=('text', 'vector')
+            )['result']
 
-        # Sort documents based on their association with the coefficient
-        # vector
-        for doc in docs:
-            doc['driver_as'] = get_assoc(driver['vectors'][0], doc['vector'])
-        docs.sort(key=lambda k: k['driver_as'], reverse=True)
+            # Sort documents based on their association with the coefficient
+            # vector
+            for doc in docs:
+                doc['driver_as'] = get_assoc(driver['vectors'][0], doc['vector'])
+            docs.sort(key=lambda k: k['driver_as'], reverse=True)
+
+            luminoso_data.cache_docs[texts_key] = docs[0:3]
 
         row['example_doc'] = ''
         row['example_doc2'] = ''
         row['example_doc3'] = ''
         # excel has a max csv cell length of 32767
-        if len(docs) >= 1:
-            row['example_doc'] = docs[0]['text'][:32700]
-        if len(docs) >= 2:
-            row['example_doc2'] = docs[1]['text'][:32700]
-        if len(docs) >= 3:
-            row['example_doc3'] = docs[2]['text'][:32700]
+        if len(luminoso_data.cache_docs[texts_key]) >= 1:
+            row['example_doc'] = luminoso_data.cache_docs[texts_key][0]['text'][:32700]
+        if len(luminoso_data.cache_docs[texts_key]) >= 2:
+            row['example_doc2'] = luminoso_data.cache_docs[texts_key][1]['text'][:32700]
+        if len(luminoso_data.cache_docs[texts_key]) >= 3:
+            row['example_doc3'] = luminoso_data.cache_docs[texts_key][2]['text'][:32700]
         rows.append(row)
     return rows
 
