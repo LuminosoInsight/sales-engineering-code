@@ -7,7 +7,7 @@ def parse_url(url):
     proj_id = url.strip('/').split('/')[6]
     return api_root + '/api/v5/projects/' + proj_id
 
-def copy_shared_views(from_client, to_client):
+def copy_shared_views(from_client, to_client, overwrite=True):
     # grabs all the views from a project
     shared_views = from_client.get("shared_views")
     
@@ -37,8 +37,12 @@ def copy_shared_views(from_client, to_client):
             concept.pop('shared_concept_id')
             concepts.append(concept)
         list_name = concept_list[i]['name']
-        new_concept = to_client.post("/concept_lists/",name=list_name,concepts=concepts)
-        concept_id_dict[concept_list[i]['concept_list_id']] = new_concept['concept_list_id']
+        try:
+            new_concept = to_client.post("/concept_lists/",name=list_name,concepts=concepts,overwrite=overwrite)
+        except:
+            concept_id_dict[concept_list[i]['concept_list_id']] = concept_list[i]['concept_list_id']
+        else:
+            concept_id_dict[concept_list[i]['concept_list_id']] = new_concept['concept_list_id']
         i += 1
         
     # copies all views into the to project
@@ -59,8 +63,9 @@ def main():
     parser = argparse.ArgumentParser(
         description='Copy shared views and their associated concept lists from one project to another.'
     )
-    parser.add_argument('from_url', help="The URL of the project to copy all topics from")
-    parser.add_argument('to_url', help="The URL of the project to copy all topics into")
+    parser.add_argument('from_url', help="The URL of the source project to copy all topics from")
+    parser.add_argument('to_url', help="The URL of the destination project to copy all topics into")
+    parser.add_argument('--persist', default=True, action='store_false', help="Use this flag to persist shared concept lists in destination project")
     
     args = parser.parse_args()
     
@@ -70,7 +75,7 @@ def main():
     from_client = LuminosoClient.connect(from_api_url, user_agent_suffix='se_code:copy_shared_views:from')
     to_client = LuminosoClient.connect(to_api_url, user_agent_suffix='se_code:copy_shared_views:to')
     
-    copy_shared_views(from_client, to_client)
+    copy_shared_views(from_client, to_client, args.persist)
     
 if __name__ == '__main__':
     main()
