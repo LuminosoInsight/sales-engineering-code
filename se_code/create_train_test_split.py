@@ -61,13 +61,13 @@ def create_train_test(read_file, train_write_file, test_write_file, split, encod
     docs = []
     unlabeled_docs = []
     for t in table:
-        if not t.get('label') or t['label'].strip() == '':
+        if not t.get(label_index) or t[label_index].strip() == '':
             unlabeled_docs.append(t)
         else:
             docs.append(t)
 
     # build the train and test sets
-    docs, labels = get_docs_labels(docs, 'label')
+    docs, labels = get_docs_labels(docs, label_index)
     train_docs, test_docs, train_labels, test_labels = split_train_test(docs, labels, split)
     train_docs = list(train_docs)
     train_docs.extend(unlabeled_docs)
