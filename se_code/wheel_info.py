@@ -15,6 +15,8 @@ lumi-copy-project-with-filter
     specific documents based on metadata fields.
 lumi-copy-shared-concepts
     Copy shared concepts from one project to another.
+lumi-copy-shared-views
+    Copy shared views and the shared concept lists associated with those views to another project.
 lumi-create-daylight-project-from-csv
     Create a daylight project from a csv file. The CSV has the exact same
     format required by the UI and allows programmatic project creation.
@@ -53,6 +55,7 @@ lumi-bi-tool-export
 lumi-capitalize-saved-concepts
 lumi-copy-project-with-filter
 lumi-copy-shared-concepts
+lumi-copy-shared-views
 lumi-create-daylight-project-from-csv
 lumi-create-train-test-split
 lumi-doc-downloader

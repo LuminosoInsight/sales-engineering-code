@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="se_code",
-    version='0.8',
+    version='0.9',
     maintainer='Luminoso Technologies, Inc.',
     maintainer_email='dev@luminoso.com',
     license="LICENSE",
@@ -21,6 +21,7 @@ setup(
             'lumi-capitalize-saved-concepts = se_code.capitalize_saved_concepts:main',
             'lumi-copy-project-with-filter = se_code.copy_project_with_filter:main',
             'lumi-copy-shared-concepts = se_code.copy_shared_concepts:main',
+            'lumi-copy-shared-views = se_code.copy_shared_views:main',
             'lumi-create-daylight-project-from-csv = se_code.create_daylight_project_from_csv.py',
             'lumi-create-train-test-split = se_code.create_train_test_split:main',
             'lumi-doc-downloader = se_code.doc_downloader:main',
