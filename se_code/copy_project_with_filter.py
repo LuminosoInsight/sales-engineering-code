@@ -29,6 +29,9 @@ def main():
     parser.add_argument('-m', '--metadata', default=False,
                         action='store_true',
                         help=('Just show metadata for project_url useful for examining projects before copy'))
+    parser.add_argument('-s', '--skip_build', default=False,
+                        action='store_false',
+                        help=('Skip the build after the copy. Defaults to False'))
     parser.add_argument('-b', '--wait_for_build', default=False,
                         action='store_true',
                         help=('After the copy, wait for the build to complete.'))
@@ -82,6 +85,7 @@ def main():
                     to_project_info = project_client.post("copy/", workspace_id=args.workspace_id,
                                         filter=jfilter, search=search_concepts,
                                         match_type=args.match_type,
+                                        skip_rebuild=args.skip_build,
                                         name=args.project_name)
                 else:
                     to_project_info = project_client.post("copy/", workspace_id=args.workspace_id,
@@ -91,9 +95,11 @@ def main():
                     to_project_info = project_client.post("copy/", filter=jfilter,
                                         search=search_concepts,
                                         match_type=args.match_type,
+                                        skip_rebuild=args.skip_build,
                                         name=args.project_name)
                 else:
-                    to_project_info = project_client.post("copy/", filter=jfilter,
+                    to_project_info = project_client.post("/copy/", filter=jfilter,
+                                        skip_rebuild=args.skip_build,
                                         name=args.project_name)
         except Exception as e:
             print("ERROR copying data: {}".format(e))
@@ -101,12 +107,13 @@ def main():
 
         print('Project copy to new project complete')
 
-        if (args.wait_for_build):
+        if (not args.skip_build) and (args.wait_for_build):
             print('Waiting for build')
             project_to_client = LuminosoClient.connect(
                 api_url+"/projects/{}/".format(to_project_info['project_id']),
                 user_agent_suffix='se_code:copy_project_with_filter')
-            project_to_client.wait_for_build(wait_for_sentiment=True)
+            project_to_client.wait_for_build()
+            project_to_client.wait_for_sentiment_build()
             print('Build complete.')
 
     elif args.to_url:
@@ -158,9 +165,10 @@ def main():
 
         print('Project copy to existing project complete - rebuild started')
 
-        if (args.wait_for_build):
+        if (not args.skip_build) and (args.wait_for_build):
             print('Waiting for build to complete.')
-            project_to_client.wait_for_build(wait_for_sentiment=True)
+            project_to_client.wait_for_build()
+            project_to_client.wait_for_sentiment_build()
             print('Build complete.')
 
     else:
