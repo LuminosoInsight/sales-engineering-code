@@ -22,7 +22,7 @@ setup(
             'lumi-copy-project-with-filter = se_code.copy_project_with_filter:main',
             'lumi-copy-shared-concepts = se_code.copy_shared_concepts:main',
             'lumi-copy-shared-views = se_code.copy_shared_views:main',
-            'lumi-create-daylight-project-from-csv = se_code.create_daylight_project_from_csv.py',
+            'lumi-create-daylight-project-from-csv = se_code.create_daylight_project_from_csv:main',
             'lumi-create-train-test-split = se_code.create_train_test_split:main',
             'lumi-doc-downloader = se_code.doc_downloader:main',
             'lumi-format-multiple-text-fields = se_code.format_multiple_text_fields:main',
