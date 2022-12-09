@@ -65,14 +65,6 @@ def code_for_sentiment_polarization(sentiment_concepts):
             ns_index = 1
             c['polar_sentiment_color'] = polar_colors[p_index][ns_index] #purple
 
-        ns = calc_net_sentiment(c)
-        if ns<-0.25:
-            ns_index = 0
-        elif ns<=0.25:
-            ns_index = 1
-        else:
-            ns_index = 2
-
 def get_color_concept_list(sentiment_concepts, color_field):
     cl = []
     for c in sentiment_concepts:
