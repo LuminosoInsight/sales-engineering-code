@@ -78,7 +78,7 @@ def main():
 
     endpoint = parse_url(args.project_url)
     client = LuminosoClient.connect(endpoint,
-                                user_agent_suffix='se_code:color_sentiment')
+                                user_agent_suffix='se_code:sentiment_colorization')
 
     concepts = get_concepts(client)
 
