@@ -68,11 +68,11 @@ def get_color_concept_list(sentiment_concepts, color_field):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Creating a shared concept list based on the sentiment calculated for each concept and the color associated with that sentiment.'
+        description='Creating two shared concept lists based on the sentiment calculated for each concept and the color associated with that sentiment.'
     )
     parser.add_argument(
         'project_url',
-        help="The URL of the source project to get the shared concept list from"
+        help="The URL of the source project to create the shared concept lists in and get the concepts from"
         )
     args = parser.parse_args()
 
@@ -99,7 +99,7 @@ def main():
                 overwrite=True
                 )
 
-print("Done. Two new concept lists have been created.")
+print("Done. Two new shared concept lists have been created.")
 
 if __name__ == "__main__":
     main()
