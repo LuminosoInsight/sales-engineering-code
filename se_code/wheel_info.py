@@ -28,22 +28,26 @@ lumi-doc-downloader
 lumi-format-multiple-text-fields
     This will take a CSV file with multiple text fields and combine them into
     a single text field with a new metadata column
-lumi-manage-concepts
-    Uses the /concepts/manage endpoint to fine-tune the concepts in a
-    number of ways: marking texts for exclusion from the build process, 
-    marking inherently ignored texts for inclusion, marking two different 
-    texts to be treated as the same text,
 lumi-list-metadata
     This simply lists all the metadata fields and how many unique values 
     there are in each field.
 lumi-load-shared-concepts
     This will upload a file of shared concepts to a daylight project.
+lumi-manage-concepts
+    Uses the /concepts/manage endpoint to fine-tune the concepts in a
+    number of ways: marking texts for exclusion from the build process, 
+    marking inherently ignored texts for inclusion, marking two different 
+    texts to be treated as the same text.
 lumi-project-migration
     Will copy all projects under a specific workspace to a separate 
     server/workspace
 lumi-score-drivers
     This can download score drivers for a project as well as generate 
     output for score drivers over time.
+lumi-sentiment-colorization
+    This creates two shared concept lists, one for net sentiment and
+    one for sentiment polarization. This is based on the sentiment
+    calculated for each concept. It then colors the concepts accordingly.
 
 More details on each command can be found by using a --help alone on
 the command line.  ie.
@@ -60,11 +64,12 @@ lumi-create-daylight-project-from-csv
 lumi-create-train-test-split
 lumi-doc-downloader
 lumi-format-multiple-text-fields
-lumi-manage-concepts
 lumi-list-metadata
 lumi-load-shared-concepts
+lumi-manage-concepts
 lumi-project-migration
 lumi-score-drivers
+lumi-sentiment-colorization
 """
 
 

@@ -11,7 +11,7 @@ setup(
     description=("Code for sales engineering, particularly for code that will be given to customers"),
     packages=find_packages(),
     install_requires=[
-        'luminoso_api', 'click', 'scipy', 'pack64', 'numpy', 'scikit-learn', 
+        'luminoso_api', 'click', 'scipy', 'pack64', 'numpy', 'scikit-learn',
         'redis', 'flask', 'networkx', 'praw', 'pandas'
         ],
     entry_points={
@@ -26,11 +26,12 @@ setup(
             'lumi-create-train-test-split = se_code.create_train_test_split:main',
             'lumi-doc-downloader = se_code.doc_downloader:main',
             'lumi-format-multiple-text-fields = se_code.format_multiple_text_fields:main',
-            'lumi-manage-concepts = se_code.mange_concepts:main',
             'lumi-list-metadata = se_code.list_metadata:main',
             'lumi-load-shared-concepts = se_code.load_shared_concepts:main',
+            'lumi-manage-concepts = se_code.mange_concepts:main',
             'lumi-project-migration = se_code.project_migration:main',
             'lumi-score-drivers = se_code.score_drivers:main',
+            'lumi-sentiment-colorization = se_code.sentiment_colorization:main'
             'lumi-wheel-info = se_code.wheel_info:main',
         ]},
 )
