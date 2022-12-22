@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="se_code",
-    version='0.10.0',
+    version='0.10.1',
     maintainer='Luminoso Technologies, Inc.',
     maintainer_email='dev@luminoso.com',
     license="LICENSE",
@@ -28,7 +28,7 @@ setup(
             'lumi-format-multiple-text-fields = se_code.format_multiple_text_fields:main',
             'lumi-list-metadata = se_code.list_metadata:main',
             'lumi-load-shared-concepts = se_code.load_shared_concepts:main',
-            'lumi-manage-concepts = se_code.mange_concepts:main',
+            'lumi-manage-concepts = se_code.manage_concepts:main',
             'lumi-project-migration = se_code.project_migration:main',
             'lumi-score-drivers = se_code.score_drivers:main',
             'lumi-sentiment-colorization = se_code.sentiment_colorization:main',
