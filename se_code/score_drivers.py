@@ -1,9 +1,9 @@
 import argparse
 import csv
+from datetime import datetime, timedelta
+import urllib.parse
 import numpy as np
 import pandas as pd
-import urllib.parse
-from datetime import datetime, timedelta
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
@@ -58,6 +58,15 @@ class LuminosoData:
         driver_fields = [m['name'] for m in self.metadata
                          if m['type'] == 'number' or m['type'] == 'score']
         return driver_fields
+
+    @property
+    def concept_lists(self):
+        '''
+        Get all shared concept lists from a project to use with drivers
+        :return: List of concept list names
+        '''
+        concept_lists = [n['name'] for n in self.client.get('/concept_lists/')]
+        return concept_lists
 
     @property
     def first_date_field(self):
@@ -167,9 +176,11 @@ def _create_rows_from_drivers(luminoso_data, field, api_params, driver_type):
     Helper function for create_one_table().
     """
     rows = []
+
     score_drivers = luminoso_data.client.get(
         'concepts/score_drivers', score_field=field, **api_params
     )
+
     if 'concept_selector' not in api_params:
         score_drivers = [d for d in score_drivers if d['importance'] >= .4]
 
@@ -227,14 +238,17 @@ def create_one_table(luminoso_data, field, topic_drive, filter_list=None):
 
     # Set up a dict that's either empty or contains "filter", so we can use it
     # in keyword arguments to client.get()
+
     api_params = {}
     if filter_list:
         api_params['filter'] = filter_list
     if topic_drive:
-        saved_params = dict(api_params, concept_selector={'type': 'saved'})
-        driver_table.extend(_create_rows_from_drivers(
-            luminoso_data, field, saved_params, 'saved'
-        ))
+        for list_name in luminoso_data.concept_lists:
+            concept_list_params = dict(api_params,
+                                       concept_selector={'type': 'concept_list', 'name': list_name})
+            driver_table.extend(_create_rows_from_drivers(
+                luminoso_data, field, concept_list_params, 'concept_list: '+list_name
+            ))
 
         top_params = dict(api_params, concept_selector={'type': 'top'})
         driver_table.extend(_create_rows_from_drivers(

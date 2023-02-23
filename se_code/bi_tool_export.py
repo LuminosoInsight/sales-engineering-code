@@ -1,9 +1,9 @@
 import argparse
-import numpy as np
 import re
 import sys
 import urllib
 from collections import defaultdict
+import numpy as np
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
@@ -17,7 +17,7 @@ from se_code.score_drivers import (
 def parse_url(url):
     root_url = url.strip('/ ').split('/app')[0]
     api_url = root_url + '/api/v5'
-    
+
     workspace_id = url.strip('/').split('/')[5]
     project_id = url.strip('/').split('/')[6]
 
@@ -74,7 +74,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
         'concepts/match_counts',
         concept_selector={'type': 'top', 'limit': concept_count}
     )['match_counts']
-    
+
     subset_counts = {}
     for field in luminoso_data.metadata:
         if field['type'] == 'string':
@@ -88,7 +88,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
                 subset_counts[field['name']][value['value']] = value['count']
 
     skt = subset_key_terms(client, subset_counts, terms_per_subset=skt_limit)
-    
+
     themes = client.get(
         'concepts',
         concept_selector={'type': 'suggested',
@@ -134,7 +134,7 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
                 concept_ids[term_id].append(
                     (concept['name'], 'shared', scl_name)
                 )
-    
+
     doc_count = 0
     for doc in docs:
         doc_count += 1
@@ -211,7 +211,7 @@ def create_doc_table(luminoso_data, suggested_concepts):
             row[metadata_map[field['name']]] = field['value']
         if date_number == 0:
             row['doc_date 0'] = 0
-        
+
         # add the them (cluster) data
         doc['fvector'] = unpack64(doc['vector']).tolist()
 
@@ -229,7 +229,7 @@ def create_doc_table(luminoso_data, suggested_concepts):
         row['theme_score'] = max_score
 
         doc_table.append(row)
-        
+
     xref_table = [metadata_map]
     return doc_table, xref_table, metadata_map
 
@@ -302,14 +302,14 @@ def create_themes_table(client, suggested_concepts):
                 'name': []
             }
         cluster_labels[concept['cluster_label']]['name'].append(concept['name'])
-        
+
     for label, cluster in cluster_labels.items():
         name = cluster['name']
         # find related documents
         selector_docs = {'texts': name}
         search_docs = client.get('docs', search=selector_docs, limit=3,
                                  match_type='exact')['result']
-        
+
         selector = [{'texts': [t]} for t in name]
         count = 0
         match_counts = client.get(
@@ -326,7 +326,7 @@ def create_themes_table(client, suggested_concepts):
                  'id': cluster['id'],
                  'docs': count,
                  'doc_id': sdoc['doc_id']})
-    return themes      
+    return themes
 
 
 def create_sentiment_table(client, scl_match_counts, root_url=''):
@@ -455,7 +455,8 @@ def main():
     parser.add_argument('-tdrive', '--topic_drive', default=False,
                         action='store_true',
                         help="If generating drivers_table do so with"
-                             " shared/top concepts as well as auto concepts")
+                             " top concepts, shared concept lists"
+                             " and auto concepts")
     parser.add_argument('--driver_subset', default=False, action='store_true',
                         help="Do not generate score drivers by subset")
     parser.add_argument('--driver_subset_fields', default=None,
@@ -532,7 +533,7 @@ def main():
         doc_term_table = create_doc_term_table(docs, concepts, scl_match_counts)
         write_table_to_csv(doc_term_table, 'doc_term_table.csv',
                            encoding=args.encoding)
-        
+
     if not args.doc_subset:
         doc_subset_table = create_doc_subset_table(docs, metadata_map)
         write_table_to_csv(doc_subset_table, 'doc_subset_table.csv',
@@ -545,14 +546,14 @@ def main():
         driver_table = create_drivers_table(luminoso_data, args.topic_drive)
         write_table_to_csv(driver_table, 'drivers_table.csv',
                            encoding=args.encoding)
-    
+
     if not args.sentiment:
         print('Creating sentiment table...')
         sentiment_table = create_sentiment_table(client, scl_match_counts,
                                                  root_url=luminoso_data.root_url)
         write_table_to_csv(sentiment_table, 'sentiment.csv',
                            encoding=args.encoding)
-    
+
     if bool(args.sdot):
         if args.sdot_date_field is None:
             date_field_info = luminoso_data.first_date_field
