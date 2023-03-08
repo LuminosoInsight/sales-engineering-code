@@ -1,11 +1,12 @@
 '''
-Create a Luminoso Daylight project from a CSV file. Useful if the file is too
+Create and/or upload to a Luminoso Daylight project from a CSV file. Useful if the file is too
 large for UI or building without the UI for things like search_enhancement
 '''
 from luminoso_api import V5LuminosoClient as LuminosoClient
 
 import argparse
 import csv
+import os
 import time
 
 # Python's csv module limits cell sizes to 131072 characters (i.e., 2^17, or
@@ -28,28 +29,47 @@ DATE_FORMATS = [
 FIELD_TYPES = ['date', 'number', 'score', 'string']
 
 
-def create_project(client, input_file, project_name, workspace_id,
-                   keyword_expansion_terms=None, max_len=0,
-                   skip_sentiment_build=False):
-    # convert max_len into None if it's 0, to allow indexing later
-    if not max_len:
-        max_len = None
-
+def create_project(client, project_name, workspace_id):
     # create the project
     print('Creating project named: ' + project_name)
     project_info = client.post(name=project_name, language='en',
                                workspace_id=workspace_id)
     print('New project info = ' + str(project_info))
 
-    client_prj = client.client_for_path(project_info['project_id'])
+    return client.client_for_path(project_info['project_id'])
+
+
+def upload_documents(client_prj, input_file, offset=0, keyword_expansion_terms=None, max_len=0, skip_build=False, skip_sentiment_build=False):
+    # convert max_len into None if it's 0, to allow indexing later
+    if not max_len:
+        max_len = None
 
     # Extract the documents from the CSV file and upload them in batches.
     with open(input_file, 'r', encoding='utf-8-sig') as file:
         for i, docs in parse_csv_file(file, max_len):
-            print('Uploading at {}, {} new documents'.format(i, len(docs)))
-            client_prj.post('upload', docs=docs)
 
-    print('Done uploading. Starting build')
+            done = False
+            tries = 0
+            while (not done):
+                try:
+                    # i is where the file pointer is after the read (at the end of docs)
+                    if i-len(docs) >= offset:
+                        print('Uploading at {}, {} new documents'.format((i-len(docs)), len(docs)))
+                        client_prj.post('upload', docs=docs)
+                        done = True
+                    elif i > offset:
+                        # need to do a partial write
+                        print('Uploading at {}, {} new documents'.format(offset, (i-offset)))
+                        client_prj.post('upload', docs=docs[offset-(i-len(docs)):])
+                        done = True
+                    else:
+                        done = True
+                except ConnectionError:
+                    tries = tries + 1
+                    if tries > 5:
+                        print('Upload failed - connection error aborting')
+                        raise
+    print('Done uploading.')
 
     options = {}
     if skip_sentiment_build:
@@ -69,8 +89,10 @@ def create_project(client, input_file, project_name, workspace_id,
         print('keyword filter = {}'.format(keyword_expansion_dict))
         options['keyword_expansion'] = keyword_expansion_dict
 
-    client_prj.post('build', **options)
-    print('Build started')
+    if not skip_build:
+        client_prj.post('build', **options)
+        print('Build started')
+
     return client_prj
 
 
@@ -180,13 +202,22 @@ def parse_metadata_field(type_and_name, cell_value):
     return {'type': data_type, 'name': field_name, 'value': value}
 
 
+def split_url(project_url):
+    workspace_id = project_url.strip('/').split('/')[5]
+    project_id = project_url.strip('/').split('/')[6]
+    api_url = '/'.join(project_url.strip('/').split('/')[:3]).strip('/') + '/api/v5'
+    proj_api = '{}/projects/{}'.format(api_url, project_id)
+
+    return (workspace_id, project_id, api_url, proj_api)
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description='Create a Luminoso project using a CSV file.'
+        description='Create (or upload documents to) a Luminoso project using a CSV file.'
     )
     parser.add_argument('input_file', help='CSV file with project data')
     parser.add_argument(
-        '-n', '--project_name', default='', required=True,
+        '-n', '--project_name', default=None, required=False,
         help='New project name'
     )
     parser.add_argument(
@@ -207,7 +238,19 @@ def main():
         help='The maximum length to limit text fields'
     )
     parser.add_argument(
-        '-s', '--skip_sentiment_build', action='store_true', default=False,
+        '-p', '--project_url', default=None, required=False,
+        help='If this is provided upload to this project instead of creating a new project'
+    )
+    parser.add_argument(
+        '-o', '--offset', default=0, required=False,
+        help='Start the upload at the document offset specified instead of the beginning of the input file'
+    )
+    parser.add_argument(
+        '-s', '--skip_build', action='store_true', default=False,
+        help='Skip the project build after upload'
+    )
+    parser.add_argument(
+        '-ss', '--skip_sentiment_build', action='store_true', default=False,
         help='Allows the build to skip the sentiment build'
     )
     parser.add_argument(
@@ -216,10 +259,15 @@ def main():
     )
     args = parser.parse_args()
 
-    project_name = args.project_name
     input_file = args.input_file
     workspace_id = args.workspace_id
     max_len = args.max_text_length
+
+    # if no project name is given, use the input file
+    if not args.project_name:
+        project_name = args.input_file.split(os.sep)[-1]
+    else:
+        project_name = args.project_name
 
     api_url = args.api_url
 
@@ -240,16 +288,37 @@ def main():
         )
 
     try:
-        client_prj = create_project(
-            client, input_file, project_name, workspace_id,
-            keyword_expansion_terms=args.keyword_expansion_terms,
-            max_len=max_len, skip_sentiment_build=args.skip_sentiment_build
-        )
+        if args.project_url is None:
+            # create a new project if no url was provided
+            client_prj = create_project(client, project_name, workspace_id)
+            prj_info = client_prj.get("/")
+            # show the Daylight UI url
+            host_url = api_url.split('api')[0]
+            print("project created: {}app/projects/{}/{}/".format(host_url,
+                                                                 prj_info['workspace_id'],
+                                                                 prj_info['project_id']))
+        else:
+            # create a client from the url provided
+            workspace_id, project_id, api_url, proj_api = split_url(args.project_url)
+
+            # connect to v5 api again - in case the project's host is different than the default
+            client = LuminosoClient.connect(
+                url=api_url + '/projects/',
+                user_agent_suffix='se_code:create_daylight_project_from_csv'
+            )
+            client_prj = client.client_for_path(project_id)
+
+        upload_documents(client_prj, input_file,
+                         offset=int(args.offset),
+                         keyword_expansion_terms=args.keyword_expansion_terms,
+                         max_len=max_len,
+                         skip_build=args.skip_build,
+                         skip_sentiment_build=args.skip_sentiment_build)
     except RuntimeError as e:
         parser.exit(1, 'Error creating project: {}'.format(str(e)))
         return  # unreachable; lets the IDE knows client_prj has been defined
 
-    if args.wait_for_build_complete:
+    if (args.wait_for_build_complete) and (not args.skip_build):
         print('waiting for build to complete...')
         client_prj.wait_for_build()
 
