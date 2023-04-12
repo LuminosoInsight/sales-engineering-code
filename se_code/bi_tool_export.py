@@ -244,7 +244,7 @@ def create_doc_term_sentiment(docs, include_shared_concept=False, concept_lists=
 
     all_shared_concepts = []
     if include_shared_concept:
-        # need to build up that list of saved concepts
+        # need to build up that list of shared concepts
         all_shared_concepts = [t for cl in concept_lists for c in cl['concepts'] for t in c['texts'] ]
 
     # regex to remove the language from the term_id
