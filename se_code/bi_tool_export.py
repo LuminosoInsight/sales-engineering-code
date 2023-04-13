@@ -535,7 +535,7 @@ def main():
                            encoding=args.encoding)
 
     if not args.doc_term_sentiment:
-        concept_list = None
+        concept_lists = None
         if args.doc_term_sentiment_list:
             concept_lists = client.get("concept_lists/")
 
