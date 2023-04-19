@@ -50,11 +50,12 @@ Navigate your browser to (http://127.0.0.1:5000/)
 
 To update to a new version, change the version value in setup.py.
 
+Check that version change into the git push the change into the repo.
+
 Package the wheel file as outlined below.
 
 Make any changes to the se_code_installation.pdf file, the source is [https://docs.google.com/document/d/1lbJFlE8sTkP23Y6ofLxYX0hrh_gWJo2WqzXOyxWgb9c/edit#heading=h.fpkjdyy6kh7h](here). Save that google document as a pdf called se_code_installation.pdf
 
-Check that change into the git push the change into the repo.
 
 Go to the [https://github.com/LuminosoInsight/sales-engineering-code/releases](releases) and draft a new release.
 
