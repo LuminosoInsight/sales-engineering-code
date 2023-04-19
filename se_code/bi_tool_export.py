@@ -128,8 +128,8 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
         for term_id in concept['exact_term_ids']:
             concept_ids[term_id].append((concept['name'], 'top', None))
 
-    for scl_name, saved_concepts in scl_match_counts.items():
-        for concept in saved_concepts['match_counts']:
+    for scl_name, shared_concepts in scl_match_counts.items():
+        for concept in shared_concepts['match_counts']:
             for term_id in concept['exact_term_ids']:
                 concept_ids[term_id].append(
                     (concept['name'], 'shared', scl_name)
@@ -154,7 +154,7 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
                          'term': triple[0],
                          'exact_match': 1,
                          'concept_type': triple[1],
-                         'saved_concept_list': triple[2],
+                         'shared_concept_list': triple[2],
                          'sentiment': term['sentiment'],
                          'sentiment_confidence': term['sentiment_confidence']}
                     )
@@ -234,13 +234,18 @@ def create_doc_table(luminoso_data, suggested_concepts):
     return doc_table, xref_table, metadata_map
 
 
-def create_doc_term_sentiment(docs):
+def create_doc_term_sentiment(docs, include_shared_concept=False, concept_lists=None):
     '''
     Create a tabluation of the term sentiment in the context of each document.
 
     :param docs: The document list that has include_sentiment_on_concepts flag
     :return List of term sentiments in context of documents
     '''
+
+    all_shared_concepts = []
+    if include_shared_concept:
+        # need to build up that list of shared concepts
+        all_shared_concepts = [t for cl in concept_lists for c in cl['concepts'] for t in c['texts'] ]
 
     # regex to remove the language from the term_id
     # "newest|en product|en"  ->  "newest product"
@@ -250,10 +255,23 @@ def create_doc_term_sentiment(docs):
     for doc in docs:
         for term in doc['terms']:
             if 'sentiment' in term:
+                name = _DELANGTAG_RE.sub('', term['term_id'])
                 row = {**term,
                        'doc_id': doc['doc_id'],
-                       'name': _DELANGTAG_RE.sub('', term['term_id'])}
-                table.append(row)
+                       'name': name}
+
+                # check if this concept is in a shared concept list
+                if name in all_shared_concepts:
+                    for cl in concept_lists:
+                        for c in cl['concepts']:
+                            if name in c['texts']:
+                                row2 = row.copy()
+                                row2['share_concept_list'] = cl['name']
+                                row2['shared_concept_name'] = c['name']
+                                table.append(row2)
+
+                else:
+                    table.append(row)
 
     return table
 
@@ -277,15 +295,15 @@ def create_terms_table(concepts, scl_match_counts):
                                      - concept['exact_match_count']),
              'concept_type': 'top'}
         )
-    for scl_name, saved_concepts in scl_match_counts.items():
-        for concept in saved_concepts['match_counts']:
+    for scl_name, shared_concepts in scl_match_counts.items():
+        for concept in shared_concepts['match_counts']:
             table.append(
                 {'term': concept['name'],
                  'exact_match_count': concept['exact_match_count'],
                  'related_match_count': (concept['match_count']
                                          - concept['exact_match_count']),
                  'concept_type': 'shared',
-                 'saved_concept_list': scl_name}
+                 'shared_concept_list': scl_name}
             )
     return table
 
@@ -345,12 +363,12 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
         for concept in results
     ]
 
-    for scl_name, saved_concepts in scl_match_counts.items():
+    for scl_name, shared_concepts in scl_match_counts.items():
         results_saved = client.get(
             '/concepts/sentiment/',
             concept_selector={
                 "type": "concept_list",
-                "concept_list_id": saved_concepts['concept_list_id']
+                "concept_list_id": shared_concepts['concept_list_id']
             }
         )['match_counts']
 
@@ -359,7 +377,7 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
              'name': concept['name'],
              'match_count': concept['match_count'],
              'concept_type': 'shared',
-             'saved_concept_list': scl_name,
+             'shared_concept_list': scl_name,
              'exact_match_count': concept['exact_match_count'],
              'sentiment_share_positive': concept['sentiment_share']['positive'],
              'sentiment_share_neutral': concept['sentiment_share']['neutral'],
@@ -435,6 +453,10 @@ def main():
                         default=False,
                         action='store_true',
                         help="Do not generate doc_term_sentiment_table")
+    parser.add_argument('-doc_term_sentiment_list', '--doc_term_sentiment_list',
+                        default=False,
+                        action='store_true',
+                        help="Tag the term sentiment when concept is in a shared concept list")
     parser.add_argument('-terms', '--terms', default=False,
                         action='store_true',
                         help="Do not generate terms_table")
@@ -513,7 +535,13 @@ def main():
                            encoding=args.encoding)
 
     if not args.doc_term_sentiment:
-        doc_term_sentiment_table = create_doc_term_sentiment(docs)
+        concept_lists = None
+        if args.doc_term_sentiment_list:
+            concept_lists = client.get("concept_lists/")
+
+        doc_term_sentiment_table = create_doc_term_sentiment(docs, 
+                                                             args.doc_term_sentiment_list,
+                                                             concept_lists)
         write_table_to_csv(doc_term_sentiment_table, 'doc_term_sentiment.csv',
                            encoding=args.encoding)
 

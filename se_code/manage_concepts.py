@@ -22,66 +22,65 @@ def read_text_file(filename):
         return f.readlines()
 
 
-def ignore_concepts(texts, client, overwrite=False):
-    # Get the current state of management, so we can see whether there are
-    # changes by the end
-    current_management = client.get('concepts/manage')
+def ignore_concepts(texts, current_concepts, client, overwrite=False):
+
     selector = [{'texts': [t]} for t in texts]
     concepts = client.get(
         'concepts',
         concept_selector={'type': 'specified', 'concepts': selector}
     )['result']
-    
 
-    to_ignore = {}
     ignore_concepts = []
     for concept in concepts:
         name = concept['name']
         if name:
-            ignore_concepts.append({'concept' : name})
-    to_ignore["ignore"] = ignore_concepts
-    client.put('concepts/manage', concept_management=to_ignore,
+            ignore_concepts.append({'concept': name})
+    current_concepts["ignore"] = ignore_concepts
+    client.put('concepts/manage', concept_management=current_concepts,
                overwrite=overwrite)
     new_management = client.get('concepts/manage')
-    if new_management == current_management:
+    if new_management['next_build'] == new_management['current_build']:
         raise ValueError('No changes detected')
     return new_management
 
-def notice_concepts(texts, client,  overwrite=False):
+
+def notice_concepts(texts, current_concepts, client,  overwrite=False):
     if not texts:
         raise ValueError('No concepts found')
-    
-    to_notice = {}
+
     notice_concepts = []
     for text in texts:
-        notice_concepts.append({'concept' : text})
-    to_notice["notice"] = notice_concepts
-    client.put('concepts/manage', concept_management=to_notice,
+        notice_concepts.append({'concept': text.strip()})
+    current_concepts["notice"] = notice_concepts
+    client.put('concepts/manage', concept_management=current_concepts,
                overwrite=overwrite)
     return client.get('concepts/manage')
 
-def collocate_concepts(texts, client,  overwrite=False):
+
+def collocate_concepts(texts, current_concepts, client,  overwrite=False):
     if not texts:
-        raise ValueError('No concepts found')
-    to_collocate = {}
-    collocate_concepts = []
-    for text in texts:
-        collocate_concepts.append({'concept' : text})
-    to_collocate["collocate"] = collocate_concepts
-    client.put('concepts/manage', concept_management=to_collocate,
-               overwrite=overwrite)
+        current_concepts["collocate"] = []
+        client.put('concepts/manage', concept_management=current_concepts,
+                overwrite=overwrite)
+    else:
+        collocate_concepts = []
+        for text in texts:
+            collocate_concepts.append({'concept': text.strip()})
+        current_concepts["collocate"] = collocate_concepts
+        client.put('concepts/manage', concept_management=current_concepts,
+                overwrite=overwrite)
     return client.get('concepts/manage')
 
-def merge_concepts(texts, merge_text, client,  overwrite=False):
+
+def merge_concepts(texts, current_concepts, merge_text, client,  overwrite=False):
     if not texts:
         raise ValueError('No concepts found')
-    
-    to_merge = {}
+
     merge_concepts = []
     for text in texts:
-        merge_concepts.append({'concept' : text, 'merge_with' : merge_text})
-    to_merge["merge"] = merge_concepts
-    client.put('concepts/manage', concept_management=to_merge,
+        merge_concepts.append({'concept': text.strip(), 'merge_with': merge_text.strip()})
+    current_concepts["merge"] = merge_concepts
+    client.put('concepts/manage', concept_management=current_concepts,
                overwrite=overwrite)
     return client.get('concepts/manage')
 
@@ -153,32 +152,37 @@ def main():
             manage_concept = input('No concept specified, please input a concept now: ')
         concepts_to_manage = [manage_concept]
 
-    if args.ignore_concept == True:
+    # get the current list of concepts. On overwrite we only want to replace
+    # the individual ignore/notice not both.
+    mc_results = client.get('concepts/manage')
+    current_concepts = mc_results['next_build']
+
+    if args.ignore_concept is True:
         try:
-            manage_result = ignore_concepts(concepts_to_manage, client, args.overwrite)
+            manage_result = ignore_concepts(concepts_to_manage, current_concepts, client, args.overwrite)
         except ValueError as e:
             print(f'Error encountered: {e}.  Not rebuilding!')
             sys.exit()
-    elif args.notice_concept == True:
+    elif args.notice_concept is True:
         try:
-            manage_result = notice_concepts(concepts_to_manage, client, args.overwrite)
+            manage_result = notice_concepts(concepts_to_manage, current_concepts, client, args.overwrite)
         except ValueError as e:
             print(f'Error encountered: {e}.  Not rebuilding!')
             sys.exit()
-    elif args.collocate_concept == True:
+    elif args.collocate_concepts is True:
         try:
-            manage_result = collocate_concepts(concepts_to_manage, client, args.overwrite)
+            manage_result = collocate_concepts(concepts_to_manage, current_concepts, client, args.overwrite)
         except ValueError as e:
             print(f'Error encountered: {e}.  Not rebuilding!')
             sys.exit()
     elif args.merge_concept:
         try:
-            manage_result = merge_concepts(concepts_to_manage, args.merge_concept, client, args.overwrite)
+            manage_result = merge_concepts(concepts_to_manage, current_concepts, args.merge_concept, client, args.overwrite)
         except ValueError as e:
             print(f'Error encountered: {e}.  Not rebuilding!')
             sys.exit()
-            
-    if args.build == True:
+
+    if args.build is True:
         print(json.dumps(manage_result, ensure_ascii=False, indent=2))
         client.post('build')
         client.wait_for_build()
