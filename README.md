@@ -1,13 +1,24 @@
 Sales Engineering Code
 ======================
 
-This repository holds code written by Luminosans outside the development
-team; it includes code that may be sent to clients, and code used internally
-for our own purposes. This code is considered unsupported and for demonstration purposes only.
+This repository holds example code written by Luminoso. This code is considered **unsupported** and for **demonstration purposes only**. There are many scripts which may be helpful and we will do our best to support your efforts in using them, but they remain outside the contractual support system.
 
-## Downloading the repository
+## Downloading the latest wheel file
+The latest wheel file is available here.
+[https://github.com/LuminosoInsight/sales-engineering-code/releases](https://github.com/LuminosoInsight/sales-engineering-code/releases)
 
-To start you need to download the repository
+You should download the .whl file as well as the se_code_installation.pdf file which explains how to install and run the wheel file. 
+
+****
+If all you are going to do is run the wheel file, you don't need any more information from this page. The rest of this page is oriented towards the source code of these scripts for developers.
+
+****
+
+# Developer information
+
+## Downloading the source code
+
+To start you need to clone the source code repository
 `git clone https://github.com/LuminosoInsight/sales-engineering-code/`
 
 ## Creating a python virtual environment
@@ -31,22 +42,14 @@ You will want to create a Python virtual enviroment. It isn't required, but it  
     `deactivate`
 
 
-## Installation for Luminoso Employees
+## Installation for developers
 
 After downloading the repository, the code package can be installed into your 
 python environment with
 
 `python setup.py develop`
 
-## Running the web application
-
-You can run the web application\
-`cd api-utils-app`\
-`python web_app.py`
-
-Navigate your browser to (http://127.0.0.1:5000/)
-
-## Updating the version
+## Updating the version for release
 
 To update to a new version, change the version value in setup.py.
 
@@ -159,6 +162,14 @@ docstrings, and informative commit messages.  ("Some more code" is not an
 informative commit message...)  See https://help.github.com/articles/create-a-repo and http://git-scm.com/documentation for more information on using git.
 
 For Luminoso code style guide see: (https://github.com/LuminosoInsight/dev-docs/blob/master/general/style-guide.md)
+
+## Running the web application
+
+You can run the web application\
+`cd api-utils-app`\
+`python web_app.py`
+
+Navigate your browser to (http://127.0.0.1:5000/)
 
 
 
