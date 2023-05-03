@@ -51,7 +51,7 @@ def add_relations(
     client,
     docs,
     add_concept_relations=False,
-    add_concept_list=False,
+    individual_tags=False,
     shared_list_name=None,
     match_type="both",
     add_match_score=False,
@@ -75,7 +75,7 @@ def add_relations(
             d["term_sentiment"] = term_sentiment
 
     concept_lists = client.get("concept_lists/")
-    if shared_list_name!=None:
+    if shared_list_name is not None:
         concept_lists = [cl for cl in concept_lists if cl['name']==shared_list_name]
 
     scl_match_counts = {}
@@ -121,7 +121,7 @@ def add_relations(
             for sc in cl["concepts"]:
                 if d["doc_id"] in sc["match_scores_by_id"]:
                     in_none = False
-                    if add_concept_relations:
+                    if individual_tags and add_concept_relations:
                         d["metadata"].append(
                             {"name": sc["tag_name"], "type": "string", "value": "yes"}
                         )
@@ -150,7 +150,7 @@ def add_relations(
                             )
                     doc_concept_list.append(sc["name"])
                 else:
-                    if add_concept_relations:
+                    if individual_tags and add_concept_relations:
                         d["metadata"].append(
                             {"name": sc["tag_name"], "type": "string", "value": "no"}
                         )
@@ -164,31 +164,34 @@ def add_relations(
                             )
 
             if add_concept_relations:
-                if len(concept_lists)>1:
-                    outlier_field_name = cl["name"]+"_doc_outlier"
-                else:
-                    outlier_field_name = "doc_outlier"
-                if in_none:
-                    d["metadata"].append(
-                        {"name": outlier_field_name, "type": "string", "value": "yes"}
-                    )
-                    doc_concept_list.append("outlier")
-                else:
-                    d["metadata"].append(
-                        {"name": outlier_field_name, "type": "string", "value": "no"}
-                    )
-            if add_concept_list:
-                if len(concept_lists)>1:
+                if individual_tags:
+                    if len(concept_lists) > 1:
+                        outlier_field_name = cl["name"]+"_doc_outlier"
+                    else:
+                        outlier_field_name = "doc_outlier"
+                    if in_none:
+                        d["metadata"].append(
+                            {"name": outlier_field_name, "type": "string", "value": "yes"}
+                        )
+                    else:
+                        d["metadata"].append(
+                            {"name": outlier_field_name, "type": "string", "value": "no"}
+                        )
+                if len(concept_lists) > 1:
                     cl_field_name = cl["name"]+"_tags"
                 else:
                     cl_field_name = "tags"
-                d["metadata"].append(
-                    {
-                        "name": cl_field_name,
-                        "type": "string",
-                        "value": "|".join(doc_concept_list),
-                    }
-                )
+                if in_none:
+                    doc_concept_list = ["outlier"]
+
+                for v in doc_concept_list:
+                    d["metadata"].append(
+                        {
+                            "name": cl_field_name,
+                            "type": "string",
+                            "value": v,
+                        }
+                    )
 
 
 # flatten the doc structure for csv export
@@ -267,11 +270,11 @@ def main():
         help="Add columns for saved concept relations and outliers",
     )
     parser.add_argument(
-        "-l",
-        "--concept_list",
+        "-i",
+        "--individual_tags",
         default=False,
         action="store_true",
-        help="Add columns for saved concept relations and outliers",
+        help="Add individual yes/no tag columns for each relation",
     )
     parser.add_argument(
         "-sln",
@@ -304,7 +307,7 @@ def main():
 
     # require that -c is set if using any of the other flags associated with concept relations
     if (
-        args.concept_list
+        args.individual_tags
         or args.match_score
         or args.concept_relations_sentiment
         or args.match_type is not None
@@ -330,12 +333,12 @@ def main():
     client = LuminosoClient.connect(url=proj_apiv5, user_agent_suffix='se_code:doc_downloader')
 
     docs = get_all_docs(client)
-    if args.concept_relations or args.concept_list:
+    if args.concept_relations or args.individual_tags:
         add_relations(
             client,
             docs,
             args.concept_relations,
-            args.concept_list,
+            args.individual_tags,
             args.shared_list_name,
             match_type=args.match_type,
             add_match_score=args.match_score,
