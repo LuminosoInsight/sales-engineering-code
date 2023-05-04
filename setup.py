@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="se_code",
-    version='0.11.0',
+    version='0.12.0',
     maintainer='Luminoso Technologies, Inc.',
     maintainer_email='dev@luminoso.com',
     license="LICENSE",
@@ -17,6 +17,7 @@ setup(
     entry_points={
         'console_scripts': [
             'lumi-add-concept-relations-to-project = se_code.add_concept_relations_to_project:main',
+            'lumi-add-outlier-concepts-to-list = se_code.add_outlier_concepts_to_list:main',
             'lumi-bi-tool-export = se_code.bi_tool_export:main',
             'lumi-capitalize-saved-concepts = se_code.capitalize_saved_concepts:main',
             'lumi-copy-project-with-filter = se_code.copy_project_with_filter:main',

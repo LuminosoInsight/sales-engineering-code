@@ -1,7 +1,7 @@
 Sales Engineering Code
 ======================
 
-This repository holds example code written by Luminoso. This code is considered **unsupported** and for **demonstration purposes only**. There are many scripts which may be helpful and we will do our best to support your efforts in using them, but they remain outside the contractual support system.
+This repository holds example code and utility scripts written by Luminoso. This code is considered **unsupported** and for **demonstration purposes only**. There are many scripts which may be helpful and we will do our best to support your efforts in using them, but they remain outside the contractual support system.
 
 ## Downloading the latest wheel file
 The latest wheel file is available here.
