@@ -3,6 +3,8 @@ import argparse
 from luminoso_api import V5LuminosoClient as LuminosoClient
 
 from se_code.doc_downloader import get_all_docs, add_relations
+from se_code.copy_shared_concepts import copy_shared_concepts
+from se_code.copy_shared_views import copy_shared_views
 
 
 def format_docs_for_upload(docs):
@@ -22,12 +24,22 @@ def write_documents(client, docs):
         end = offset+1000
         client.post('upload', docs=docs[offset:end])
         offset = end
+        if offset % 1000 == 0:
+            print("Uploaded {} total documents".format(offset))
 
 
-def create_and_build(root_client, old_project_info, docs):
+def create_and_build(client, old_project_info, docs):
+    root_client = client.client_for_path("/")
+
     new_proj_info = root_client.post("/projects", name=old_project_info['name']+" (plus relations)", language=old_project_info['language'], workspace_id=old_project_info['workspace_id'])
     new_proj_client = root_client.client_for_path("/projects/{}".format(new_proj_info['project_id']))
     write_documents(new_proj_client, docs)
+
+    print("Copying shared views and concept lists")
+    copy_shared_concepts(client, new_proj_client)
+    copy_shared_views(client, new_proj_client)
+
+    print("Building project")
     new_proj_client.post("/build")
     new_proj_client.wait_for_build()
 
@@ -44,18 +56,17 @@ def main():
     proj_apiv5 = '{}/projects/{}'.format(api_url, project_id)
 
     client = LuminosoClient.connect(url=proj_apiv5)
-    root_client = client.client_for_path("/")
 
     print("Reading documents")
     docs = get_all_docs(client)
     print("Done reading: {} documents".format(len(docs)))
-    add_relations(client, docs)
+    print("Calculating concept relations")
+    add_relations(client, docs, True)
     print("Uploading documents")
     new_docs = format_docs_for_upload(docs)
     project_info = client.get("/")
 
-    print("Building project")
-    create_and_build(root_client, project_info, new_docs)
+    create_and_build(client, project_info, new_docs)
     print("Done")
 
 
