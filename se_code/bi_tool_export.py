@@ -430,6 +430,86 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
     return sentiment_match_counts
 
 
+def _create_row_for_sentiment_subsets(luminoso_data, api_params, subset_name, subset_value, list_type, list_name):
+    """
+    Helper function for create_sentiment_subset_table().
+    """
+    rows = []
+
+    sentiments = luminoso_data.client.get(
+        'concepts/sentiment', **api_params
+    )
+
+    for c in sentiments['match_counts']:
+        rows.append({'type': list_type,
+                     'name': list_name,
+                     'subset_name': subset_name,
+                     'subset_value': subset_value,
+                     'concept': c['name'],
+                     'relevance': c['relevance'],
+                     'match_count': c['match_count'],
+                     'exact_match_count': c['exact_match_count'],
+                     'conceptual_match_count': c['match_count'] - c['exact_match_count'],
+                     'sentiment_share_positive': c['sentiment_share']['positive'],
+                     'sentiment_share_neutral': c['sentiment_share']['neutral'],
+                     'sentiment_share_negative': c['sentiment_share']['negative'],
+                     'sentiment_doc_count_positive': c['sentiment_counts']['positive'],
+                     'sentiment_doc_count_neutral': c['sentiment_counts']['neutral'],
+                     'sentiment_doc_count_negative': c['sentiment_counts']['negative'],
+                     'sentiment_doc_count_total': c['sentiment_counts']['total']
+                     })
+
+    return rows
+
+
+def create_sentiment_subset_table(luminoso_data, subset_fields):
+    '''
+    Create tabulation of sentiment output
+    :param luminoso_data: a LuminosoData object
+    :param filter_list: document filter (as a list of dicts)
+    :return: List of sentiments
+    '''
+    print("Generating sentiment by subsets...")
+    sentiment_table = []
+
+    # if the user specifies the list of subsets to process
+    if not subset_fields:
+        subset_fields = luminoso_data.get_best_subset_fields()
+    else:
+        subset_fields = subset_fields.split(",")
+
+    # process sentiments by subset
+    sentiment_table = []
+
+    for field_name in subset_fields:
+        field_values = luminoso_data.get_fieldvalues_for_fieldname(field_name)
+        print("{}: field_values = {}".format(field_name, field_values))
+        for field_value in field_values:
+            filter_list = [{"name": field_name, "values": field_value}]
+            print("sentiment filter={}".format(filter_list))
+
+            api_params = {'filter': filter_list}
+
+            for list_name in luminoso_data.concept_lists:
+                concept_list_params = dict(api_params,
+                                        concept_selector={'type': 'concept_list', 'name': list_name})
+                sentiment_table.extend(_create_row_for_sentiment_subsets(
+                    luminoso_data, concept_list_params, field_name, field_value[0], 'shared_concept_list', list_name
+                ))
+
+            top_params = dict(api_params, concept_selector={'type': 'top'})
+            sentiment_table.extend(_create_row_for_sentiment_subsets(
+                luminoso_data, top_params, field_name, field_value[0], 'auto', 'top'
+            ))
+
+            sentiment_params = dict(api_params, concept_selector={'type': 'sentiment_suggested'})
+            sentiment_table.extend(_create_row_for_sentiment_subsets(
+                luminoso_data, sentiment_params, field_name, field_value[0], 'auto', 'sentiment_suggested'
+            ))
+
+    return sentiment_table
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Export data to Business Intelligence compatible CSV files.'
@@ -502,6 +582,13 @@ def main():
     parser.add_argument('--sdot_date_field', default=None,
                         help="The name of the date field. If none, the first"
                              " date field will be used")
+    parser.add_argument('--sentiment_subsets',
+                        action='store_true',
+                        help="Do not generate sentiment subsets")
+    parser.add_argument('--sentiment_subset_fields', default=None,
+                        help='Which subsets to include in sentiments by'
+                             ' subset. Default = All with < 200 unique values.'
+                             ' Samp: "field1,field2"')
     args = parser.parse_args()
     
     root_url, api_url, workspace, proj = parse_url(args.project_url)
@@ -580,6 +667,12 @@ def main():
         sentiment_table = create_sentiment_table(client, scl_match_counts,
                                                  root_url=luminoso_data.root_url)
         write_table_to_csv(sentiment_table, 'sentiment.csv',
+                           encoding=args.encoding)
+
+        sentiment_subset_table = create_sentiment_subset_table(
+            luminoso_data,
+            args.sentiment_subset_fields)
+        write_table_to_csv(sentiment_subset_table, 'sentiment_subsets.csv',
                            encoding=args.encoding)
 
     if bool(args.sdot):
