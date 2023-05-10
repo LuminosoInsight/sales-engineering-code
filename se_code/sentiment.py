@@ -1,12 +1,9 @@
 import argparse
 import csv
 from datetime import datetime, timedelta
-#import urllib.parse
-#import numpy as np
-#import pandas as pd
+import urllib.parse
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
-#from pack64 import unpack64
 from se_code.score_drivers import (
      LuminosoData, write_table_to_csv
 )
@@ -222,6 +219,7 @@ def main():
         args.sentiment_subset_fields)
     write_table_to_csv(sentiment_subset_table, 'sentiment_subsets.csv',
                         encoding=args.encoding)
+
 
 if __name__ == '__main__':
     main()

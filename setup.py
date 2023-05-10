@@ -31,6 +31,7 @@ setup(
             'lumi-load-shared-concepts = se_code.load_shared_concepts:main',
             'lumi-manage-concepts = se_code.manage_concepts:main',
             'lumi-project-migration = se_code.project_migration:main',
+            'lumi-sentiment = se_code.sentiment:main',
             'lumi-score-drivers = se_code.score_drivers:main',
             'lumi-sentiment-colorization = se_code.sentiment_colorization:main',
             'lumi-wheel-info = se_code.wheel_info:main',

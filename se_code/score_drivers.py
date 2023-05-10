@@ -410,7 +410,7 @@ def write_table_to_csv(table, filename, encoding='utf-8'):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Export Subset Key Terms and write to a file'
+        description='Export score drivers and write to a file'
     )
     parser.add_argument('project_url',
                         help="The complete URL of the Daylight project")
