@@ -12,8 +12,9 @@ from se_code.score_drivers import (
     create_drivers_table, create_sdot_table,
     create_drivers_with_subsets_table, LuminosoData, write_table_to_csv
 )
-from sentiment import (
-    create_sentiment_table, create_sentiment_subset_table
+from se_code.sentiment import (
+    create_sentiment_table, create_sentiment_subset_table,
+    create_sot_table
 )
 
 def parse_url(url):
@@ -410,7 +411,7 @@ def main():
                         action='store_true',
                         help="Do not generate sentiment for top concepts")
     parser.add_argument('--sdot', action='store_true',
-                        help="Calculate over time")
+                        help="Calculate score drivers over time")
     parser.add_argument('--sdot_end', default=None,
                         help="Last date to calculate sdot MM/DD/YYYY -"
                              " algorithm works moving backwards in time.")
@@ -423,12 +424,25 @@ def main():
                         help="The name of the date field. If none, the first"
                              " date field will be used")
     parser.add_argument('--sentiment_subsets',
-                        action='store_true',
+                        action='store_true', default=False,
                         help="Do not generate sentiment subsets")
     parser.add_argument('--sentiment_subset_fields', default=None,
                         help='Which subsets to include in sentiments by'
                              ' subset. Default = All with < 200 unique values.'
                              ' Samp: "field1,field2"')
+    parser.add_argument('--sot', action='store_true', default=False,
+                        help="Calculate sentiment over time (SOT)")
+    parser.add_argument('--sot_end', default=None,
+                        help="Last date to calculate sot MM/DD/YYYY -"
+                             " algorithm works moving backwards in time.")
+    parser.add_argument('--sot_iterations', default=7,
+                        help="Number of sentiment over time samples")
+    parser.add_argument('--sot_range', default=None,
+                        help="Size of each sample: M,W,D. If none given, range"
+                             " type will be calculated for best fit")
+    parser.add_argument('--sot_date_field', default=None,
+                        help="The name of the date field for sot. If none, the first"
+                             " date field will be used")
     args = parser.parse_args()
     
     root_url, api_url, workspace, proj = parse_url(args.project_url)
@@ -509,11 +523,37 @@ def main():
                                                  root_url=luminoso_data.root_url)
         write_table_to_csv(sentiment_table, 'sentiment.csv',
                            encoding=args.encoding)
-
+    
+    if not args.sentiment_subsets:
+        print("Creating sentiment by subsets...")
         sentiment_subset_table = create_sentiment_subset_table(
             luminoso_data,
             args.sentiment_subset_fields)
         write_table_to_csv(sentiment_subset_table, 'sentiment_subsets.csv',
+                           encoding=args.encoding)
+
+    if bool(args.sot):
+        print("Creating sentiment over time (sot)")
+
+        if args.sot_date_field is None:
+            date_field_info = luminoso_data.first_date_field
+            if date_field_info is None:
+                print("ERROR no date field in project for sot")
+                return
+        else:
+            date_field_info = luminoso_data.get_field_by_name(
+                args.sot_date_field
+            )
+            if date_field_info is None:
+                print("ERROR: (sot) no date field name:"
+                      " {}".format(args.sot_date_field))
+                return
+
+        sot_table = create_sot_table(
+            luminoso_data, date_field_info, args.sot_end,
+            int(args.sot_iterations), args.sot_range, args.sentiment_subset_fields
+        )
+        write_table_to_csv(sot_table, 'sot_table.csv',
                            encoding=args.encoding)
 
     if bool(args.sdot):
