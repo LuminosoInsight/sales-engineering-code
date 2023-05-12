@@ -192,12 +192,6 @@ def add_relations(
                             "value": v,
                         }
                     )
-    in_phys_count = 0
-    for d in docs:
-        for m in d['metadata']:
-            if ('tags' == m['name'] and 'Physical Health & Fitness' in m['value']):
-                in_phys_count += 1
-    print("in_phys_count: {}".format(in_phys_count))
 
 
 # flatten the doc structure for csv export
