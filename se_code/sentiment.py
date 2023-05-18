@@ -243,6 +243,7 @@ def create_sot_table(luminoso_data, date_field_info, end_date, iterations,
             start_date_epoch = end_date_epoch - 60*60*24*7
         else:  # day
             start_date_epoch = end_date_epoch - 60*60*24
+        start_date_dt = datetime.fromtimestamp(start_date_epoch)
 
         prepend_to_rows = {
             "start_date_dt": start_date_dt.isoformat(),
