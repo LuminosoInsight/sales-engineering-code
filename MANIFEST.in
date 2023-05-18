@@ -1,4 +1,5 @@
 exclude se_code/add_outlier_concept_lists.py
+exclude se_code/add_sentiment_as_driver.py
 exclude se_code/add_concept_relations_to_project.py
 exclude se_code/boilerplate_remover.py
 exclude se_code/cleaning_utils.py
