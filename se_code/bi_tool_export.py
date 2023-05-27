@@ -12,7 +12,10 @@ from se_code.score_drivers import (
     create_drivers_table, create_sdot_table,
     create_drivers_with_subsets_table, LuminosoData, write_table_to_csv
 )
-
+from se_code.sentiment import (
+    create_sentiment_table, create_sentiment_subset_table,
+    create_sot_table
+)
 
 def parse_url(url):
     root_url = url.strip('/ ').split('/app')[0]
@@ -347,88 +350,6 @@ def create_themes_table(client, suggested_concepts):
     return themes
 
 
-def create_sentiment_table(client, scl_match_counts, root_url=''):
-
-    # first get the default sentiment output with sentiment suggestions
-    results = client.get('/concepts/sentiment/')['match_counts']
-    sentiment_match_counts = [
-        {'texts': concept['texts'],
-         'name': concept['name'],
-         'concept_type': 'sentiment_suggestions',
-         'match_count': concept['match_count'],
-         'exact_match_count': concept['exact_match_count'],
-         'sentiment_share_positive': concept['sentiment_share']['positive'],
-         'sentiment_share_neutral': concept['sentiment_share']['neutral'],
-         'sentiment_share_negative': concept['sentiment_share']['negative']}
-        for concept in results
-    ]
-
-    for scl_name, shared_concepts in scl_match_counts.items():
-        results_saved = client.get(
-            '/concepts/sentiment/',
-            concept_selector={
-                "type": "concept_list",
-                "concept_list_id": shared_concepts['concept_list_id']
-            }
-        )['match_counts']
-
-        sentiment_match_counts.extend([
-            {'texts': concept['texts'],
-             'name': concept['name'],
-             'match_count': concept['match_count'],
-             'concept_type': 'shared',
-             'shared_concept_list': scl_name,
-             'exact_match_count': concept['exact_match_count'],
-             'sentiment_share_positive': concept['sentiment_share']['positive'],
-             'sentiment_share_neutral': concept['sentiment_share']['neutral'],
-             'sentiment_share_negative': concept['sentiment_share']['negative']}
-            for concept in results_saved
-        ])
-
-    results_top = client.get(
-        '/concepts/sentiment/',
-        concept_selector={"type": "top", 'limit': 100}
-    )['match_counts']
-
-    sentiment_match_counts.extend([
-        {'texts': concept['texts'],
-         'name': concept['name'],
-         'match_count': concept['match_count'],
-         'concept_type': 'top',
-         'exact_match_count': concept['exact_match_count'],
-         'sentiment_share_positive': concept['sentiment_share']['positive'],
-         'sentiment_share_neutral': concept['sentiment_share']['neutral'],
-         'sentiment_share_negative': concept['sentiment_share']['negative']}
-        for concept in results_top
-    ])
-
-    # FIXME: very similar to _create_rows_from_drivers(), except that it only
-    #  needs the top 3 (and therefore doesn't need to sort them)
-    # add three sample documents to each row
-    for srow in sentiment_match_counts:
-        if len(root_url)>0:
-            srow['url'] = (root_url
-                           + "/galaxy?suggesting=false&search="
-                           + urllib.parse.quote(" ".join(srow['texts'])))
-
-        # Use the driver term to find related documents
-        search_docs = client.get(
-            'docs', search={'texts': srow['texts']}, limit=3,
-            match_type='exact'
-        )['result']
-
-        srow['example_doc'] = ''
-        srow['example_doc2'] = ''
-        srow['example_doc3'] = ''
-        if len(search_docs) >= 1:
-            srow['example_doc'] = search_docs[0]['text']
-        if len(search_docs) >= 2:
-            srow['example_doc2'] = search_docs[1]['text']
-        if len(search_docs) >= 3:
-            srow['example_doc3'] = search_docs[2]['text']
-
-    return sentiment_match_counts
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -490,7 +411,7 @@ def main():
                         action='store_true',
                         help="Do not generate sentiment for top concepts")
     parser.add_argument('--sdot', action='store_true',
-                        help="Calculate over time")
+                        help="Calculate score drivers over time")
     parser.add_argument('--sdot_end', default=None,
                         help="Last date to calculate sdot MM/DD/YYYY -"
                              " algorithm works moving backwards in time.")
@@ -501,6 +422,26 @@ def main():
                              " type will be calculated for best fit")
     parser.add_argument('--sdot_date_field', default=None,
                         help="The name of the date field. If none, the first"
+                             " date field will be used")
+    parser.add_argument('--sentiment_subsets',
+                        action='store_true', default=False,
+                        help="Do not generate sentiment subsets")
+    parser.add_argument('--sentiment_subset_fields', default=None,
+                        help='Which subsets to include in sentiments by'
+                             ' subset. Default = All with < 200 unique values.'
+                             ' Samp: "field1,field2"')
+    parser.add_argument('--sot', action='store_true', default=False,
+                        help="Calculate sentiment over time (SOT)")
+    parser.add_argument('--sot_end', default=None,
+                        help="Last date to calculate sot MM/DD/YYYY -"
+                             " algorithm works moving backwards in time.")
+    parser.add_argument('--sot_iterations', default=7,
+                        help="Number of sentiment over time samples")
+    parser.add_argument('--sot_range', default=None,
+                        help="Size of each sample: M,W,D. If none given, range"
+                             " type will be calculated for best fit")
+    parser.add_argument('--sot_date_field', default=None,
+                        help="The name of the date field for sot. If none, the first"
                              " date field will be used")
     args = parser.parse_args()
     
@@ -571,6 +512,7 @@ def main():
         write_table_to_csv(skt_table, 'skt_table.csv', encoding=args.encoding)
 
     if not args.drive:
+        print("Creating score drivers...")
         driver_table = create_drivers_table(luminoso_data, args.topic_drive)
         write_table_to_csv(driver_table, 'drivers_table.csv',
                            encoding=args.encoding)
@@ -580,6 +522,38 @@ def main():
         sentiment_table = create_sentiment_table(client, scl_match_counts,
                                                  root_url=luminoso_data.root_url)
         write_table_to_csv(sentiment_table, 'sentiment.csv',
+                           encoding=args.encoding)
+    
+    if not args.sentiment_subsets:
+        print("Creating sentiment by subsets...")
+        sentiment_subset_table = create_sentiment_subset_table(
+            luminoso_data,
+            args.sentiment_subset_fields)
+        write_table_to_csv(sentiment_subset_table, 'sentiment_subsets.csv',
+                           encoding=args.encoding)
+
+    if bool(args.sot):
+        print("Creating sentiment over time (sot)")
+
+        if args.sot_date_field is None:
+            date_field_info = luminoso_data.first_date_field
+            if date_field_info is None:
+                print("ERROR no date field in project for sot")
+                return
+        else:
+            date_field_info = luminoso_data.get_field_by_name(
+                args.sot_date_field
+            )
+            if date_field_info is None:
+                print("ERROR: (sot) no date field name:"
+                      " {}".format(args.sot_date_field))
+                return
+
+        sot_table = create_sot_table(
+            luminoso_data, date_field_info, args.sot_end,
+            int(args.sot_iterations), args.sot_range, args.sentiment_subset_fields
+        )
+        write_table_to_csv(sot_table, 'sot_table.csv',
                            encoding=args.encoding)
 
     if bool(args.sdot):

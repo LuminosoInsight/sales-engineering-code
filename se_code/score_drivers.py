@@ -410,7 +410,7 @@ def write_table_to_csv(table, filename, encoding='utf-8'):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Export Subset Key Terms and write to a file'
+        description='Export score drivers and write to a file'
     )
     parser.add_argument('project_url',
                         help="The complete URL of the Daylight project")
@@ -420,7 +420,7 @@ def main():
     parser.add_argument('--encoding', default='utf-8',
                         help="Encoding type of the files to write to")
     parser.add_argument('--sdot', action='store_true',
-                        help="Calculate over time")
+                        help="Calculate score drivers over time")
     parser.add_argument('--sdot_end', default=None,
                         help="Last date to calculate sdot MM/DD/YYYY -"
                              " algorithm works moving backwards in time.")

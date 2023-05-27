@@ -5,6 +5,11 @@ The wheel file from Luminoso comes with the following commands
 
 lumi-add-concept-relations-to-project 
     Use shared concepts to tag documents and create a new project.
+lumi-add-outlier-concepts-to-list
+    Calculate outlier concepts on a share concept list, create a new list
+    with the coverage in the name and appended with the new concepts.
+lumi-add-sentiment_as_driver
+    Simulate a score field by using sentiment counts as a new metadata field
 lumi-bi-tool-export
     Business Intelligence Export. Creates CSV files for use with business 
     intelligence tools like Tableau, Microstrategy and PowerBI to name a few.
