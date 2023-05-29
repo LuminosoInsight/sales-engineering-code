@@ -1,9 +1,14 @@
 import argparse
-import re
-import sys
-import urllib
 from collections import defaultdict
 import numpy as np
+import os
+import psycopg2
+import psycopg2.extras
+from psycopg2 import Error
+import re
+import sys
+from urllib.parse import urlparse
+
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
@@ -16,6 +21,87 @@ from se_code.sentiment import (
     create_sentiment_table, create_sentiment_subset_table,
     create_sot_table
 )
+
+
+def db_create_sql_connection():
+
+    db_connection_string = os.environ.get('DB_CONNECTION_STRING')
+    if not db_connection_string:
+        print("Need DB_CONNECTION_STRING environment var.")
+        print("Format:")
+        print("   postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME")
+        exit(1)
+
+    p = urlparse(db_connection_string)
+
+    pg_connection_dict = {
+        'dbname': p.path.strip('/'),
+        'user': p.username,
+        'password': p.password,
+        'port': p.port,
+        'host': p.hostname
+    }
+
+    try:
+        conn = psycopg2.connect(**pg_connection_dict)
+    except (Exception, Error) as error:
+        print("Error while connecting to PostgreSQL", error)
+        exit(1)
+
+    return conn
+
+
+def db_create_tables(conn):
+    commands = (
+        """
+        CREATE TABLE IF NOT EXISTS docs (
+            project_id varchar(16),
+            doc_id varchar(40),
+            doc_text text,
+            theme_name varchar(64),
+            theme_id varchar(16),
+            theme_score numeric
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS doc_metadata (
+            project_id varchar(16),
+            doc_id varchar(40),
+            metadata_name varchar(64),
+            metadata_type varchar(16),
+            metadata_value varchar(64)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS drivers (
+            driver varchar(128),
+            driver_field varchar(128),
+            type varchar(16),
+            impact numeric,
+            related_terms varchar(128),
+            doc_count numeric,
+            url varchar(256),
+            example_doc text,
+            example_doc1 text,
+            example_doc2 text)
+        """
+    )
+
+    try:
+        cur = conn.cursor()
+
+        # create tables one by one
+        for command in commands:
+            cur.execute(command)
+
+        cur.close()
+        conn.commit()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+    #finally:
+    #    if conn is not None:
+    #        conn.close()
+
 
 def parse_url(url):
     root_url = url.strip('/ ').split('/app')[0]
@@ -45,6 +131,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     print('Extracting Lumi data...')
     client = LuminosoClient.connect('{}/projects/{}'.format(api_url, project))
     luminoso_data = LuminosoData(client)
+    luminoso_data.project_id = project
 
     if cln:
         concept_list_names = cln.split("|")
@@ -181,6 +268,20 @@ def create_doc_subset_table(docs, metadata_map):
                                      'value': field['value']})
     return doc_subset_table
 
+def create_doc_metadata_table(luminoso_data):
+    metadata_table = []
+    for doc in luminoso_data.docs:
+        mdrow = []
+        for md in doc['metadata']:
+            mdrow = {
+                'metadata_name': md['name'],
+                'metadata_type': md['type'],
+                'metadata_value': md['value'],
+                'doc_id': doc['doc_id']
+            }
+            metadata_table.append(mdrow)
+
+    return metadata_table
 
 def create_doc_table(luminoso_data, suggested_concepts):
     '''
@@ -193,17 +294,20 @@ def create_doc_table(luminoso_data, suggested_concepts):
     '''
 
     print('Creating doc table...')
+    '''
     sort_order = {'number': 0, 'score': 0, 'string': 1, 'date': 2}
     sorted_metadata = sorted(luminoso_data.metadata,
                              key=lambda x: sort_order[x['type']])
     metadata_map = {}
     for i, field in enumerate(sorted_metadata):
         metadata_map[field['name']] = 'Subset %d' % i
+    '''
 
     doc_table = []
 
     for doc in luminoso_data.docs:
         row = {'doc_id': doc['doc_id'], 'doc_text': doc['text']}
+        '''
         date_number = 0
         for field in doc['metadata']:
             if field['type'] == 'date':
@@ -214,7 +318,7 @@ def create_doc_table(luminoso_data, suggested_concepts):
             row[metadata_map[field['name']]] = field['value']
         if date_number == 0:
             row['doc_date 0'] = 0
-
+        '''
         # add the them (cluster) data
         doc['fvector'] = unpack64(doc['vector']).tolist()
 
@@ -227,14 +331,18 @@ def create_doc_table(luminoso_data, suggested_concepts):
                 if score > max_score:
                     max_score = score
                     max_id = concept['theme_id']
+                    max_theme_name = concept['name']
 
         row['theme_id'] = max_id
         row['theme_score'] = max_score
+        row['theme_name'] = max_theme_name
 
         doc_table.append(row)
 
-    xref_table = [metadata_map]
-    return doc_table, xref_table, metadata_map
+    doc_metadata_table = create_doc_metadata_table(luminoso_data)
+
+    # xref_table = [metadata_map]
+    return doc_table, doc_metadata_table
 
 
 def create_doc_term_sentiment(docs, include_shared_concept=False, concept_lists=None):
@@ -310,7 +418,6 @@ def create_terms_table(concepts, scl_match_counts):
             )
     return table
 
-
 def create_themes_table(client, suggested_concepts):
     cluster_labels = {}
     themes = []
@@ -350,6 +457,28 @@ def create_themes_table(client, suggested_concepts):
     return themes
 
 
+def write_to_sql(connection, table_name, data):
+
+    if len(data)>0:
+        columns = ', '.join(data[0].keys())
+
+        sql_data = []
+        for row in data:
+            tup = ()
+
+            for k, v in row.items():
+                tup += (v,)
+            sql_data.append(tup)
+
+            cursor = connection.cursor()
+            insert_query = f"INSERT INTO {table_name} ({columns}) VALUES %s"
+            psycopg2.extras.execute_values (
+                cursor, insert_query, sql_data, template=None, page_size=100
+            )
+
+            connection.commit()
+            cursor.close()
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -365,6 +494,8 @@ def main():
     parser.add_argument("-l", "--concept_list_names", default=None,
                         help="The names of this shared concept lists separated"
                              " by |. Default = ALL lists")
+    parser.add_argument("-o", '--output_format', default='csv',
+                        help="Output format, csv, sql")
     parser.add_argument('-sktl', '--skt_limit', default=20,
                         help="The max number of subset key terms to display"
                              " per subset")
@@ -444,11 +575,18 @@ def main():
                         help="The name of the date field for sot. If none, the first"
                              " date field will be used")
     args = parser.parse_args()
-    
-    root_url, api_url, workspace, proj = parse_url(args.project_url)
+
+    root_url, api_url, workspace, project_id = parse_url(args.project_url)
+
+    if args.output_format in 'sql':
+        conn = db_create_sql_connection()
+
+        print("creating sql tables")
+        db_create_tables(conn)
+
     print("starting subset drivers - topics={}".format(args.topic_drive))
 
-    lumi_data = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit),
+    lumi_data = pull_lumi_data(project_id, api_url, skt_limit=int(args.skt_limit),
                                concept_count=int(args.concept_count),
                                cln=args.concept_list_names)
     (luminoso_data, scl_match_counts, concepts, skt, themes) = lumi_data
@@ -456,10 +594,10 @@ def main():
     docs = luminoso_data.docs
 
     # get the docs no matter what because later data needs the metadata_map
-    doc_table, xref_table, metadata_map = create_doc_table(luminoso_data, themes)
+    doc_table, doc_metadata_table = create_doc_table(luminoso_data, themes)
 
     luminoso_data.set_root_url(
-        root_url + '/app/projects/' + workspace + '/' + proj
+        root_url + '/app/projects/' + workspace + '/' + project_id
     )
 
     if not args.driver_subset:
@@ -467,14 +605,26 @@ def main():
             luminoso_data, args.topic_drive,
             subset_fields=args.driver_subset_fields
         )
-        write_table_to_csv(driver_table, 'subset_drivers_table.csv',
-                           encoding=args.encoding)
+        if args.output_format in 'sql':
+            write_to_sql(conn, 'drivers', driver_table)        
+        else:
+            write_table_to_csv(driver_table, 'subset_drivers_table.csv',
+                               encoding=args.encoding)
+
 
     if not args.doc:
-        write_table_to_csv(doc_table, 'doc_table.csv', encoding=args.encoding)
-        write_table_to_csv(xref_table, 'xref_table.csv',
-                           encoding=args.encoding)
+        if args.output_format in 'sql':
+            write_to_sql(conn, 'docs', doc_table)        
+            write_to_sql(conn, 'doc_metadata', doc_metadata_table)        
 
+        else:
+            write_table_to_csv(doc_table, 'doc_table.csv', encoding=args.encoding)
+            write_table_to_csv(doc_metadata_table, 'doc_metadata_table.csv', 
+                               encoding=args.encoding)
+            # write_table_to_csv(xref_table, 'xref_table.csv',
+            #                   encoding=args.encoding)
+
+    '''
     if not args.doc_term_sentiment:
         concept_lists = None
         if args.doc_term_sentiment_list:
@@ -576,7 +726,7 @@ def main():
             int(args.sdot_iterations), args.sdot_range, args.topic_drive
         )
         write_table_to_csv(sdot_table, 'sdot_table.csv', encoding=args.encoding)
-
+'''
 
 if __name__ == '__main__':
     main()
