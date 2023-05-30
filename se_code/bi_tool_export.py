@@ -74,6 +74,7 @@ def db_create_tables(conn):
         """,
         """
         CREATE TABLE IF NOT EXISTS drivers (
+            project_id varchar(16),
             driver varchar(128),
             driver_field varchar(128),
             type varchar(16),
@@ -84,7 +85,39 @@ def db_create_tables(conn):
             example_doc text,
             example_doc1 text,
             example_doc2 text)
+        """,
         """
+        CREATE TABLE IF NOT EXISTS doc_term_sentiment (
+            project_id varchar(16),
+            name varchar(64),
+            term_id varchar(64),
+            doc_id varchar(40),
+            loc_start numeric,
+            loc_end numeric,
+            sentiment varchar(16),
+            sentiment_confidence numeric
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS terms (
+            project_id varchar(16),
+            term varchar(64),
+            exact_match_count numeric,
+            related_match_count numeric,
+            concept_type varchar(16),
+            shared_concept_list varchar(64)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS themes (
+            project_id varchar(16),
+            cluster_label varchar(32),
+            name varchar(64),
+            id varchar(16),
+            docs numeric,
+            doc_id varchar(40)
+        )
+       """
     )
 
     try:
@@ -98,10 +131,11 @@ def db_create_tables(conn):
         conn.commit()
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
+        return -1
     #finally:
     #    if conn is not None:
     #        conn.close()
-
+    return 0
 
 def parse_url(url):
     root_url = url.strip('/ ').split('/app')[0]
@@ -189,7 +223,8 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     theme_id = ''
     cluster_labels = {}
     for concept in themes['result']:
-        label = concept['cluster_label']
+        #label = concept['cluster_label']
+        label = concept['name']
         if label not in cluster_labels:
             theme_id = 'Theme {}'.format(len(cluster_labels))
             cluster_labels[label] = {'id': theme_id, 'name': []}
@@ -370,6 +405,9 @@ def create_doc_term_sentiment(docs, include_shared_concept=False, concept_lists=
                 row = {**term,
                        'doc_id': doc['doc_id'],
                        'name': name}
+                # sql doesn't allow 'end' so change names
+                row['loc_end'] = row.pop('end')
+                row['loc_start'] = row.pop('start')
 
                 # check if this concept is in a shared concept list
                 if name in all_shared_concepts:
@@ -424,7 +462,8 @@ def create_themes_table(client, suggested_concepts):
 
     # this is duplicating code done in pull_lumi_data - may need refactor
     for concept in suggested_concepts['result']:
-        if concept['cluster_label'] not in cluster_labels:
+        #if concept['cluster_label'] not in cluster_labels:
+        if concept['name'] not in cluster_labels:
             cluster_labels[concept['cluster_label']] = {
                 'id': 'Theme %d' % len(cluster_labels),
                 'name': []
@@ -457,27 +496,38 @@ def create_themes_table(client, suggested_concepts):
     return themes
 
 
-def write_to_sql(connection, table_name, data):
+def write_to_sql(connection, table_name, project_id, data):
+    # every table has a project_id, but most data doesn't have the column
+    # just add it here. Aware that this modifies the data
+    # for later calls, but this data is all transient and
+    # only for output anyway
+    for r in data:
+        r['project_id'] = project_id
 
-    if len(data)>0:
-        columns = ', '.join(data[0].keys())
+    if len(data) > 0:
+        keys = list(set(val for dic in data for val in dic.keys())) 
+        columns = ', '.join(keys)
 
         sql_data = []
         for row in data:
             tup = ()
 
-            for k, v in row.items():
-                tup += (v,)
+            for k in keys:
+                if k in row:
+                    tup += (str(row[k]),)
+                else:
+                    tup += ("",)
+
             sql_data.append(tup)
 
-            cursor = connection.cursor()
-            insert_query = f"INSERT INTO {table_name} ({columns}) VALUES %s"
-            psycopg2.extras.execute_values (
-                cursor, insert_query, sql_data, template=None, page_size=100
-            )
+        cursor = connection.cursor()
+        insert_query = f"INSERT INTO {table_name} ({columns}) VALUES %s"
+        psycopg2.extras.execute_values (
+            cursor, insert_query, sql_data, template=None, page_size=100
+        )
 
-            connection.commit()
-            cursor.close()
+        connection.commit()
+        cursor.close()
 
 
 def main():
@@ -582,7 +632,8 @@ def main():
         conn = db_create_sql_connection()
 
         print("creating sql tables")
-        db_create_tables(conn)
+        if db_create_tables(conn) != 0:
+            exit(-1)
 
     print("starting subset drivers - topics={}".format(args.topic_drive))
 
@@ -605,8 +656,9 @@ def main():
             luminoso_data, args.topic_drive,
             subset_fields=args.driver_subset_fields
         )
+
         if args.output_format in 'sql':
-            write_to_sql(conn, 'drivers', driver_table)        
+            write_to_sql(conn, 'drivers', project_id, driver_table)        
         else:
             write_table_to_csv(driver_table, 'subset_drivers_table.csv',
                                encoding=args.encoding)
@@ -614,8 +666,8 @@ def main():
 
     if not args.doc:
         if args.output_format in 'sql':
-            write_to_sql(conn, 'docs', doc_table)        
-            write_to_sql(conn, 'doc_metadata', doc_metadata_table)        
+            write_to_sql(conn, 'docs', project_id, doc_table)        
+            write_to_sql(conn, 'doc_metadata', project_id, doc_metadata_table)        
 
         else:
             write_table_to_csv(doc_table, 'doc_table.csv', encoding=args.encoding)
@@ -624,28 +676,38 @@ def main():
             # write_table_to_csv(xref_table, 'xref_table.csv',
             #                   encoding=args.encoding)
 
-    '''
     if not args.doc_term_sentiment:
         concept_lists = None
         if args.doc_term_sentiment_list:
             concept_lists = client.get("concept_lists/")
 
-        doc_term_sentiment_table = create_doc_term_sentiment(docs, 
+        doc_term_sentiment_table = create_doc_term_sentiment(docs,
                                                              args.doc_term_sentiment_list,
                                                              concept_lists)
-        write_table_to_csv(doc_term_sentiment_table, 'doc_term_sentiment.csv',
-                           encoding=args.encoding)
+        if args.output_format in 'sql':
+            write_to_sql(conn, 'doc_term_sentiment', project_id, doc_term_sentiment_table)
+        else:
+            write_table_to_csv(doc_term_sentiment_table, 'doc_term_sentiment.csv',
+                               encoding=args.encoding)
 
     if not args.terms:
         terms_table = create_terms_table(concepts, scl_match_counts)
-        write_table_to_csv(terms_table, 'terms_table.csv',
-                           encoding=args.encoding)
+
+        if args.output_format in 'sql':
+            write_to_sql(conn, 'terms', project_id, terms_table)
+        else:
+            write_table_to_csv(terms_table, 'terms_table.csv',
+                               encoding=args.encoding)
 
     if not args.themes:
         print('Creating themes table...')
         themes_table = create_themes_table(client, themes)
-        write_table_to_csv(themes_table, 'themes_table.csv',
-                           encoding=args.encoding)
+        if args.output_format in 'sql':
+            write_to_sql(conn, 'themes', project_id, themes_table)
+        else:
+            write_table_to_csv(themes_table, 'themes_table.csv',
+                               encoding=args.encoding)
+    '''
 
     # Combines list of concepts and shared concept lists
     if not args.doc_term:
