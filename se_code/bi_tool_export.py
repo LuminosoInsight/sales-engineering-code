@@ -87,6 +87,22 @@ def db_create_tables(conn):
             example_doc2 text)
         """,
         """
+        CREATE TABLE IF NOT EXISTS drivers_subset (
+            project_id varchar(16),
+            driver varchar(128),
+            driver_field varchar(128),
+            type varchar(16),
+            impact numeric,
+            related_terms varchar(128),
+            doc_count numeric,
+            url varchar(256),
+            example_doc text,
+            example_doc1 text,
+            example_doc2 text,
+            subset_name varchar(64),
+            subset_value varchar(64)
+        """,
+        """
         CREATE TABLE IF NOT EXISTS doc_term_sentiment (
             project_id varchar(16),
             name varchar(64),
@@ -686,9 +702,9 @@ def main():
         )
 
         if args.output_format in 'sql':
-            write_to_sql(conn, 'drivers', project_id, driver_table)        
+            write_to_sql(conn, 'drivers_subset', project_id, driver_table)        
         else:
-            write_table_to_csv(driver_table, 'subset_drivers_table.csv',
+            write_table_to_csv(driver_table, 'drivers_subset_table.csv',
                                encoding=args.encoding)
 
 
