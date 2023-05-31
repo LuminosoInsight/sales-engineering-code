@@ -97,10 +97,10 @@ def db_create_tables(conn):
             doc_count numeric,
             url varchar(256),
             example_doc text,
-            example_doc1 text,
             example_doc2 text,
+            example_doc3 text,
             subset_name varchar(64),
-            subset_value varchar(64)
+            subset_value varchar(64))
         """,
         """
         CREATE TABLE IF NOT EXISTS doc_term_sentiment (
@@ -141,6 +141,7 @@ def db_create_tables(conn):
             project_id varchar(16),
             doc_id varchar(40),
             term varchar(64),
+            exact_match numeric,
             concept_type varchar(16),
             shared_concept_list varchar(64),
             sentiment varchar(16),
@@ -148,7 +149,7 @@ def db_create_tables(conn):
         )
         """,
         """
-        CREATE TABLE IF NOT EXISTS doc_term_summary (
+        CREATE TABLE IF NOT EXISTS doc_subset (
             project_id varchar(16),
             doc_id varchar(40),
             field_name varchar(64),
