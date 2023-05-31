@@ -12,7 +12,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         'luminoso_api', 'click', 'scipy', 'pack64', 'numpy==1.23.5', 'scikit-learn',
-        'redis', 'flask', 'networkx', 'praw', 'pandas'
+        'redis', 'flask', 'networkx', 'praw', 'pandas===2.0.1'
         ],
     entry_points={
         'console_scripts': [

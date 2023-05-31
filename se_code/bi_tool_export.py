@@ -95,8 +95,8 @@ def db_create_tables(conn):
             loc_start numeric,
             loc_end numeric,
             sentiment varchar(16),
-            sentiment_confidence numeric
-            share_concept_list varchar(64)
+            sentiment_confidence numeric,
+            share_concept_list varchar(64),
             shared_concept_name varchar(64)
         )
         """,
