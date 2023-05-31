@@ -96,6 +96,8 @@ def db_create_tables(conn):
             loc_end numeric,
             sentiment varchar(16),
             sentiment_confidence numeric
+            share_concept_list varchar(64)
+            shared_concept_name varchar(64)
         )
         """,
         """
@@ -117,8 +119,33 @@ def db_create_tables(conn):
             docs numeric,
             doc_id varchar(40)
         )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS doc_term_summary (
+            project_id varchar(16),
+            doc_id varchar(40),
+            term varchar(64),
+            concept_type varchar(16),
+            shared_concept_list varchar(64),
+            sentiment varchar(16),
+            sentiment_confidence numeric
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS doc_term_summary (
+            project_id varchar(16),
+            doc_id varchar(40),
+            field_name varchar(64),
+            field_value varchar(64),
+            value varchar(64)
+        )
        """
     )
+    # I'm concerned with the doc_metadata that this should three separate tables based on type
+    # date, string, numeric so deciding the graph type will be easier. We can have
+    # separate views based on the values that are strings, numbers or dates. We can
+    # still filter them out using this table, but I think dashboards will be easier if
+    # all the values in the table are the same type.
 
     try:
         cur = conn.cursor()
@@ -234,9 +261,10 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     return (luminoso_data, scl_match_counts, concepts, skt, themes)
 
 
-def create_doc_term_table(docs, concepts, scl_match_counts):
+def create_doc_term_summary_table(docs, concepts, scl_match_counts):
     '''
     Creates a tabulated format for the relationships between docs & terms
+    using the top terms and shared concept lists as a filter
 
     :param docs: List of document dictionaries
     :param concepts: List of concept dictionaries
@@ -246,7 +274,7 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
          an exact match was found
     '''
 
-    doc_term_table = []
+    doc_term_summary_table = []
 
     concept_ids = defaultdict(list)
     for concept in concepts:
@@ -274,7 +302,7 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
                     if triple in concepts_in_doc:
                         continue
                     concepts_in_doc.add(triple)
-                    doc_term_table.append(
+                    doc_term_summary_table.append(
                         {'doc_id': doc['doc_id'],
                          'term': triple[0],
                          'exact_match': 1,
@@ -284,22 +312,22 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
                          'sentiment_confidence': term['sentiment_confidence']}
                     )
 
-    return doc_term_table
+    return doc_term_summary_table
 
 
-def create_doc_subset_table(docs, metadata_map):
+def create_doc_subset_table(docs):
     '''
     Create a tabulation of documents and associated subsets
     :param docs: List of document dictionaries
-    :param metadata_map: Dictionary mapping metadata field names to subset names
     :return: List of document ids, subsets, subset names and subset values
     '''
     doc_subset_table = []
     for doc in docs:
         for field in doc['metadata']:
             doc_subset_table.append({'doc_id': doc['doc_id'],
-                                     'subset': metadata_map[field['name']],
-                                     'subset_name': field['name'],
+                                     'field_name': field['name'],
+                                     'field_type': field['type'],
+                                     'field_value': field['value'],
                                      'value': field['value']})
     return doc_subset_table
 
@@ -565,9 +593,9 @@ def main():
     parser.add_argument('-theme', '--themes', default=False,
                         action='store_true',
                         help="Do not generate themes_table")
-    parser.add_argument('-dterm', '--doc_term', default=False,
+    parser.add_argument('-dtermsum', '--doc_term_summary', default=False,
                         action='store_true',
-                        help="Do not generate doc_term_table")
+                        help="Do not generate doc_term_summary_table")
     parser.add_argument('-dsubset', '--doc_subset', default=False,
                         action='store_true',
                         help="Do not generate doc_subset_table")
@@ -707,22 +735,28 @@ def main():
         else:
             write_table_to_csv(themes_table, 'themes_table.csv',
                                encoding=args.encoding)
-    '''
 
     # Combines list of concepts and shared concept lists
-    if not args.doc_term:
-        doc_term_table = create_doc_term_table(docs, concepts, scl_match_counts)
-        write_table_to_csv(doc_term_table, 'doc_term_table.csv',
-                           encoding=args.encoding)
+    if not args.doc_term_summary:
+        doc_term_summary_table = create_doc_term_summary_table(docs, concepts, scl_match_counts)
+        if args.output_format in 'sql':
+            write_to_sql(conn, 'doc_term_summary', project_id, doc_term_summary_table)
+        else:
+            write_table_to_csv(doc_term_summary_table, 'doc_term_summary_table.csv',
+                               encoding=args.encoding)
 
     if not args.doc_subset:
-        doc_subset_table = create_doc_subset_table(docs, metadata_map)
+        doc_subset_table = create_doc_subset_table(docs)
         write_table_to_csv(doc_subset_table, 'doc_subset_table.csv',
                            encoding=args.encoding)
     if not args.skt_table:
         skt_table = create_skt_table(client, skt)
-        write_table_to_csv(skt_table, 'skt_table.csv', encoding=args.encoding)
+        if args.output_format in 'sql':
+            write_to_sql(conn, 'subset_key_terms', project_id, skt)
+        else:
+            write_table_to_csv(skt_table, 'skt_table.csv', encoding=args.encoding)
 
+    '''
     if not args.drive:
         print("Creating score drivers...")
         driver_table = create_drivers_table(luminoso_data, args.topic_drive)
