@@ -9,7 +9,6 @@ import re
 import sys
 from urllib.parse import urlparse
 
-
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 from se_code.subset_key_terms import subset_key_terms, create_skt_table
@@ -77,30 +76,16 @@ def db_create_tables(conn):
             project_id varchar(16),
             driver varchar(128),
             driver_field varchar(128),
-            type varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
             impact numeric,
             related_terms varchar(128),
             doc_count numeric,
             url varchar(256),
-            example_doc text,
             example_doc1 text,
-            example_doc2 text)
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS drivers_subset (
-            project_id varchar(16),
-            driver varchar(128),
-            driver_field varchar(128),
-            type varchar(16),
-            impact numeric,
-            related_terms varchar(128),
-            doc_count numeric,
-            url varchar(256),
-            example_doc text,
             example_doc2 text,
-            example_doc3 text,
-            subset_name varchar(64),
-            subset_value varchar(64))
+            example_doc3 text)
         """,
         """
         CREATE TABLE IF NOT EXISTS doc_term_sentiment (
@@ -122,7 +107,7 @@ def db_create_tables(conn):
             term varchar(64),
             exact_match_count numeric,
             related_match_count numeric,
-            concept_type varchar(16),
+            concept_type varchar(32),
             shared_concept_list varchar(64)
         )
         """,
@@ -142,7 +127,7 @@ def db_create_tables(conn):
             doc_id varchar(40),
             term varchar(64),
             exact_match numeric,
-            concept_type varchar(16),
+            concept_type varchar(32),
             shared_concept_list varchar(64),
             sentiment varchar(16),
             sentiment_confidence numeric
@@ -153,16 +138,154 @@ def db_create_tables(conn):
             project_id varchar(16),
             doc_id varchar(40),
             field_name varchar(64),
+            field_type varchar(16),
             field_value varchar(64),
             value varchar(64)
         )
-       """
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS subset_key_terms (
+            project_id varchar(16),
+            term varchar(64),
+            field_name varchar(64),
+            field_value varchar(64),
+            exact_matches numeric,
+            conceptual_matches numeric,
+            total_matches numeric,
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS drivers (
+            project_id varchar(16),
+            driver varchar(128),
+            driver_field varchar(128),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            impact numeric,
+            related_terms varchar(128),
+            doc_count numeric,
+            url varchar(256),
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text)
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS drivers_subset (
+            project_id varchar(16),
+            driver varchar(128),
+            driver_field varchar(128),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            impact numeric,
+            related_terms varchar(128),
+            doc_count numeric,
+            url varchar(256),
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text,
+            field_name varchar(64),
+            field_value varchar(64))
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS drivers_over_time (
+            project_id varchar(16),
+            start_date timestamp,
+            end_date timestamp,
+            iteration_counter numeric,
+            range_type varchar(16),
+            driver varchar(128),
+            driver_field varchar(128),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            impact numeric,
+            related_terms varchar(128),
+            doc_count numeric,
+            url varchar(256),
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text,
+            field_name varchar(64),
+            field_value varchar(64))
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS sentiment (
+            project_id varchar(16),
+            concept varchar(64),
+            texts varchar(128),
+            concept_type varchar(32),
+            shared_concept_list varchar(64),
+            match_count numeric,
+            exact_match_count numeric,
+            sentiment_share_positive numeric,
+            sentiment_share_neutral numeric,
+            sentiment_share_negative numeric,
+            url varchar(256),
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS sentiment_subsets (
+            project_id varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            field_name varchar(64),
+            field_value varchar(64),
+            concept varchar(64),
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric,
+            sentiment_share_positive numeric,
+            sentiment_share_neutral numeric,
+            sentiment_share_negative numeric,
+            sentiment_doc_count_positive numeric,
+            sentiment_doc_count_neutral numeric,
+            sentiment_doc_count_negative numeric,
+            sentiment_doc_count_total numeric
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS sentiment_over_time (
+            project_id varchar(16),
+            start_date timestamp,
+            end_date timestamp,
+            iteration_counter numeric,
+            range_type varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            field_name varchar(64),
+            field_value varchar(64),
+            concept varchar(64),
+            concept_relevance numeric,
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric,
+            sentiment_share_positive numeric,
+            sentiment_share_neutral numeric,
+            sentiment_share_negative numeric,
+            sentiment_doc_count_positive numeric,
+            sentiment_doc_count_neutral numeric,
+            sentiment_doc_count_negative numeric,
+            sentiment_doc_count_total numeric
+        )
+        """
     )
+    # THOUGHTS
     # I'm concerned with the doc_metadata that this should three separate tables based on type
     # date, string, numeric so deciding the graph type will be easier. We can have
     # separate views based on the values that are strings, numbers or dates. We can
     # still filter them out using this table, but I think dashboards will be easier if
     # all the values in the table are the same type.
+    # Also concerned that doc_metadata and doc_subset are exactly the same
 
     try:
         cur = conn.cursor()
@@ -176,10 +299,9 @@ def db_create_tables(conn):
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
         return -1
-    #finally:
-    #    if conn is not None:
-    #        conn.close()
+
     return 0
+
 
 def parse_url(url):
     root_url = url.strip('/ ').split('/app')[0]
@@ -575,6 +697,12 @@ def write_to_sql(connection, table_name, project_id, data):
         cursor.close()
 
 
+def output_data(data, format, filename, sql_connection, table_name, project_id, encoding):
+    if format in 'sql':
+        write_to_sql(sql_connection, table_name, project_id, data)
+    else:
+        write_table_to_csv(data, filename,encoding=encoding)
+
 def main():
     parser = argparse.ArgumentParser(
         description='Export data to Business Intelligence compatible CSV files.'
@@ -621,7 +749,7 @@ def main():
     parser.add_argument('-drive', '--drive', default=False,
                         action='store_true',
                         help="Do not generate driver_table")
-    parser.add_argument('-tdrive', '--topic_drive', default=False,
+    parser.add_argument('-tdrive', '--topic_drive', default=True,
                         action='store_true',
                         help="If generating drivers_table do so with"
                              " top concepts, shared concept lists"
@@ -673,6 +801,7 @@ def main():
 
     root_url, api_url, workspace, project_id = parse_url(args.project_url)
 
+    conn = None
     if args.output_format in 'sql':
         conn = db_create_sql_connection()
 
@@ -697,29 +826,21 @@ def main():
     )
 
     if not args.driver_subset:
-        driver_table = create_drivers_with_subsets_table(
+        driver_subset_table = create_drivers_with_subsets_table(
             luminoso_data, args.topic_drive,
             subset_fields=args.driver_subset_fields
         )
-
-        if args.output_format in 'sql':
-            write_to_sql(conn, 'drivers_subset', project_id, driver_table)        
-        else:
-            write_table_to_csv(driver_table, 'drivers_subset_table.csv',
-                               encoding=args.encoding)
-
+        output_data(driver_subset_table, args.output_format,
+            'drivers_subset_table.csv', conn,
+            'drivers_subset', project_id, encoding=args.encoding)
 
     if not args.doc:
-        if args.output_format in 'sql':
-            write_to_sql(conn, 'docs', project_id, doc_table)        
-            write_to_sql(conn, 'doc_metadata', project_id, doc_metadata_table)        
-
-        else:
-            write_table_to_csv(doc_table, 'doc_table.csv', encoding=args.encoding)
-            write_table_to_csv(doc_metadata_table, 'doc_metadata_table.csv', 
-                               encoding=args.encoding)
-            # write_table_to_csv(xref_table, 'xref_table.csv',
-            #                   encoding=args.encoding)
+        output_data(doc_table, args.output_format,
+            'doc_table.csv', conn,
+            'docs', project_id, encoding=args.encoding)
+        output_data(doc_metadata_table, args.output_format,
+            'doc_metadata_table.csv', conn,
+            'doc_metadata', project_id, encoding=args.encoding)
 
     if not args.doc_term_sentiment:
         concept_lists = None
@@ -729,56 +850,49 @@ def main():
         doc_term_sentiment_table = create_doc_term_sentiment(docs,
                                                              args.doc_term_sentiment_list,
                                                              concept_lists)
-        if args.output_format in 'sql':
-            write_to_sql(conn, 'doc_term_sentiment', project_id, doc_term_sentiment_table)
-        else:
-            write_table_to_csv(doc_term_sentiment_table, 'doc_term_sentiment.csv',
-                               encoding=args.encoding)
+        output_data(doc_term_sentiment_table, args.output_format,
+                    'doc_term_sentiment.csv', conn,
+                    'doc_term_sentiment', project_id, encoding=args.encoding)
 
     if not args.terms:
         terms_table = create_terms_table(concepts, scl_match_counts)
 
-        if args.output_format in 'sql':
-            write_to_sql(conn, 'terms', project_id, terms_table)
-        else:
-            write_table_to_csv(terms_table, 'terms_table.csv',
-                               encoding=args.encoding)
+        output_data(terms_table, args.output_format,
+                    'terms_table.csv', conn,
+                    'terms', project_id, encoding=args.encoding)
 
     if not args.themes:
         print('Creating themes table...')
         themes_table = create_themes_table(client, themes)
-        if args.output_format in 'sql':
-            write_to_sql(conn, 'themes', project_id, themes_table)
-        else:
-            write_table_to_csv(themes_table, 'themes_table.csv',
-                               encoding=args.encoding)
+        output_data(themes_table, args.output_format,
+                    'themes_table.csv', conn,
+                    'themes', project_id, encoding=args.encoding)
 
     # Combines list of concepts and shared concept lists
     if not args.doc_term_summary:
         doc_term_summary_table = create_doc_term_summary_table(docs, concepts, scl_match_counts)
-        if args.output_format in 'sql':
-            write_to_sql(conn, 'doc_term_summary', project_id, doc_term_summary_table)
-        else:
-            write_table_to_csv(doc_term_summary_table, 'doc_term_summary_table.csv',
-                               encoding=args.encoding)
+        output_data(doc_term_summary_table, args.output_format,
+                    'doc_term_summary_table.csv', conn,
+                    'doc_term_summary', project_id, encoding=args.encoding)
 
     if not args.doc_subset:
         doc_subset_table = create_doc_subset_table(docs)
-        write_table_to_csv(doc_subset_table, 'doc_subset_table.csv',
-                           encoding=args.encoding)
+        output_data(doc_subset_table, args.output_format,
+                    'doc_subset_table.csv', conn,
+                    'doc_subset', project_id, encoding=args.encoding)
+
     if not args.skt_table:
         skt_table = create_skt_table(client, skt)
-        if args.output_format in 'sql':
-            write_to_sql(conn, 'subset_key_terms', project_id, skt)
-        else:
-            write_table_to_csv(skt_table, 'skt_table.csv', encoding=args.encoding)
+        output_data(skt_table, args.output_format,
+                    'skt_table.csv', conn,
+                    'subset_key_terms', project_id, encoding=args.encoding)
 
-    '''
     if not args.drive:
         print("Creating score drivers...")
         driver_table = create_drivers_table(luminoso_data, args.topic_drive)
-        write_table_to_csv(driver_table, 'drivers_table.csv',
-                           encoding=args.encoding)
+        output_data(driver_table, args.output_format,
+                    'drivers_table.csv', conn,
+                    'drivers', project_id, encoding=args.encoding)
 
     if not args.sentiment:
         print('Creating sentiment table...')
@@ -786,14 +900,18 @@ def main():
                                                  root_url=luminoso_data.root_url)
         write_table_to_csv(sentiment_table, 'sentiment.csv',
                            encoding=args.encoding)
-    
+        output_data(sentiment_table, args.output_format,
+                    'sentiment.csv', conn,
+                    'sentiment', project_id, encoding=args.encoding)
+
     if not args.sentiment_subsets:
         print("Creating sentiment by subsets...")
         sentiment_subset_table = create_sentiment_subset_table(
             luminoso_data,
             args.sentiment_subset_fields)
-        write_table_to_csv(sentiment_subset_table, 'sentiment_subsets.csv',
-                           encoding=args.encoding)
+        output_data(sentiment_subset_table, args.output_format,
+                    'sentiment_subsets.csv', conn,
+                    'sentiment_subsets', project_id, encoding=args.encoding)
 
     if bool(args.sot):
         print("Creating sentiment over time (sot)")
@@ -816,8 +934,9 @@ def main():
             luminoso_data, date_field_info, args.sot_end,
             int(args.sot_iterations), args.sot_range, args.sentiment_subset_fields
         )
-        write_table_to_csv(sot_table, 'sot_table.csv',
-                           encoding=args.encoding)
+        output_data(sot_table, args.output_format,
+                    'sot_table.csv', conn,
+                    'sentiment_over_time', project_id, encoding=args.encoding)
 
     if bool(args.sdot):
         if args.sdot_date_field is None:
@@ -838,8 +957,10 @@ def main():
             luminoso_data, date_field_info, args.sdot_end,
             int(args.sdot_iterations), args.sdot_range, args.topic_drive
         )
-        write_table_to_csv(sdot_table, 'sdot_table.csv', encoding=args.encoding)
-'''
+        output_data(sdot_table, args.output_format,
+                    'sdot_table.csv', conn,
+                    'drivers_over_time', project_id, encoding=args.encoding)
+
 
 if __name__ == '__main__':
     main()

@@ -171,7 +171,7 @@ def get_assoc(vector1, vector2):
     return float(np.dot(unpack64(vector1), unpack64(vector2)))
 
 
-def _create_rows_from_drivers(luminoso_data, field, api_params, driver_type):
+def _create_rows_from_drivers(luminoso_data, field, api_params, list_type, list_name, prepend_to_rows=None):
     """
     Helper function for create_one_table().
     """
@@ -185,8 +185,12 @@ def _create_rows_from_drivers(luminoso_data, field, api_params, driver_type):
         score_drivers = [d for d in score_drivers if d['importance'] >= .4]
 
     for driver in score_drivers:
-        row = {'driver': driver['name'], 'type': driver_type,
-               'driver_field': field, 'impact': driver['impact'],
+        row = {'driver': driver['name'], 
+               'list_type': list_type,
+               'list_name': list_name,
+               'relevance': driver['relevance'],
+               'driver_field': field, 
+               'impact': driver['impact'],
                'related_terms': driver['texts'],
                'doc_count': driver['exact_match_count']}
 
@@ -210,21 +214,23 @@ def _create_rows_from_drivers(luminoso_data, field, api_params, driver_type):
 
             luminoso_data.cache_docs[texts_key] = docs[0:3]
 
-        row['example_doc'] = ''
+        row['example_doc1'] = ''
         row['example_doc2'] = ''
         row['example_doc3'] = ''
         # excel has a max csv cell length of 32767
         if len(luminoso_data.cache_docs[texts_key]) >= 1:
-            row['example_doc'] = luminoso_data.cache_docs[texts_key][0]['text'][:32700]
+            row['example_doc1'] = luminoso_data.cache_docs[texts_key][0]['text'][:32700]
         if len(luminoso_data.cache_docs[texts_key]) >= 2:
             row['example_doc2'] = luminoso_data.cache_docs[texts_key][1]['text'][:32700]
         if len(luminoso_data.cache_docs[texts_key]) >= 3:
             row['example_doc3'] = luminoso_data.cache_docs[texts_key][2]['text'][:32700]
+        if prepend_to_rows:
+            row = {**prepend_to_rows, **row}
         rows.append(row)
     return rows
 
 
-def create_one_table(luminoso_data, field, topic_drive, filter_list=None):
+def create_one_table(luminoso_data, field, topic_drive, filter_list=None, prepend_to_rows=None):
     '''
     Create tabulation of ScoreDrivers output, complete with doc counts, example
     docs, scores and driver clusters
@@ -247,29 +253,36 @@ def create_one_table(luminoso_data, field, topic_drive, filter_list=None):
             concept_list_params = dict(api_params,
                                        concept_selector={'type': 'concept_list', 'name': list_name})
             driver_table.extend(_create_rows_from_drivers(
-                luminoso_data, field, concept_list_params, 'concept_list: '+list_name
+                luminoso_data, field, concept_list_params, 'shared_concept_list', list_name,
+                prepend_to_rows
             ))
 
-        top_params = dict(api_params, concept_selector={'type': 'top'})
-        driver_table.extend(_create_rows_from_drivers(
-            luminoso_data, field, top_params, 'top'
-        ))
-
-    driver_params = dict(api_params, limit=100)
+    top_params = dict(api_params, concept_selector={'type': 'top', 'limit': 100})
     driver_table.extend(_create_rows_from_drivers(
-        luminoso_data, field, driver_params, 'auto_found'
+        luminoso_data, field, top_params, 'auto', 'Top', prepend_to_rows
+    ))
+
+    suggested_params = dict(api_params, concept_selector={"type": "suggested", "num_clusters": 7, "num_cluster_concepts": 4})
+    driver_table.extend(_create_rows_from_drivers(
+        luminoso_data, field, suggested_params, 'auto', 'Suggested Clusters',
+        prepend_to_rows
+    ))
+
+    driver_params = dict(api_params, concept_selector={"type": "drivers_suggested", "score_field": field, "limit": 100})
+    driver_table.extend(_create_rows_from_drivers(
+        luminoso_data, field, driver_params, 'auto', 'Suggested Drivers',
+        prepend_to_rows
     ))
 
     return driver_table
 
 
-def create_one_sdot_table(luminoso_data, field, topic_drive, filter_list):
+def create_one_sdot_table(luminoso_data, field, topic_drive, filter_list, prepend_to_rows=None):
     print("{}:{} sdot starting".format(filter_list[0]['maximum'], field))
 
     driver_table = create_one_table(luminoso_data, field, topic_drive,
-                                    filter_list=filter_list)
-    for d in driver_table:
-        d['end_date'] = filter_list[0]['maximum']
+                                    filter_list=filter_list, prepend_to_rows=prepend_to_rows)
+
     print("{}:{} sdot done data len={}".format(
         filter_list[0]['maximum'], field, len(driver_table))
     )
@@ -286,8 +299,8 @@ def create_drivers_table(luminoso_data, topic_drive, filter_list=None,
 
     if subset_name is not None:
         for ti in all_tables:
-            ti['subset_name'] = subset_name
-            ti['subset_value'] = subset_value
+            ti['field_name'] = subset_name
+            ti['field_value'] = subset_value
 
     return all_tables
 
@@ -317,7 +330,7 @@ def create_drivers_with_subsets_table(luminoso_data, topic_drive,
             driver_table.extend(sd_data)
             if len(sd_data) > 0:
                 print("{}:{} complete. len={}".format(
-                    sd_data[0]['subset_name'], sd_data[0]['subset_value'],
+                    sd_data[0]['field_name'], sd_data[0]['field_value'],
                     len(sd_data)
                 ))
 
@@ -343,6 +356,8 @@ def create_sdot_table(luminoso_data, date_field_info, end_date, iterations,
     if range_type is None or range_type not in ['M', 'W', 'D']:
         range_type = luminoso_data.find_best_interval(date_field_name,
                                                       iterations)
+    range_descriptions = {'M': 'Month', 'W': 'Week', 'D': 'Day'}
+    range_description = range_descriptions[range_type]
 
     print("sdot threads starting. Date Field: {}, Iterations: {},"
           " Range Type: {}".format(date_field_name, iterations, range_type))
@@ -374,8 +389,18 @@ def create_sdot_table(luminoso_data, date_field_info, end_date, iterations,
                             "minimum": int(start_date_epoch),
                             "maximum": int(end_date_epoch)}]
 
+            start_date_dt = datetime.fromtimestamp(start_date_epoch)
+
+            prepend_to_rows = {
+                "start_date": start_date_dt.isoformat(),
+                "end_date":  end_date_dt.isoformat(),
+                "iteration_counter": count,
+                "range_type": range_description
+            }
+            
             sd_data = create_one_sdot_table(luminoso_data, field_value,
-                                            topic_drive, filter_list)
+                                            topic_drive, filter_list,
+                                            prepend_to_rows)
             sd_data_raw.extend(sd_data)
 
         # move to the nextdate
@@ -414,7 +439,7 @@ def main():
     )
     parser.add_argument('project_url',
                         help="The complete URL of the Daylight project")
-    parser.add_argument('--topic_drivers', default=False, action='store_true',
+    parser.add_argument('--topic_drivers', default=True, action='store_true',
                         help="If set, will calculate drivers based on"
                              " user-defined topics as well")
     parser.add_argument('--encoding', default='utf-8',
