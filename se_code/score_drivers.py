@@ -185,13 +185,12 @@ def _create_rows_from_drivers(luminoso_data, field, api_params, list_type, list_
         score_drivers = [d for d in score_drivers if d['importance'] >= .4]
 
     for driver in score_drivers:
-        row = {'driver': driver['name'], 
+        row = {'concept': driver['name'], 
                'list_type': list_type,
                'list_name': list_name,
                'relevance': driver['relevance'],
                'driver_field': field, 
                'impact': driver['impact'],
-               'related_terms': driver['texts'],
                'doc_count': driver['exact_match_count']}
 
         url = luminoso_data.get_galaxy_url_from_concept(driver)
