@@ -6,8 +6,11 @@ from luminoso_api import LuminosoClient
 
 
 def file_to_dict(file_name, encoding="utf-8"):
-
-    # the header names are combinations of the first two rows.
+    '''
+    Takes the input file and converts it into a dictionary.
+    With the header names being a combination of the first
+    two rows.
+    '''
 
     # only show unknown types once
     unknown_types = set()
@@ -18,7 +21,7 @@ def file_to_dict(file_name, encoding="utf-8"):
     column_types = [ct.strip().lower() for ct in column_types]
     column_names = [cn.strip() for cn in column_names]
 
-    # convert all the reality field names to lumi
+    # convert all the file names to lumi names
     title_count = column_types.count('title')
     table = []
     for row in rows:
@@ -91,6 +94,10 @@ def parse_metadata_field(type_and_name, cell_value):
 
 
 def format_for_lumi(table):
+    '''
+    Given the list created from the input file, formats it to be uploaded
+    directly to daylight
+    '''
 
     # a list whose elements are:
     # * for text/title: the string "text" or "title"
@@ -155,8 +162,11 @@ def format_for_lumi(table):
 
 
 def create_project(client, project_name, workspace_id, docs):
+    '''
+    Creates a project in the clients workspace in daylight
+    based upon the formatted list of documents
+    '''
 
-    # create the project
     print('Creating project named: ' + project_name)
     project_info = client.post(name=project_name, language='en',
                                workspace_id=workspace_id)
@@ -176,6 +186,9 @@ def create_project(client, project_name, workspace_id, docs):
 
 
 def dict_to_file(table, file_name, encoding="utf-8"):
+    '''
+    Takes the lumi formatted dictionary and writes it out to a file
+    '''
     fields = []
     for key in table[0]:
         fields.append(key)
@@ -187,7 +200,12 @@ def dict_to_file(table, file_name, encoding="utf-8"):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Changing a CSV with multiple text columns into a Luminoso ready CSV with one text column and a metadata field describing each text field.'
+        description=('The input file has a two line header. The first row is the type of data'
+                     ' field and it can have multiple types separated by an & character. For'
+                     ' instance a column with a String & Text will place that column as both a'
+                     ' text field as well as a metadata string field. The second row is the'
+                     ' name of the metadata field or in the case of a Text field it will be the value'
+                     ' used to identify which survey question was being asked for this text field.')
     )
 
     parser.add_argument(
@@ -202,11 +220,11 @@ def main():
 
     parser.add_argument(
         'output_name',
-        help="Name of the output file or project. Default = file"
+        help="Name for the output file or project. Default = file"
         )
     parser.add_argument(
         '--encoding',
-        default='utf-8',
+        default='utf-8-sig',
         help="Encoding type of the files to read from"
     )
     parser.add_argument(
@@ -248,7 +266,7 @@ def main():
             # connect to v5 api
             client = LuminosoClient.connect(
                 url=api_url,
-                user_agent_suffix='realith_check:format_realitycheck_fields.py'
+                user_agent_suffix='format_survey.py'
             )
             workspace_id = client.get('/profile')['default_workspace']
             client = client.client_for_path('/projects/')
