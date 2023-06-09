@@ -33,6 +33,11 @@ lumi-doc-downloader
 lumi-format-multiple-text-fields
     This will take a CSV file with multiple text fields and combine them into
     a single text field with a new metadata column
+lumi-format-survey
+    This is similar to format-multiple-text-fields, but adds a second line
+    to the header and allows you to have a field identified as a text field
+    as well as a metadata field so you can see the other answers to survey
+    questions on the document viewer.
 lumi-list-metadata
     This simply lists all the metadata fields and how many unique values 
     there are in each field.
@@ -69,6 +74,7 @@ lumi-create-daylight-project-from-csv
 lumi-create-train-test-split
 lumi-doc-downloader
 lumi-format-multiple-text-fields
+lumi-format-survey
 lumi-list-metadata
 lumi-load-shared-concepts
 lumi-manage-concepts
