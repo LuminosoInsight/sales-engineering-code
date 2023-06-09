@@ -35,7 +35,7 @@ lumi-format-multiple-text-fields
     a single text field with a new metadata column
 lumi-format-survey
     This is similar to format-multiple-text-fields, but adds a second line
-    to the header and allows you to have a field identified as a text field
+    to the header and allows you to have an entry identified as both text
     as well as a metadata field so you can see the other answers to survey
     questions on the document viewer.
 lumi-list-metadata
