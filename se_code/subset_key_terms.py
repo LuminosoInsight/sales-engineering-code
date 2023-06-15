@@ -53,15 +53,15 @@ def create_skt_table(client, skt_tuples):
         text_1, text_2, text_3, *_ = (doc_texts + ['', ''])
         skt_table.append(
             {'term': concept['name'],
-             'subset': name,
-             'value': subset,
+             'field_name': name,
+             'field_value': subset,
              'exact_matches': concept['exact_match_count'],
              'conceptual_matches': (concept['match_count']
                                     - concept['exact_match_count']),
-             'Text 1': text_1,
-             'Text 2': text_2,
-             'Text 3': text_3,
-             'total_matches': concept['match_count']}
+             'total_matches': concept['match_count'],
+             'example_doc1': text_1,
+             'example_doc2': text_2,
+             'example_doc3': text_3}
         )
     return skt_table
 

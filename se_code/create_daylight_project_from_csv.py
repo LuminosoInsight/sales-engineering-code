@@ -19,6 +19,7 @@ csv.field_size_limit(2 ** 19)
 BLOCK_SIZE = 1000
 
 DATE_FORMATS = [
+    '%Y-%m-%dT%H:%M:%S.%fZ',
     '%Y-%m-%dT%H:%M:%SZ',
     '%Y-%m-%d',
     '%m/%d/%Y',

@@ -14,7 +14,7 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
     results = client.get('/concepts/sentiment/')['match_counts']
     sentiment_match_counts = [
         {'texts': concept['texts'],
-         'name': concept['name'],
+         'concept': concept['name'],
          'concept_type': 'sentiment_suggestions',
          'match_count': concept['match_count'],
          'exact_match_count': concept['exact_match_count'],
@@ -35,7 +35,7 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
 
         sentiment_match_counts.extend([
             {'texts': concept['texts'],
-             'name': concept['name'],
+             'concept': concept['name'],
              'match_count': concept['match_count'],
              'concept_type': 'shared',
              'shared_concept_list': scl_name,
@@ -53,7 +53,7 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
 
     sentiment_match_counts.extend([
         {'texts': concept['texts'],
-         'name': concept['name'],
+         'concept': concept['name'],
          'match_count': concept['match_count'],
          'concept_type': 'top',
          'exact_match_count': concept['exact_match_count'],
@@ -76,11 +76,11 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
             match_type='exact'
         )['result']
 
-        srow['example_doc'] = ''
+        srow['example_doc1'] = ''
         srow['example_doc2'] = ''
         srow['example_doc3'] = ''
         if len(search_docs) >= 1:
-            srow['example_doc'] = search_docs[0]['text']
+            srow['example_doc1'] = search_docs[0]['text']
         if len(search_docs) >= 2:
             srow['example_doc2'] = search_docs[1]['text']
         if len(search_docs) >= 3:
@@ -89,7 +89,7 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
     return sentiment_match_counts
 
 
-def _create_row_for_sentiment_subsets(luminoso_data, api_params, subset_name, subset_value, list_type, list_name, prepend_to_rows):
+def _create_row_for_sentiment_subsets(luminoso_data, api_params, subset_name, subset_value, list_type, list_name, prepend_to_rows=None):
     """
     Helper function for create_sentiment_subset_table().
     """
@@ -100,10 +100,10 @@ def _create_row_for_sentiment_subsets(luminoso_data, api_params, subset_name, su
     )
 
     for c in sentiments['match_counts']:
-        row = {'type': list_type,
-               'name': list_name,
-               'subset_name': subset_name,
-               'subset_value': subset_value,
+        row = {'list_type': list_type,
+               'list_name': list_name,
+               'field_name': subset_name,
+               'field_value': subset_value,
                'concept': c['name'],
                'relevance': c['relevance'],
                'match_count': c['match_count'],
@@ -150,50 +150,74 @@ def create_sentiment_subset_table(luminoso_data, subset_fields=None, filter_list
     if add_overall_values:
         # time slice for project wide overall top and sentiment suggested concepts
         concept_list_params = dict(api_params,
-                                   concept_selector={'type': 'top'})
+                                   concept_selector={'type': 'top', 'limit': 100})
         sentiment_table.extend(_create_row_for_sentiment_subsets(
             luminoso_data, concept_list_params, '', '', 
-            'top', 'overall_sentiment', prepend_to_rows
+            'overall', 'Top Concepts', prepend_to_rows
+        ))
+    
+        concept_list_params = dict(api_params,
+                                   concept_selector={"type": "suggested", "num_clusters": 7, "num_cluster_concepts": 4})
+        sentiment_table.extend(_create_row_for_sentiment_subsets(
+            luminoso_data, concept_list_params, '', '', 
+            'overall', 'Suggested Clusters', prepend_to_rows
         ))
 
         concept_list_params = dict(api_params,
                                    concept_selector={'type': 'sentiment_suggested'})
         sentiment_table.extend(_create_row_for_sentiment_subsets(
             luminoso_data, concept_list_params, '', '', 
-            'sentiment_suggested', 'overall_sentiment', prepend_to_rows
+            'overall', 'Suggested Sentiment', prepend_to_rows
         ))
 
     for field_name in subset_fields:
         field_values = luminoso_data.get_fieldvalues_for_fieldname(field_name)
         print("{}: field_values = {}".format(field_name, field_values))
-        for field_value in field_values:
-            filter_list = []
-            if orig_filter_list:
-                filter_list.extend(orig_filter_list)
-            filter_list.append({"name": field_name, "values": field_value})
-            print("sentiment filter={}".format(filter_list))
+        if not field_values:
+            print("  {}: skipping".format(field_name))
+        else:
+            for field_value in field_values:
+                filter_list = []
+                if orig_filter_list:
+                    filter_list.extend(orig_filter_list)
+                filter_list.append({"name": field_name, "values": field_value})
+                print("sentiment filter={}".format(filter_list))
 
-            api_params = {'filter': filter_list}
+                api_params = {'filter': filter_list}
 
-            for list_name in luminoso_data.concept_lists:
-                concept_list_params = dict(api_params,
-                                        concept_selector={'type': 'concept_list', 'name': list_name})
+                for list_name in luminoso_data.concept_lists:
+                    concept_list_params = dict(api_params,
+                                            concept_selector={'type': 'concept_list', 'name': list_name})
+                    sentiment_table.extend(_create_row_for_sentiment_subsets(
+                        luminoso_data, concept_list_params, field_name, field_value[0], 
+                        'shared_concept_list', list_name, prepend_to_rows
+                    ))
+
+                top_params = dict(api_params, concept_selector={'type': 'top'})
                 sentiment_table.extend(_create_row_for_sentiment_subsets(
-                    luminoso_data, concept_list_params, field_name, field_value[0], 
-                    'shared_concept_list', list_name, prepend_to_rows
+                    luminoso_data, top_params, field_name, field_value[0], 
+                    'auto', 'Top', prepend_to_rows
+                ))
+    
+                suggested_params = dict(api_params,
+                                        concept_selector={"type": "suggested", "num_clusters": 7, "num_cluster_concepts": 4})
+                sentiment_table.extend(_create_row_for_sentiment_subsets(
+                    luminoso_data, suggested_params, field_name, field_value[0], 
+                    'auto', 'Suggested Clusters', prepend_to_rows
+                    ))
+
+                suggested_params = dict(api_params,
+                                        concept_selector={"type": "suggested", "num_clusters": 7, "num_cluster_concepts": 4})
+                sentiment_table.extend(_create_row_for_sentiment_subsets(
+                    luminoso_data, suggested_params, field_name, field_value[0], 
+                    'auto', 'Suggested Clusters', prepend_to_rows
                 ))
 
-            top_params = dict(api_params, concept_selector={'type': 'top'})
-            sentiment_table.extend(_create_row_for_sentiment_subsets(
-                luminoso_data, top_params, field_name, field_value[0], 
-                'auto', 'top', prepend_to_rows
-            ))
-
-            sentiment_params = dict(api_params, concept_selector={'type': 'sentiment_suggested'})
-            sentiment_table.extend(_create_row_for_sentiment_subsets(
-                luminoso_data, sentiment_params, field_name, field_value[0], 
-                'auto', 'sentiment_suggested', prepend_to_rows
-            ))
+                sentiment_params = dict(api_params, concept_selector={'type': 'sentiment_suggested'})
+                sentiment_table.extend(_create_row_for_sentiment_subsets(
+                    luminoso_data, sentiment_params, field_name, field_value[0], 
+                    'auto', 'sentiment_suggested', prepend_to_rows
+                ))
 
     return sentiment_table
 
@@ -246,8 +270,8 @@ def create_sot_table(luminoso_data, date_field_info, end_date, iterations,
         start_date_dt = datetime.fromtimestamp(start_date_epoch)
 
         prepend_to_rows = {
-            "start_date_dt": start_date_dt.isoformat(),
-            "end_date_dt":  end_date_dt.isoformat(),
+            "start_date": start_date_dt.isoformat(),
+            "end_date":  end_date_dt.isoformat(),
             "iteration_counter": count,
             "range_type": range_description
         }

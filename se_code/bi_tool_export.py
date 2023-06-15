@@ -1,9 +1,13 @@
 import argparse
-import re
-import sys
-import urllib
 from collections import defaultdict
 import numpy as np
+import os
+import psycopg2
+import psycopg2.extras
+from psycopg2 import Error
+import re
+import sys
+from urllib.parse import urlparse
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
@@ -16,6 +20,284 @@ from se_code.sentiment import (
     create_sentiment_table, create_sentiment_subset_table,
     create_sot_table
 )
+
+
+def db_create_sql_connection():
+
+    db_connection_string = os.environ.get('DB_CONNECTION_STRING')
+    if not db_connection_string:
+        print("Need DB_CONNECTION_STRING environment var.")
+        print("Format:")
+        print("   postgresql://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/$DB_NAME")
+        exit(1)
+
+    p = urlparse(db_connection_string)
+
+    pg_connection_dict = {
+        'dbname': p.path.strip('/'),
+        'user': p.username,
+        'password': p.password,
+        'port': p.port,
+        'host': p.hostname
+    }
+
+    try:
+        conn = psycopg2.connect(**pg_connection_dict)
+    except (Exception, Error) as error:
+        print("Error while connecting to PostgreSQL", error)
+        exit(1)
+
+    return conn
+
+
+def db_create_tables(conn):
+    commands = (
+        """
+        CREATE TABLE IF NOT EXISTS docs (
+            project_id varchar(16),
+            doc_id varchar(40),
+            doc_text text,
+            theme_name varchar(64),
+            theme_id varchar(16),
+            theme_score numeric
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS doc_metadata (
+            project_id varchar(16),
+            doc_id varchar(40),
+            metadata_name varchar(64),
+            metadata_type varchar(16),
+            metadata_value varchar(64)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS drivers (
+            project_id varchar(16),
+            concept varchar(128),
+            driver_field varchar(128),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            impact numeric,
+            doc_count numeric,
+            url varchar(256),
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text)
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS doc_term_sentiment (
+            project_id varchar(16),
+            name varchar(64),
+            term_id varchar(64),
+            doc_id varchar(40),
+            loc_start numeric,
+            loc_end numeric,
+            sentiment varchar(16),
+            sentiment_confidence numeric,
+            share_concept_list varchar(64),
+            shared_concept_name varchar(64)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS terms (
+            project_id varchar(16),
+            term varchar(64),
+            exact_match_count numeric,
+            related_match_count numeric,
+            concept_type varchar(32),
+            shared_concept_list varchar(64)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS themes (
+            project_id varchar(16),
+            cluster_label varchar(32),
+            name varchar(64),
+            id varchar(16),
+            docs numeric,
+            doc_id varchar(40)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS doc_term_summary (
+            project_id varchar(16),
+            doc_id varchar(40),
+            term varchar(64),
+            exact_match numeric,
+            concept_type varchar(32),
+            shared_concept_list varchar(64),
+            sentiment varchar(16),
+            sentiment_confidence numeric
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS doc_subset (
+            project_id varchar(16),
+            doc_id varchar(40),
+            field_name varchar(64),
+            field_type varchar(16),
+            field_value varchar(64),
+            value varchar(64)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS subset_key_terms (
+            project_id varchar(16),
+            term varchar(64),
+            field_name varchar(64),
+            field_value varchar(64),
+            exact_matches numeric,
+            conceptual_matches numeric,
+            total_matches numeric,
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS drivers (
+            project_id varchar(16),
+            concept varchar(128),
+            driver_field varchar(128),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            impact numeric,
+            doc_count numeric,
+            url varchar(256),
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text)
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS drivers_subset (
+            project_id varchar(16),
+            concept varchar(128),
+            driver_field varchar(128),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            impact numeric,
+            doc_count numeric,
+            url varchar(256),
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text,
+            field_name varchar(64),
+            field_value varchar(64))
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS drivers_over_time (
+            project_id varchar(16),
+            start_date timestamp,
+            end_date timestamp,
+            iteration_counter numeric,
+            range_type varchar(16),
+            concept varchar(128),
+            driver_field varchar(128),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            impact numeric,
+            doc_count numeric,
+            url varchar(256),
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text,
+            field_name varchar(64),
+            field_value varchar(64))
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS sentiment (
+            project_id varchar(16),
+            concept varchar(64),
+            texts varchar(128),
+            concept_type varchar(32),
+            shared_concept_list varchar(64),
+            match_count numeric,
+            exact_match_count numeric,
+            sentiment_share_positive numeric,
+            sentiment_share_neutral numeric,
+            sentiment_share_negative numeric,
+            url varchar(256),
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS sentiment_subsets (
+            project_id varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            field_name varchar(64),
+            field_value varchar(64),
+            concept varchar(64),
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric,
+            sentiment_share_positive numeric,
+            sentiment_share_neutral numeric,
+            sentiment_share_negative numeric,
+            sentiment_doc_count_positive numeric,
+            sentiment_doc_count_neutral numeric,
+            sentiment_doc_count_negative numeric,
+            sentiment_doc_count_total numeric
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS sentiment_over_time (
+            project_id varchar(16),
+            start_date timestamp,
+            end_date timestamp,
+            iteration_counter numeric,
+            range_type varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            field_name varchar(64),
+            field_value varchar(64),
+            concept varchar(64),
+            concept_relevance numeric,
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric,
+            sentiment_share_positive numeric,
+            sentiment_share_neutral numeric,
+            sentiment_share_negative numeric,
+            sentiment_doc_count_positive numeric,
+            sentiment_doc_count_neutral numeric,
+            sentiment_doc_count_negative numeric,
+            sentiment_doc_count_total numeric
+        )
+        """
+    )
+    # THOUGHTS
+    # I'm concerned with the doc_metadata that this should three separate tables based on type
+    # date, string, numeric so deciding the graph type will be easier. We can have
+    # separate views based on the values that are strings, numbers or dates. We can
+    # still filter them out using this table, but I think dashboards will be easier if
+    # all the values in the table are the same type.
+    # Also concerned that doc_metadata and doc_subset are exactly the same
+
+    try:
+        cur = conn.cursor()
+
+        # create tables one by one
+        for command in commands:
+            cur.execute(command)
+
+        cur.close()
+        conn.commit()
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+        return -1
+
+    return 0
+
 
 def parse_url(url):
     root_url = url.strip('/ ').split('/app')[0]
@@ -45,6 +327,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     print('Extracting Lumi data...')
     client = LuminosoClient.connect('{}/projects/{}'.format(api_url, project))
     luminoso_data = LuminosoData(client)
+    luminoso_data.project_id = project
 
     if cln:
         concept_list_names = cln.split("|")
@@ -102,7 +385,8 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     theme_id = ''
     cluster_labels = {}
     for concept in themes['result']:
-        label = concept['cluster_label']
+        #label = concept['cluster_label']
+        label = concept['name']
         if label not in cluster_labels:
             theme_id = 'Theme {}'.format(len(cluster_labels))
             cluster_labels[label] = {'id': theme_id, 'name': []}
@@ -112,9 +396,10 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     return (luminoso_data, scl_match_counts, concepts, skt, themes)
 
 
-def create_doc_term_table(docs, concepts, scl_match_counts):
+def create_doc_term_summary_table(docs, concepts, scl_match_counts):
     '''
     Creates a tabulated format for the relationships between docs & terms
+    using the top terms and shared concept lists as a filter
 
     :param docs: List of document dictionaries
     :param concepts: List of concept dictionaries
@@ -124,7 +409,7 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
          an exact match was found
     '''
 
-    doc_term_table = []
+    doc_term_summary_table = []
 
     concept_ids = defaultdict(list)
     for concept in concepts:
@@ -152,7 +437,7 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
                     if triple in concepts_in_doc:
                         continue
                     concepts_in_doc.add(triple)
-                    doc_term_table.append(
+                    doc_term_summary_table.append(
                         {'doc_id': doc['doc_id'],
                          'term': triple[0],
                          'exact_match': 1,
@@ -162,25 +447,39 @@ def create_doc_term_table(docs, concepts, scl_match_counts):
                          'sentiment_confidence': term['sentiment_confidence']}
                     )
 
-    return doc_term_table
+    return doc_term_summary_table
 
 
-def create_doc_subset_table(docs, metadata_map):
+def create_doc_subset_table(docs):
     '''
     Create a tabulation of documents and associated subsets
     :param docs: List of document dictionaries
-    :param metadata_map: Dictionary mapping metadata field names to subset names
     :return: List of document ids, subsets, subset names and subset values
     '''
     doc_subset_table = []
     for doc in docs:
         for field in doc['metadata']:
             doc_subset_table.append({'doc_id': doc['doc_id'],
-                                     'subset': metadata_map[field['name']],
-                                     'subset_name': field['name'],
+                                     'field_name': field['name'],
+                                     'field_type': field['type'],
+                                     'field_value': field['value'],
                                      'value': field['value']})
     return doc_subset_table
 
+def create_doc_metadata_table(luminoso_data):
+    metadata_table = []
+    for doc in luminoso_data.docs:
+        mdrow = []
+        for md in doc['metadata']:
+            mdrow = {
+                'metadata_name': md['name'],
+                'metadata_type': md['type'],
+                'metadata_value': md['value'],
+                'doc_id': doc['doc_id']
+            }
+            metadata_table.append(mdrow)
+
+    return metadata_table
 
 def create_doc_table(luminoso_data, suggested_concepts):
     '''
@@ -193,17 +492,20 @@ def create_doc_table(luminoso_data, suggested_concepts):
     '''
 
     print('Creating doc table...')
+    '''
     sort_order = {'number': 0, 'score': 0, 'string': 1, 'date': 2}
     sorted_metadata = sorted(luminoso_data.metadata,
                              key=lambda x: sort_order[x['type']])
     metadata_map = {}
     for i, field in enumerate(sorted_metadata):
         metadata_map[field['name']] = 'Subset %d' % i
+    '''
 
     doc_table = []
 
     for doc in luminoso_data.docs:
         row = {'doc_id': doc['doc_id'], 'doc_text': doc['text']}
+        '''
         date_number = 0
         for field in doc['metadata']:
             if field['type'] == 'date':
@@ -214,7 +516,7 @@ def create_doc_table(luminoso_data, suggested_concepts):
             row[metadata_map[field['name']]] = field['value']
         if date_number == 0:
             row['doc_date 0'] = 0
-
+        '''
         # add the them (cluster) data
         doc['fvector'] = unpack64(doc['vector']).tolist()
 
@@ -227,14 +529,18 @@ def create_doc_table(luminoso_data, suggested_concepts):
                 if score > max_score:
                     max_score = score
                     max_id = concept['theme_id']
+                    max_theme_name = concept['name']
 
         row['theme_id'] = max_id
         row['theme_score'] = max_score
+        row['theme_name'] = max_theme_name
 
         doc_table.append(row)
 
-    xref_table = [metadata_map]
-    return doc_table, xref_table, metadata_map
+    doc_metadata_table = create_doc_metadata_table(luminoso_data)
+
+    # xref_table = [metadata_map]
+    return doc_table, doc_metadata_table
 
 
 def create_doc_term_sentiment(docs, include_shared_concept=False, concept_lists=None):
@@ -262,6 +568,9 @@ def create_doc_term_sentiment(docs, include_shared_concept=False, concept_lists=
                 row = {**term,
                        'doc_id': doc['doc_id'],
                        'name': name}
+                # sql doesn't allow 'end' so change names
+                row['loc_end'] = row.pop('end')
+                row['loc_start'] = row.pop('start')
 
                 # check if this concept is in a shared concept list
                 if name in all_shared_concepts:
@@ -310,14 +619,14 @@ def create_terms_table(concepts, scl_match_counts):
             )
     return table
 
-
 def create_themes_table(client, suggested_concepts):
     cluster_labels = {}
     themes = []
 
     # this is duplicating code done in pull_lumi_data - may need refactor
     for concept in suggested_concepts['result']:
-        if concept['cluster_label'] not in cluster_labels:
+        #if concept['cluster_label'] not in cluster_labels:
+        if concept['name'] not in cluster_labels:
             cluster_labels[concept['cluster_label']] = {
                 'id': 'Theme %d' % len(cluster_labels),
                 'name': []
@@ -350,6 +659,45 @@ def create_themes_table(client, suggested_concepts):
     return themes
 
 
+def write_to_sql(connection, table_name, project_id, data):
+    # every table has a project_id, but most data doesn't have the column
+    # just add it here. Aware that this modifies the data
+    # for later calls, but this data is all transient and
+    # only for output anyway
+    for r in data:
+        r['project_id'] = project_id
+
+    if len(data) > 0:
+        keys = list(set(val for dic in data for val in dic.keys())) 
+        columns = ', '.join(keys)
+
+        sql_data = []
+        for row in data:
+            tup = ()
+
+            for k in keys:
+                if k in row:
+                    tup += (str(row[k]),)
+                else:
+                    tup += ("",)
+
+            sql_data.append(tup)
+
+        cursor = connection.cursor()
+        insert_query = f"INSERT INTO {table_name} ({columns}) VALUES %s"
+        psycopg2.extras.execute_values (
+            cursor, insert_query, sql_data, template=None, page_size=100
+        )
+
+        connection.commit()
+        cursor.close()
+
+
+def output_data(data, format, filename, sql_connection, table_name, project_id, encoding):
+    if format in 'sql':
+        write_to_sql(sql_connection, table_name, project_id, data)
+    else:
+        write_table_to_csv(data, filename,encoding=encoding)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -365,6 +713,8 @@ def main():
     parser.add_argument("-l", "--concept_list_names", default=None,
                         help="The names of this shared concept lists separated"
                              " by |. Default = ALL lists")
+    parser.add_argument("-o", '--output_format', default='csv',
+                        help="Output format, csv, sql")
     parser.add_argument('-sktl', '--skt_limit', default=20,
                         help="The max number of subset key terms to display"
                              " per subset")
@@ -384,9 +734,9 @@ def main():
     parser.add_argument('-theme', '--themes', default=False,
                         action='store_true',
                         help="Do not generate themes_table")
-    parser.add_argument('-dterm', '--doc_term', default=False,
+    parser.add_argument('-dtermsum', '--doc_term_summary', default=False,
                         action='store_true',
-                        help="Do not generate doc_term_table")
+                        help="Do not generate doc_term_summary_table")
     parser.add_argument('-dsubset', '--doc_subset', default=False,
                         action='store_true',
                         help="Do not generate doc_subset_table")
@@ -395,12 +745,12 @@ def main():
     parser.add_argument('-drive', '--drive', default=False,
                         action='store_true',
                         help="Do not generate driver_table")
-    parser.add_argument('-tdrive', '--topic_drive', default=False,
+    parser.add_argument('-tdrive', '--topic_drive', default=True,
                         action='store_true',
                         help="If generating drivers_table do so with"
                              " top concepts, shared concept lists"
                              " and auto concepts")
-    parser.add_argument('--driver_subset', default=False, action='store_true',
+    parser.add_argument('--driver_subsets', default=False, action='store_true',
                         help="Do not generate score drivers by subset")
     parser.add_argument('--driver_subset_fields', default=None,
                         help='Which subsets to include in score driver by'
@@ -444,11 +794,18 @@ def main():
                         help="The name of the date field for sot. If none, the first"
                              " date field will be used")
     args = parser.parse_args()
-    
-    root_url, api_url, workspace, proj = parse_url(args.project_url)
-    print("starting subset drivers - topics={}".format(args.topic_drive))
 
-    lumi_data = pull_lumi_data(proj, api_url, skt_limit=int(args.skt_limit),
+    root_url, api_url, workspace, project_id = parse_url(args.project_url)
+
+    conn = None
+    if args.output_format in 'sql':
+        conn = db_create_sql_connection()
+
+        print("creating sql tables")
+        if db_create_tables(conn) != 0:
+            exit(-1)
+
+    lumi_data = pull_lumi_data(project_id, api_url, skt_limit=int(args.skt_limit),
                                concept_count=int(args.concept_count),
                                cln=args.concept_list_names)
     (luminoso_data, scl_match_counts, concepts, skt, themes) = lumi_data
@@ -456,66 +813,82 @@ def main():
     docs = luminoso_data.docs
 
     # get the docs no matter what because later data needs the metadata_map
-    doc_table, xref_table, metadata_map = create_doc_table(luminoso_data, themes)
+    doc_table, doc_metadata_table = create_doc_table(luminoso_data, themes)
 
     luminoso_data.set_root_url(
-        root_url + '/app/projects/' + workspace + '/' + proj
+        root_url + '/app/projects/' + workspace + '/' + project_id
     )
 
     if not args.driver_subset:
-        driver_table = create_drivers_with_subsets_table(
+        print("starting subset drivers - topics={}".format(args.topic_drive))
+
+        driver_subset_table = create_drivers_with_subsets_table(
             luminoso_data, args.topic_drive,
             subset_fields=args.driver_subset_fields
         )
-        write_table_to_csv(driver_table, 'subset_drivers_table.csv',
-                           encoding=args.encoding)
+        output_data(driver_subset_table, args.output_format,
+            'drivers_subset_table.csv', conn,
+            'drivers_subset', project_id, encoding=args.encoding)
 
     if not args.doc:
-        write_table_to_csv(doc_table, 'doc_table.csv', encoding=args.encoding)
-        write_table_to_csv(xref_table, 'xref_table.csv',
-                           encoding=args.encoding)
+        output_data(doc_table, args.output_format,
+            'doc_table.csv', conn,
+            'docs', project_id, encoding=args.encoding)
+        output_data(doc_metadata_table, args.output_format,
+            'doc_metadata_table.csv', conn,
+            'doc_metadata', project_id, encoding=args.encoding)
 
     if not args.doc_term_sentiment:
         concept_lists = None
         if args.doc_term_sentiment_list:
             concept_lists = client.get("concept_lists/")
 
-        doc_term_sentiment_table = create_doc_term_sentiment(docs, 
+        doc_term_sentiment_table = create_doc_term_sentiment(docs,
                                                              args.doc_term_sentiment_list,
                                                              concept_lists)
-        write_table_to_csv(doc_term_sentiment_table, 'doc_term_sentiment.csv',
-                           encoding=args.encoding)
+        output_data(doc_term_sentiment_table, args.output_format,
+                    'doc_term_sentiment.csv', conn,
+                    'doc_term_sentiment', project_id, encoding=args.encoding)
 
     if not args.terms:
         terms_table = create_terms_table(concepts, scl_match_counts)
-        write_table_to_csv(terms_table, 'terms_table.csv',
-                           encoding=args.encoding)
+
+        output_data(terms_table, args.output_format,
+                    'terms_table.csv', conn,
+                    'terms', project_id, encoding=args.encoding)
 
     if not args.themes:
         print('Creating themes table...')
         themes_table = create_themes_table(client, themes)
-        write_table_to_csv(themes_table, 'themes_table.csv',
-                           encoding=args.encoding)
+        output_data(themes_table, args.output_format,
+                    'themes_table.csv', conn,
+                    'themes', project_id, encoding=args.encoding)
 
     # Combines list of concepts and shared concept lists
-    if not args.doc_term:
-        doc_term_table = create_doc_term_table(docs, concepts, scl_match_counts)
-        write_table_to_csv(doc_term_table, 'doc_term_table.csv',
-                           encoding=args.encoding)
+    if not args.doc_term_summary:
+        doc_term_summary_table = create_doc_term_summary_table(docs, concepts, scl_match_counts)
+        output_data(doc_term_summary_table, args.output_format,
+                    'doc_term_summary_table.csv', conn,
+                    'doc_term_summary', project_id, encoding=args.encoding)
 
     if not args.doc_subset:
-        doc_subset_table = create_doc_subset_table(docs, metadata_map)
-        write_table_to_csv(doc_subset_table, 'doc_subset_table.csv',
-                           encoding=args.encoding)
+        doc_subset_table = create_doc_subset_table(docs)
+        output_data(doc_subset_table, args.output_format,
+                    'doc_subset_table.csv', conn,
+                    'doc_subset', project_id, encoding=args.encoding)
+
     if not args.skt_table:
         skt_table = create_skt_table(client, skt)
-        write_table_to_csv(skt_table, 'skt_table.csv', encoding=args.encoding)
+        output_data(skt_table, args.output_format,
+                    'skt_table.csv', conn,
+                    'subset_key_terms', project_id, encoding=args.encoding)
 
     if not args.drive:
         print("Creating score drivers...")
         driver_table = create_drivers_table(luminoso_data, args.topic_drive)
-        write_table_to_csv(driver_table, 'drivers_table.csv',
-                           encoding=args.encoding)
+        output_data(driver_table, args.output_format,
+                    'drivers_table.csv', conn,
+                    'drivers', project_id, encoding=args.encoding)
 
     if not args.sentiment:
         print('Creating sentiment table...')
@@ -523,14 +896,18 @@ def main():
                                                  root_url=luminoso_data.root_url)
         write_table_to_csv(sentiment_table, 'sentiment.csv',
                            encoding=args.encoding)
-    
+        output_data(sentiment_table, args.output_format,
+                    'sentiment.csv', conn,
+                    'sentiment', project_id, encoding=args.encoding)
+
     if not args.sentiment_subsets:
         print("Creating sentiment by subsets...")
         sentiment_subset_table = create_sentiment_subset_table(
             luminoso_data,
             args.sentiment_subset_fields)
-        write_table_to_csv(sentiment_subset_table, 'sentiment_subsets.csv',
-                           encoding=args.encoding)
+        output_data(sentiment_subset_table, args.output_format,
+                    'sentiment_subsets.csv', conn,
+                    'sentiment_subsets', project_id, encoding=args.encoding)
 
     if bool(args.sot):
         print("Creating sentiment over time (sot)")
@@ -553,8 +930,9 @@ def main():
             luminoso_data, date_field_info, args.sot_end,
             int(args.sot_iterations), args.sot_range, args.sentiment_subset_fields
         )
-        write_table_to_csv(sot_table, 'sot_table.csv',
-                           encoding=args.encoding)
+        output_data(sot_table, args.output_format,
+                    'sot_table.csv', conn,
+                    'sentiment_over_time', project_id, encoding=args.encoding)
 
     if bool(args.sdot):
         if args.sdot_date_field is None:
@@ -575,7 +953,9 @@ def main():
             luminoso_data, date_field_info, args.sdot_end,
             int(args.sdot_iterations), args.sdot_range, args.topic_drive
         )
-        write_table_to_csv(sdot_table, 'sdot_table.csv', encoding=args.encoding)
+        output_data(sdot_table, args.output_format,
+                    'sdot_table.csv', conn,
+                    'drivers_over_time', project_id, encoding=args.encoding)
 
 
 if __name__ == '__main__':

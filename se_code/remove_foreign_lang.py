@@ -1,5 +1,5 @@
 from luminoso_api import V5LuminosoClient as LuminosoClient
-import argparse, json
+import argparse, json, time
 try:
     import pycld2 as cld2
 except:
@@ -16,6 +16,7 @@ def delete_docs(client, ids):
     bad_batch = batch(ids,600)
     for bad_ids in bad_batch:
         client.post('docs/delete',doc_ids=bad_ids)
+        time.sleep(1)
         
 def get_all_docs(client, batch_size=20000):
     docs = []
