@@ -819,7 +819,7 @@ def main():
         root_url + '/app/projects/' + workspace + '/' + project_id
     )
 
-    if not args.driver_subset:
+    if not args.driver_subsets:
         print("starting subset drivers - topics={}".format(args.topic_drive))
 
         driver_subset_table = create_drivers_with_subsets_table(
