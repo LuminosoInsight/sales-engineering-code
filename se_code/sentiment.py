@@ -197,14 +197,14 @@ def create_sentiment_subset_table(luminoso_data, subset_fields=None, filter_list
                 sentiment_table.extend(_create_row_for_sentiment_subsets(
                     luminoso_data, top_params, field_name, field_value[0], 
                     'auto', 'Top', prepend_to_rows
-            ))
-    
-            suggested_params = dict(api_params,
-                                    concept_selector={"type": "suggested", "num_clusters": 7, "num_cluster_concepts": 4})
-            sentiment_table.extend(_create_row_for_sentiment_subsets(
-                luminoso_data, suggested_params, field_name, field_value[0], 
-                'auto', 'Suggested Clusters', prepend_to_rows
                 ))
+    
+                suggested_params = dict(api_params,
+                                        concept_selector={"type": "suggested", "num_clusters": 7, "num_cluster_concepts": 4})
+                sentiment_table.extend(_create_row_for_sentiment_subsets(
+                    luminoso_data, suggested_params, field_name, field_value[0], 
+                    'auto', 'Suggested Clusters', prepend_to_rows
+                    ))
 
                 suggested_params = dict(api_params,
                                         concept_selector={"type": "suggested", "num_clusters": 7, "num_cluster_concepts": 4})
