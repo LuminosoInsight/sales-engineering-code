@@ -750,7 +750,7 @@ def main():
                         help="If generating drivers_table do so with"
                              " top concepts, shared concept lists"
                              " and auto concepts")
-    parser.add_argument('--driver_subset', default=False, action='store_true',
+    parser.add_argument('--driver_subsets', default=False, action='store_true',
                         help="Do not generate score drivers by subset")
     parser.add_argument('--driver_subset_fields', default=None,
                         help='Which subsets to include in score driver by'
@@ -805,8 +805,6 @@ def main():
         if db_create_tables(conn) != 0:
             exit(-1)
 
-    print("starting subset drivers - topics={}".format(args.topic_drive))
-
     lumi_data = pull_lumi_data(project_id, api_url, skt_limit=int(args.skt_limit),
                                concept_count=int(args.concept_count),
                                cln=args.concept_list_names)
@@ -822,6 +820,8 @@ def main():
     )
 
     if not args.driver_subset:
+        print("starting subset drivers - topics={}".format(args.topic_drive))
+
         driver_subset_table = create_drivers_with_subsets_table(
             luminoso_data, args.topic_drive,
             subset_fields=args.driver_subset_fields
