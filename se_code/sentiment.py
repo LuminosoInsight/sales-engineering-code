@@ -173,27 +173,30 @@ def create_sentiment_subset_table(luminoso_data, subset_fields=None, filter_list
     for field_name in subset_fields:
         field_values = luminoso_data.get_fieldvalues_for_fieldname(field_name)
         print("{}: field_values = {}".format(field_name, field_values))
-        for field_value in field_values:
-            filter_list = []
-            if orig_filter_list:
-                filter_list.extend(orig_filter_list)
-            filter_list.append({"name": field_name, "values": field_value})
-            print("sentiment filter={}".format(filter_list))
+        if not field_values:
+            print("  {}: skipping".format(field_name))
+        else:
+            for field_value in field_values:
+                filter_list = []
+                if orig_filter_list:
+                    filter_list.extend(orig_filter_list)
+                filter_list.append({"name": field_name, "values": field_value})
+                print("sentiment filter={}".format(filter_list))
 
-            api_params = {'filter': filter_list}
+                api_params = {'filter': filter_list}
 
-            for list_name in luminoso_data.concept_lists:
-                concept_list_params = dict(api_params,
-                                        concept_selector={'type': 'concept_list', 'name': list_name})
+                for list_name in luminoso_data.concept_lists:
+                    concept_list_params = dict(api_params,
+                                            concept_selector={'type': 'concept_list', 'name': list_name})
+                    sentiment_table.extend(_create_row_for_sentiment_subsets(
+                        luminoso_data, concept_list_params, field_name, field_value[0], 
+                        'shared_concept_list', list_name, prepend_to_rows
+                    ))
+
+                top_params = dict(api_params, concept_selector={'type': 'top'})
                 sentiment_table.extend(_create_row_for_sentiment_subsets(
-                    luminoso_data, concept_list_params, field_name, field_value[0], 
-                    'shared_concept_list', list_name, prepend_to_rows
-                ))
-
-            top_params = dict(api_params, concept_selector={'type': 'top'})
-            sentiment_table.extend(_create_row_for_sentiment_subsets(
-                luminoso_data, top_params, field_name, field_value[0], 
-                'auto', 'Top', prepend_to_rows
+                    luminoso_data, top_params, field_name, field_value[0], 
+                    'auto', 'Top', prepend_to_rows
             ))
     
             suggested_params = dict(api_params,
@@ -201,13 +204,20 @@ def create_sentiment_subset_table(luminoso_data, subset_fields=None, filter_list
             sentiment_table.extend(_create_row_for_sentiment_subsets(
                 luminoso_data, suggested_params, field_name, field_value[0], 
                 'auto', 'Suggested Clusters', prepend_to_rows
-            ))
+                ))
 
-            sentiment_params = dict(api_params, concept_selector={'type': 'sentiment_suggested'})
-            sentiment_table.extend(_create_row_for_sentiment_subsets(
-                luminoso_data, sentiment_params, field_name, field_value[0], 
-                'auto', 'Suggested Sentiment', prepend_to_rows
-            ))
+                suggested_params = dict(api_params,
+                                        concept_selector={"type": "suggested", "num_clusters": 7, "num_cluster_concepts": 4})
+                sentiment_table.extend(_create_row_for_sentiment_subsets(
+                    luminoso_data, suggested_params, field_name, field_value[0], 
+                    'auto', 'Suggested Clusters', prepend_to_rows
+                ))
+
+                sentiment_params = dict(api_params, concept_selector={'type': 'sentiment_suggested'})
+                sentiment_table.extend(_create_row_for_sentiment_subsets(
+                    luminoso_data, sentiment_params, field_name, field_value[0], 
+                    'auto', 'sentiment_suggested', prepend_to_rows
+                ))
 
     return sentiment_table
 

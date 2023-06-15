@@ -28,6 +28,7 @@ setup(
             'lumi-create-train-test-split = se_code.create_train_test_split:main',
             'lumi-doc-downloader = se_code.doc_downloader:main',
             'lumi-format-multiple-text-fields = se_code.format_multiple_text_fields:main',
+            'lumi-format-survey = se_code.format_survey:main',
             'lumi-list-metadata = se_code.list_metadata:main',
             'lumi-load-shared-concepts = se_code.load_shared_concepts:main',
             'lumi-manage-concepts = se_code.manage_concepts:main',

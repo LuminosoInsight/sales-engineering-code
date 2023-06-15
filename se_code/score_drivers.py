@@ -55,8 +55,9 @@ class LuminosoData:
         run drivers against
         :return: List of fields that contain drivers
         '''
-        driver_fields = [m['name'] for m in self.metadata
+        driver_fields = [m for m in self.metadata
                          if m['type'] == 'number' or m['type'] == 'score']
+        driver_fields = [m['name'] for m in driver_fields if 'values' in m and len(m['values'])>1]
         return driver_fields
 
     @property
@@ -318,20 +319,23 @@ def create_drivers_with_subsets_table(luminoso_data, topic_drive,
     for field_name in subset_fields:
         field_values = luminoso_data.get_fieldvalues_for_fieldname(field_name)
         print("{}: field_values = {}".format(field_name, field_values))
-        for field_value in field_values:
-            filter_list = [{"name": field_name, "values": field_value}]
-            print("filter={}".format(filter_list))
-            sd_data = create_drivers_table(
-                luminoso_data, topic_drive,
-                filter_list=filter_list, subset_name=field_name,
-                subset_value=field_value[0]
-            )
-            driver_table.extend(sd_data)
-            if len(sd_data) > 0:
-                print("{}:{} complete. len={}".format(
-                    sd_data[0]['field_name'], sd_data[0]['field_value'],
-                    len(sd_data)
-                ))
+        if not field_values:
+            print("{}: skipping".format(field_name))
+        else:
+            for field_value in field_values:
+                filter_list = [{"name": field_name, "values": field_value}]
+                print("filter={}".format(filter_list))
+                sd_data = create_drivers_table(
+                    luminoso_data, topic_drive,
+                    filter_list=filter_list, subset_name=field_name,
+                    subset_value=field_value[0]
+                )
+                driver_table.extend(sd_data)
+                if len(sd_data) > 0:
+                    print("{}:{} complete. len={}".format(
+                        sd_data[0]['field_name'], sd_data[0]['field_value'],
+                        len(sd_data)
+                    ))
 
     return driver_table
 
