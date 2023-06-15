@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="se_code",
-    version='0.12.0',
+    version='0.13.0',
     maintainer='Luminoso Technologies, Inc.',
     maintainer_email='dev@luminoso.com',
     license="LICENSE",
