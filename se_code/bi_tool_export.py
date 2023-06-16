@@ -117,7 +117,9 @@ def db_create_tables(conn):
             concepts text,
             id varchar(16),
             docs numeric,
-            doc_id varchar(40)
+            example_doc1 varchar(40),
+            example_doc2 varchar(40),
+            example_doc3 varchar(40)
         )
         """,
         """
@@ -620,6 +622,7 @@ def create_terms_table(concepts, scl_match_counts):
             )
     return table
 
+
 def create_themes_table(client, suggested_concepts):
     cluster_labels = {}
     themes = []
@@ -650,12 +653,12 @@ def create_themes_table(client, suggested_concepts):
         for match_count in match_counts['match_counts']:
             count += match_count['exact_match_count']
 
-        for sdoc in search_docs:
-            themes.append(
-                {'theme_name': label,
-                 'concepts': '|'.join(concepts),
-                 'exact_matches': count,
-                 'doc_id': sdoc['doc_id']})
+        row = {'theme_name': label,
+               'concepts': '|'.join(concepts),
+               'exact_matches': count}
+        for idx, sdoc in enumerate(search_docs):
+            row['example_doc{}'.format(idx+1)] = sdoc['doc_id']
+        themes.append(row)
     return themes
 
 
@@ -818,12 +821,6 @@ def main():
     luminoso_data.set_root_url(
         root_url + '/app/projects/' + workspace + '/' + project_id
     )
-    if not args.themes:
-        print('Creating themes table...')
-        themes_table = create_themes_table(client, themes)
-        output_data(themes_table, args.output_format,
-                    'themes_table.csv', conn,
-                    'themes', project_id, encoding=args.encoding)
 
     if not args.driver_subsets:
         print("starting subset drivers - topics={}".format(args.topic_drive))
