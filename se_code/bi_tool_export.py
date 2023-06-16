@@ -58,7 +58,6 @@ def db_create_tables(conn):
             doc_id varchar(40),
             doc_text text,
             theme_name varchar(64),
-            theme_name varchar(16),
             theme_score numeric
         )
         """,
@@ -116,7 +115,7 @@ def db_create_tables(conn):
             theme_name varchar(32),
             concepts text,
             id varchar(16),
-            docs numeric,
+            exact_matches numeric,
             example_doc1 varchar(40),
             example_doc2 varchar(40),
             example_doc3 varchar(40)
@@ -135,7 +134,7 @@ def db_create_tables(conn):
         )
         """,
         """
-        CREATE TABLE IF NOT EXISTS doc_subset (
+        CREATE TABLE IF NOT EXISTS doc_subsets (
             project_id varchar(16),
             doc_id varchar(40),
             field_name varchar(64),
@@ -174,7 +173,7 @@ def db_create_tables(conn):
             example_doc3 text)
         """,
         """
-        CREATE TABLE IF NOT EXISTS drivers_subset (
+        CREATE TABLE IF NOT EXISTS drivers_subsets (
             project_id varchar(16),
             concept varchar(128),
             driver_field varchar(128),
@@ -742,7 +741,7 @@ def main():
                         help="Do not generate doc_term_summary_table")
     parser.add_argument('-dsubset', '--doc_subset', default=False,
                         action='store_true',
-                        help="Do not generate doc_subset_table")
+                        help="Do not generate doc_subsets_table")
     parser.add_argument('-skt', '--skt_table', default=False,
                         action='store_true', help="Do not generate skt_tables")
     parser.add_argument('-drive', '--drive', default=False,
@@ -830,8 +829,8 @@ def main():
             subset_fields=args.driver_subset_fields
         )
         output_data(driver_subset_table, args.output_format,
-            'drivers_subset_table.csv', conn,
-            'drivers_subset', project_id, encoding=args.encoding)
+            'drivers_subsets_table.csv', conn,
+            'drivers_subsets', project_id, encoding=args.encoding)
 
     if not args.doc:
         output_data(doc_table, args.output_format,
@@ -877,8 +876,8 @@ def main():
     if not args.doc_subset:
         doc_subset_table = create_doc_subset_table(docs)
         output_data(doc_subset_table, args.output_format,
-                    'doc_subset_table.csv', conn,
-                    'doc_subset', project_id, encoding=args.encoding)
+                    'doc_subsets_table.csv', conn,
+                    'doc_subsets', project_id, encoding=args.encoding)
 
     if not args.skt_table:
         skt_table = create_skt_table(client, skt)
