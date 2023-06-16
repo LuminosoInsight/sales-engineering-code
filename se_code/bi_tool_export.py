@@ -58,7 +58,6 @@ def db_create_tables(conn):
             doc_id varchar(40),
             doc_text text,
             theme_name varchar(64),
-            theme_id varchar(16),
             theme_score numeric
         )
         """,
@@ -113,11 +112,13 @@ def db_create_tables(conn):
         """
         CREATE TABLE IF NOT EXISTS themes (
             project_id varchar(16),
-            cluster_label varchar(32),
-            name varchar(64),
+            theme_name varchar(32),
+            concepts text,
             id varchar(16),
-            docs numeric,
-            doc_id varchar(40)
+            exact_matches numeric,
+            example_doc1 varchar(40),
+            example_doc2 varchar(40),
+            example_doc3 varchar(40)
         )
         """,
         """
@@ -133,7 +134,7 @@ def db_create_tables(conn):
         )
         """,
         """
-        CREATE TABLE IF NOT EXISTS doc_subset (
+        CREATE TABLE IF NOT EXISTS doc_subsets (
             project_id varchar(16),
             doc_id varchar(40),
             field_name varchar(64),
@@ -172,7 +173,7 @@ def db_create_tables(conn):
             example_doc3 text)
         """,
         """
-        CREATE TABLE IF NOT EXISTS drivers_subset (
+        CREATE TABLE IF NOT EXISTS drivers_subsets (
             project_id varchar(16),
             concept varchar(128),
             driver_field varchar(128),
@@ -212,7 +213,7 @@ def db_create_tables(conn):
         """
         CREATE TABLE IF NOT EXISTS sentiment (
             project_id varchar(16),
-            concept varchar(64),
+            concept varchar(128),
             texts varchar(128),
             concept_type varchar(32),
             shared_concept_list varchar(64),
@@ -235,7 +236,7 @@ def db_create_tables(conn):
             relevance numeric,
             field_name varchar(64),
             field_value varchar(64),
-            concept varchar(64),
+            concept varchar(128),
             match_count numeric,
             exact_match_count numeric,
             conceptual_match_count numeric,
@@ -260,7 +261,7 @@ def db_create_tables(conn):
             relevance numeric,
             field_name varchar(64),
             field_value varchar(64),
-            concept varchar(64),
+            concept varchar(128),
             concept_relevance numeric,
             match_count numeric,
             exact_match_count numeric,
@@ -381,16 +382,16 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
                           'num_clusters': num_themes,
                           'num_cluster_concepts': theme_concepts}
     )
-    # set the theme_id values and unpack the vectors
-    theme_id = ''
+    # set the theme_name values and unpack the vectors
+    theme_name = ''
     cluster_labels = {}
     for concept in themes['result']:
-        #label = concept['cluster_label']
-        label = concept['name']
+        label = concept['cluster_label'].split('|')[0]
+        # label = concept['name']
         if label not in cluster_labels:
-            theme_id = 'Theme {}'.format(len(cluster_labels))
-            cluster_labels[label] = {'id': theme_id, 'name': []}
-        concept['theme_id'] = theme_id
+            theme_name = label
+            cluster_labels[label] = {'id': theme_name, 'name': []}
+        concept['theme_name'] = theme_name
         concept['fvector'] = unpack64(concept['vectors'][0]).tolist()
 
     return (luminoso_data, scl_match_counts, concepts, skt, themes)
@@ -528,12 +529,13 @@ def create_doc_table(luminoso_data, suggested_concepts):
                 score = np.dot(doc['fvector'], concept['fvector'])
                 if score > max_score:
                     max_score = score
-                    max_id = concept['theme_id']
+                    max_id = concept['theme_name']
                     max_theme_name = concept['name']
+                    max_cluster_name = concept['cluster_label'].split('|')[0]
 
-        row['theme_id'] = max_id
+        row['theme_name'] = max_id
         row['theme_score'] = max_score
-        row['theme_name'] = max_theme_name
+        row['theme_name'] = max_cluster_name
 
         doc_table.append(row)
 
@@ -619,43 +621,43 @@ def create_terms_table(concepts, scl_match_counts):
             )
     return table
 
+
 def create_themes_table(client, suggested_concepts):
     cluster_labels = {}
     themes = []
 
     # this is duplicating code done in pull_lumi_data - may need refactor
     for concept in suggested_concepts['result']:
-        #if concept['cluster_label'] not in cluster_labels:
-        if concept['name'] not in cluster_labels:
-            cluster_labels[concept['cluster_label']] = {
-                'id': 'Theme %d' % len(cluster_labels),
-                'name': []
+        cluster_name = concept['cluster_label'].split("|")[0]
+        if cluster_name not in cluster_labels:
+            cluster_labels[cluster_name] = {
+                'id': cluster_name,
+                'concepts': []
             }
-        cluster_labels[concept['cluster_label']]['name'].append(concept['name'])
+        cluster_labels[cluster_name]['concepts'].append(concept['name'])
 
     for label, cluster in cluster_labels.items():
-        name = cluster['name']
+        concepts = cluster['concepts']
         # find related documents
-        selector_docs = {'texts': name}
+        selector_docs = {'texts': concepts}
         search_docs = client.get('docs', search=selector_docs, limit=3,
                                  match_type='exact')['result']
 
-        selector = [{'texts': [t]} for t in name]
+        selector = [{'texts': [t]} for t in concepts]
         count = 0
         match_counts = client.get(
             'concepts/match_counts',
             concept_selector={'type': 'specified', 'concepts': selector}
-        )['match_counts']
-        for match_count in match_counts:
+        )
+        for match_count in match_counts['match_counts']:
             count += match_count['exact_match_count']
 
-        for sdoc in search_docs:
-            themes.append(
-                {'cluster_label': label,
-                 'name': ', '.join(name),
-                 'id': cluster['id'],
-                 'docs': count,
-                 'doc_id': sdoc['doc_id']})
+        row = {'theme_name': label,
+               'concepts': '|'.join(concepts),
+               'exact_matches': count}
+        for idx, sdoc in enumerate(search_docs):
+            row['example_doc{}'.format(idx+1)] = sdoc['doc_id']
+        themes.append(row)
     return themes
 
 
@@ -739,7 +741,7 @@ def main():
                         help="Do not generate doc_term_summary_table")
     parser.add_argument('-dsubset', '--doc_subset', default=False,
                         action='store_true',
-                        help="Do not generate doc_subset_table")
+                        help="Do not generate doc_subsets_table")
     parser.add_argument('-skt', '--skt_table', default=False,
                         action='store_true', help="Do not generate skt_tables")
     parser.add_argument('-drive', '--drive', default=False,
@@ -827,8 +829,8 @@ def main():
             subset_fields=args.driver_subset_fields
         )
         output_data(driver_subset_table, args.output_format,
-            'drivers_subset_table.csv', conn,
-            'drivers_subset', project_id, encoding=args.encoding)
+            'drivers_subsets_table.csv', conn,
+            'drivers_subsets', project_id, encoding=args.encoding)
 
     if not args.doc:
         output_data(doc_table, args.output_format,
@@ -874,8 +876,8 @@ def main():
     if not args.doc_subset:
         doc_subset_table = create_doc_subset_table(docs)
         output_data(doc_subset_table, args.output_format,
-                    'doc_subset_table.csv', conn,
-                    'doc_subset', project_id, encoding=args.encoding)
+                    'doc_subsets_table.csv', conn,
+                    'doc_subsets', project_id, encoding=args.encoding)
 
     if not args.skt_table:
         skt_table = create_skt_table(client, skt)
