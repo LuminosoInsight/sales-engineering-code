@@ -190,7 +190,8 @@ def _create_rows_from_drivers(luminoso_data, field, api_params, list_type, list_
                'list_type': list_type,
                'list_name': list_name,
                'relevance': driver['relevance'],
-               'driver_field': field, 
+               'driver_field': field,
+               'average_score': driver['average_score'],
                'impact': driver['impact'],
                'doc_count': driver['exact_match_count']}
 

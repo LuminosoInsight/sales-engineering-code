@@ -78,6 +78,7 @@ def db_create_tables(conn):
             list_type varchar(32),
             list_name varchar(64),
             relevance numeric,
+            average_score numeric,
             impact numeric,
             doc_count numeric,
             url varchar(256),
@@ -701,6 +702,203 @@ def output_data(data, format, filename, sql_connection, table_name, project_id, 
     else:
         write_table_to_csv(data, filename,encoding=encoding)
 
+
+def run_export(project_url=None,
+               concept_count=20,
+               encoding='utf-8',
+               concept_list_names=None,
+               output_format='csv',
+               skt_limit=20,
+               skip_docs=False,
+               skip_doc_term_sentiment=False,
+               skip_doc_term_sentiment_list=False,
+               skip_terms=False,
+               skip_themes=False,
+               skip_doc_term_summary=False,
+               skip_doc_subset=False,
+               skip_skt_table=False,
+               skip_drivers=False,
+               run_topic_drivers=False,
+               skip_driver_subsets=False,
+               driver_subset_fields=None,
+               skip_sentiment=False,
+               run_sdot=False,
+               sdot_end=None,
+               sdot_iterations=7,
+               sdot_range=None,
+               sdot_date_field=None,
+               skip_sentiment_subsets=False,
+               sentiment_subset_fields=None,
+               run_sot=False,
+               sot_end=None,
+               sot_iterations=7,
+               sot_range=None,
+               sot_date_field=None
+               ):
+
+    root_url, api_url, workspace, project_id = parse_url(project_url)
+
+    conn = None
+    if output_format in 'sql':
+        conn = db_create_sql_connection()
+
+        print("creating sql tables")
+        if db_create_tables(conn) != 0:
+            exit(-1)
+
+    lumi_data = pull_lumi_data(project_id, api_url, skt_limit=int(skt_limit),
+                               concept_count=int(concept_count),
+                               cln=concept_list_names)
+    (luminoso_data, scl_match_counts, concepts, skt, themes) = lumi_data
+    client = luminoso_data.client
+    docs = luminoso_data.docs
+
+    # get the docs no matter what because later data needs the metadata_map
+    doc_table, doc_metadata_table = create_doc_table(luminoso_data, themes)
+
+    luminoso_data.set_root_url(
+        root_url + '/app/projects/' + workspace + '/' + project_id
+    )
+
+    if not skip_driver_subsets:
+        print("starting subset drivers - topics={}".format(run_topic_drivers))
+
+        driver_subset_table = create_drivers_with_subsets_table(
+            luminoso_data, run_topic_drivers,
+            subset_fields=driver_subset_fields
+        )
+        output_data(driver_subset_table, output_format,
+            'drivers_subsets_table.csv', conn,
+            'drivers_subsets', project_id, encoding=encoding)
+
+    if not skip_docs:
+        output_data(doc_table, output_format,
+            'doc_table.csv', conn,
+            'docs', project_id, encoding=encoding)
+        output_data(doc_metadata_table, output_format,
+            'doc_metadata_table.csv', conn,
+            'doc_metadata', project_id, encoding=encoding)
+
+    if not skip_doc_term_sentiment:
+        concept_lists = None
+        if skip_doc_term_sentiment_list:
+            concept_lists = client.get("concept_lists/")
+
+        doc_term_sentiment_table = create_doc_term_sentiment(docs,
+                                                             skip_doc_term_sentiment_list,
+                                                             concept_lists)
+        output_data(doc_term_sentiment_table, output_format,
+                    'doc_term_sentiment.csv', conn,
+                    'doc_term_sentiment', project_id, encoding=encoding)
+
+    if not skip_terms:
+        terms_table = create_terms_table(concepts, scl_match_counts)
+
+        output_data(terms_table, output_format,
+                    'terms_table.csv', conn,
+                    'terms', project_id, encoding=encoding)
+
+    if not skip_themes:
+        print('Creating themes table...')
+        themes_table = create_themes_table(client, themes)
+        output_data(themes_table, output_format,
+                    'themes_table.csv', conn,
+                    'themes', project_id, encoding=encoding)
+
+    # Combines list of concepts and shared concept lists
+    if not skip_doc_term_summary:
+        doc_term_summary_table = create_doc_term_summary_table(docs, concepts, scl_match_counts)
+        output_data(doc_term_summary_table, output_format,
+                    'doc_term_summary_table.csv', conn,
+                    'doc_term_summary', project_id, encoding=encoding)
+
+    if not skip_doc_subset:
+        doc_subset_table = create_doc_subset_table(docs)
+        output_data(doc_subset_table, output_format,
+                    'doc_subsets_table.csv', conn,
+                    'doc_subsets', project_id, encoding=encoding)
+
+    if not skip_skt_table:
+        skt_table = create_skt_table(client, skt)
+        output_data(skt_table, output_format,
+                    'skt_table.csv', conn,
+                    'subset_key_terms', project_id, encoding=encoding)
+
+    if not skip_drivers:
+        print("Creating score drivers...")
+        driver_table = create_drivers_table(luminoso_data, run_topic_drivers)
+        output_data(driver_table, output_format,
+                    'drivers_table.csv', conn,
+                    'drivers', project_id, encoding=encoding)
+
+    if not skip_sentiment:
+        print('Creating sentiment table...')
+        sentiment_table = create_sentiment_table(client, scl_match_counts,
+                                                 root_url=luminoso_data.root_url)
+        write_table_to_csv(sentiment_table, 'sentiment.csv',
+                           encoding=encoding)
+        output_data(sentiment_table, output_format,
+                    'sentiment.csv', conn,
+                    'sentiment', project_id, encoding=encoding)
+
+    if not skip_sentiment_subsets:
+        print("Creating sentiment by subsets...")
+        sentiment_subset_table = create_sentiment_subset_table(
+            luminoso_data,
+            sentiment_subset_fields)
+        output_data(sentiment_subset_table, output_format,
+                    'sentiment_subsets.csv', conn,
+                    'sentiment_subsets', project_id, encoding=encoding)
+
+    if bool(run_sot):
+        print("Creating sentiment over time (sot)")
+
+        if sot_date_field is None:
+            date_field_info = luminoso_data.first_date_field
+            if date_field_info is None:
+                print("ERROR no date field in project for sot")
+                return
+        else:
+            date_field_info = luminoso_data.get_field_by_name(
+                sot_date_field
+            )
+            if date_field_info is None:
+                print("ERROR: (sot) no date field name:"
+                      " {}".format(sot_date_field))
+                return
+
+        sot_table = create_sot_table(
+            luminoso_data, date_field_info, sot_end,
+            int(sot_iterations), sot_range, sentiment_subset_fields
+        )
+        output_data(sot_table, output_format,
+                    'sot_table.csv', conn,
+                    'sentiment_over_time', project_id, encoding=encoding)
+
+    if bool(run_sdot):
+        if sdot_date_field is None:
+            date_field_info = luminoso_data.first_date_field
+            if date_field_info is None:
+                print("ERROR no date field in project")
+                return
+        else:
+            date_field_info = luminoso_data.get_field_by_name(
+                sdot_date_field
+            )
+            if date_field_info is None:
+                print("ERROR: no date field name:"
+                      " {}".format(sdot_date_field))
+                return
+
+        sdot_table = create_sdot_table(
+            luminoso_data, date_field_info, sdot_end,
+            int(sdot_iterations), sdot_range, run_topic_drivers
+        )
+        output_data(sdot_table, output_format,
+                    'sdot_table.csv', conn,
+                    'drivers_over_time', project_id, encoding=encoding)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Export data to Business Intelligence compatible CSV files.'
@@ -797,167 +995,37 @@ def main():
                              " date field will be used")
     args = parser.parse_args()
 
-    root_url, api_url, workspace, project_id = parse_url(args.project_url)
-
-    conn = None
-    if args.output_format in 'sql':
-        conn = db_create_sql_connection()
-
-        print("creating sql tables")
-        if db_create_tables(conn) != 0:
-            exit(-1)
-
-    lumi_data = pull_lumi_data(project_id, api_url, skt_limit=int(args.skt_limit),
-                               concept_count=int(args.concept_count),
-                               cln=args.concept_list_names)
-    (luminoso_data, scl_match_counts, concepts, skt, themes) = lumi_data
-    client = luminoso_data.client
-    docs = luminoso_data.docs
-
-    # get the docs no matter what because later data needs the metadata_map
-    doc_table, doc_metadata_table = create_doc_table(luminoso_data, themes)
-
-    luminoso_data.set_root_url(
-        root_url + '/app/projects/' + workspace + '/' + project_id
-    )
-
-    if not args.driver_subsets:
-        print("starting subset drivers - topics={}".format(args.topic_drive))
-
-        driver_subset_table = create_drivers_with_subsets_table(
-            luminoso_data, args.topic_drive,
-            subset_fields=args.driver_subset_fields
-        )
-        output_data(driver_subset_table, args.output_format,
-            'drivers_subsets_table.csv', conn,
-            'drivers_subsets', project_id, encoding=args.encoding)
-
-    if not args.doc:
-        output_data(doc_table, args.output_format,
-            'doc_table.csv', conn,
-            'docs', project_id, encoding=args.encoding)
-        output_data(doc_metadata_table, args.output_format,
-            'doc_metadata_table.csv', conn,
-            'doc_metadata', project_id, encoding=args.encoding)
-
-    if not args.doc_term_sentiment:
-        concept_lists = None
-        if args.doc_term_sentiment_list:
-            concept_lists = client.get("concept_lists/")
-
-        doc_term_sentiment_table = create_doc_term_sentiment(docs,
-                                                             args.doc_term_sentiment_list,
-                                                             concept_lists)
-        output_data(doc_term_sentiment_table, args.output_format,
-                    'doc_term_sentiment.csv', conn,
-                    'doc_term_sentiment', project_id, encoding=args.encoding)
-
-    if not args.terms:
-        terms_table = create_terms_table(concepts, scl_match_counts)
-
-        output_data(terms_table, args.output_format,
-                    'terms_table.csv', conn,
-                    'terms', project_id, encoding=args.encoding)
-
-    if not args.themes:
-        print('Creating themes table...')
-        themes_table = create_themes_table(client, themes)
-        output_data(themes_table, args.output_format,
-                    'themes_table.csv', conn,
-                    'themes', project_id, encoding=args.encoding)
-
-    # Combines list of concepts and shared concept lists
-    if not args.doc_term_summary:
-        doc_term_summary_table = create_doc_term_summary_table(docs, concepts, scl_match_counts)
-        output_data(doc_term_summary_table, args.output_format,
-                    'doc_term_summary_table.csv', conn,
-                    'doc_term_summary', project_id, encoding=args.encoding)
-
-    if not args.doc_subset:
-        doc_subset_table = create_doc_subset_table(docs)
-        output_data(doc_subset_table, args.output_format,
-                    'doc_subsets_table.csv', conn,
-                    'doc_subsets', project_id, encoding=args.encoding)
-
-    if not args.skt_table:
-        skt_table = create_skt_table(client, skt)
-        output_data(skt_table, args.output_format,
-                    'skt_table.csv', conn,
-                    'subset_key_terms', project_id, encoding=args.encoding)
-
-    if not args.drive:
-        print("Creating score drivers...")
-        driver_table = create_drivers_table(luminoso_data, args.topic_drive)
-        output_data(driver_table, args.output_format,
-                    'drivers_table.csv', conn,
-                    'drivers', project_id, encoding=args.encoding)
-
-    if not args.sentiment:
-        print('Creating sentiment table...')
-        sentiment_table = create_sentiment_table(client, scl_match_counts,
-                                                 root_url=luminoso_data.root_url)
-        write_table_to_csv(sentiment_table, 'sentiment.csv',
-                           encoding=args.encoding)
-        output_data(sentiment_table, args.output_format,
-                    'sentiment.csv', conn,
-                    'sentiment', project_id, encoding=args.encoding)
-
-    if not args.sentiment_subsets:
-        print("Creating sentiment by subsets...")
-        sentiment_subset_table = create_sentiment_subset_table(
-            luminoso_data,
-            args.sentiment_subset_fields)
-        output_data(sentiment_subset_table, args.output_format,
-                    'sentiment_subsets.csv', conn,
-                    'sentiment_subsets', project_id, encoding=args.encoding)
-
-    if bool(args.sot):
-        print("Creating sentiment over time (sot)")
-
-        if args.sot_date_field is None:
-            date_field_info = luminoso_data.first_date_field
-            if date_field_info is None:
-                print("ERROR no date field in project for sot")
-                return
-        else:
-            date_field_info = luminoso_data.get_field_by_name(
-                args.sot_date_field
-            )
-            if date_field_info is None:
-                print("ERROR: (sot) no date field name:"
-                      " {}".format(args.sot_date_field))
-                return
-
-        sot_table = create_sot_table(
-            luminoso_data, date_field_info, args.sot_end,
-            int(args.sot_iterations), args.sot_range, args.sentiment_subset_fields
-        )
-        output_data(sot_table, args.output_format,
-                    'sot_table.csv', conn,
-                    'sentiment_over_time', project_id, encoding=args.encoding)
-
-    if bool(args.sdot):
-        if args.sdot_date_field is None:
-            date_field_info = luminoso_data.first_date_field
-            if date_field_info is None:
-                print("ERROR no date field in project")
-                return
-        else:
-            date_field_info = luminoso_data.get_field_by_name(
-                args.sdot_date_field
-            )
-            if date_field_info is None:
-                print("ERROR: no date field name:"
-                      " {}".format(args.sdot_date_field))
-                return
-
-        sdot_table = create_sdot_table(
-            luminoso_data, date_field_info, args.sdot_end,
-            int(args.sdot_iterations), args.sdot_range, args.topic_drive
-        )
-        output_data(sdot_table, args.output_format,
-                    'sdot_table.csv', conn,
-                    'drivers_over_time', project_id, encoding=args.encoding)
+    run_export(project_url=args.project_url,
+               concept_count=args.concept_count,
+               encoding=args.encoding,
+               concept_list_names=args.concept_list_names,
+               output_format=args.output_format,
+               skt_limit=args.skt_limit,
+               skip_docs=args.doc,
+               skip_doc_term_sentiment=args.doc_term_sentiment,
+               skip_doc_term_sentiment_list=args.doc_term_sentiment_list,
+               skip_terms=args.terms,
+               skip_themes=args.themes,
+               skip_doc_term_summary=args.doc_term_summary,
+               skip_doc_subset=args.doc_subset,
+               skip_skt_table=args.skt_table,
+               skip_drivers=args.drive,
+               run_topic_drivers=args.topic_drive,
+               skip_driver_subsets=args.driver_subsets,
+               driver_subset_fields=args.driver_subset_fields,
+               skip_sentiment=args.sentiment,
+               run_sdot=args.sdot,
+               sdot_end=args.sdot_end,
+               sdot_iterations=args.sdot_iterations,
+               sdot_range=args.sdot_range,
+               sdot_date_field=args.sdot_date_field,
+               skip_sentiment_subsets=args.sentiment_subsets,
+               sentiment_subset_fields=args.sentiment_subset_fields,
+               run_sot=args.sot,
+               sot_end=args.sot_end,
+               sot_iterations=args.sot_iterations,
+               sot_range=args.sot_range,
+               sot_date_field=args.sot_date_field)
 
 
 if __name__ == '__main__':
