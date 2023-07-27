@@ -102,7 +102,7 @@ def main():
                         help=('Has the project build immediately after managing'
                               ' the concepts. Otherwise adds the concepts to'
                               ' be built later'))
-    manage_type = parser.add_mutually_exclusive_group(required=True)
+    manage_type = parser.add_mutually_exclusive_group()
     manage_type.add_argument('-i', '--ignore_concept', default=False,
                              action='store_true',
                              help=('Action to apply to concepts. Will ignore'
@@ -147,10 +147,11 @@ def main():
         else:
             concepts_to_manage = read_text_file(args.filename)
     else:
-        manage_concept = ''
-        while manage_concept.strip() == '':
-            manage_concept = input('No concept specified, please input a concept now: ')
-        concepts_to_manage = [manage_concept]
+        if not args.build:
+            manage_concept = ''
+            while manage_concept.strip() == '':
+                manage_concept = input('No concept specified, please input a concept now: ')
+            concepts_to_manage = [manage_concept]
 
     # get the current list of concepts. On overwrite we only want to replace
     # the individual ignore/notice not both.
@@ -178,6 +179,12 @@ def main():
     elif args.merge_concept:
         try:
             manage_result = merge_concepts(concepts_to_manage, current_concepts, args.merge_concept, client, args.overwrite)
+        except ValueError as e:
+            print(f'Error encountered: {e}.  Not rebuilding!')
+            sys.exit()
+    else:
+        try:
+            manage_result = client.get('concepts/manage')
         except ValueError as e:
             print(f'Error encountered: {e}.  Not rebuilding!')
             sys.exit()
