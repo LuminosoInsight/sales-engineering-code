@@ -1,5 +1,6 @@
 import argparse
 from collections import defaultdict
+import json
 import numpy as np
 import os
 import psycopg2
@@ -7,7 +8,7 @@ import psycopg2.extras
 from psycopg2 import Error
 import re
 import sys
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
@@ -32,11 +33,10 @@ def db_create_sql_connection():
         exit(1)
 
     p = urlparse(db_connection_string)
-
     pg_connection_dict = {
         'dbname': p.path.strip('/'),
         'user': p.username,
-        'password': p.password,
+        'password': unquote(p.password),  # convert uri encoded strings back to strings, if pass has crazy chars
         'port': p.port,
         'host': p.hostname
     }
@@ -314,7 +314,8 @@ def parse_url(url):
 
 
 def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
-                   num_themes=7, theme_concepts=4, cln=None):
+                   num_themes=7, theme_concepts=4, cln=None,
+                   token=None):
 
     '''
     Extract relevant data from Luminoso project
@@ -329,7 +330,10 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     :return: Return lists of dictionaries containing project data
     '''
     print('Extracting Lumi data...')
-    client = LuminosoClient.connect('{}/projects/{}'.format(api_url, project))
+    if token:
+        client = LuminosoClient.connect('{}/projects/{}'.format(api_url, project), token=token)
+    else:
+        client = LuminosoClient.connect('{}/projects/{}'.format(api_url, project))
     luminoso_data = LuminosoData(client)
     luminoso_data.project_id = project
 
@@ -697,6 +701,11 @@ def write_to_sql(connection, table_name, project_id, data):
         connection.commit()
         cursor.close()
 
+def limit_string_length(dict_list, key, max_len):
+    # need to limit the term len to max_len-1
+    for t in dict_list:
+        if len(t[key])>max_len:
+            t[key] = t[key][:max_len-1]
 
 def output_data(data, format, filename, sql_connection, table_name, project_id, encoding):
     if format in 'sql':
@@ -724,25 +733,30 @@ def run_export(project_url=None,
                skip_driver_subsets=False,
                driver_subset_fields=None,
                skip_sentiment=False,
-               run_sdot=False,
+               run_sdot=True,
                sdot_end=None,
                sdot_iterations=7,
                sdot_range=None,
                sdot_date_field=None,
                skip_sentiment_subsets=False,
                sentiment_subset_fields=None,
-               run_sot=False,
+               run_sot=True,
                sot_end=None,
                sot_iterations=7,
                sot_range=None,
-               sot_date_field=None
+               sot_date_field=None,
+               token=None,
+               db_connection=None
                ):
 
     root_url, api_url, workspace, project_id = parse_url(project_url)
 
     conn = None
     if output_format in 'sql':
-        conn = db_create_sql_connection()
+        if not db_connection:
+            conn = db_create_sql_connection()
+        else:
+            conn = db_connection
 
         print("creating sql tables")
         if db_create_tables(conn) != 0:
@@ -750,7 +764,7 @@ def run_export(project_url=None,
 
     lumi_data = pull_lumi_data(project_id, api_url, skt_limit=int(skt_limit),
                                concept_count=int(concept_count),
-                               cln=concept_list_names)
+                               cln=concept_list_names, token=token)
     (luminoso_data, scl_match_counts, concepts, skt, themes) = lumi_data
     client = luminoso_data.client
     docs = luminoso_data.docs
@@ -796,6 +810,9 @@ def run_export(project_url=None,
     if not skip_terms:
         terms_table = create_terms_table(concepts, scl_match_counts)
 
+        if output_format in 'sql':
+            limit_string_length(terms_table, 'term', 63)
+
         output_data(terms_table, output_format,
                     'terms_table.csv', conn,
                     'terms', project_id, encoding=encoding)
@@ -810,6 +827,10 @@ def run_export(project_url=None,
     # Combines list of concepts and shared concept lists
     if not skip_doc_term_summary:
         doc_term_summary_table = create_doc_term_summary_table(docs, concepts, scl_match_counts)
+
+        if output_format in 'sql':
+            limit_string_length(doc_term_summary_table, 'term', 63)
+
         output_data(doc_term_summary_table, output_format,
                     'doc_term_summary_table.csv', conn,
                     'doc_term_summary', project_id, encoding=encoding)
@@ -822,6 +843,10 @@ def run_export(project_url=None,
 
     if not skip_skt_table:
         skt_table = create_skt_table(client, skt)
+
+        if output_format in 'sql':
+            limit_string_length(skt_table, 'term', 63)
+
         output_data(skt_table, output_format,
                     'skt_table.csv', conn,
                     'subset_key_terms', project_id, encoding=encoding)
