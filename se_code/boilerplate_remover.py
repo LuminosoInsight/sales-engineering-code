@@ -7,6 +7,7 @@ SEPARATOR = '¶'
 GAP = '___'
 DEFAULT_TOKENS_TO_SCAN = 1000000
 
+
 def get_all_docs(client):
     docs = []
     while True:
@@ -16,9 +17,11 @@ def get_all_docs(client):
         else:
             return docs
 
+
 def chunks(l, n):
     n = max(1, n)
     return [l[i:i + n] for i in range(0, len(l), n)]
+
 
 def create_new_proj( name, lang, docs):
     # filter out all but text, title and metadata
@@ -33,6 +36,7 @@ def create_new_proj( name, lang, docs):
     client.wait_for_build()
     return client
 
+
 def get_ngrams(seq, window_size):
     """
     Get all ngrams of the given sequence with the given size. The items in
@@ -40,6 +44,7 @@ def get_ngrams(seq, window_size):
     """
     return [((i, i + window_size), seq[i:(i + window_size)])
             for i in range(len(seq) - window_size + 1)]
+
 
 class SpaceSplittingReader:
     '''
@@ -69,6 +74,7 @@ class SpaceSplittingReader:
         '''
         return [(self.normalize(m.group()), None, (m.start(), m.end()))
                 for m in self.WORD_RE.finditer(text)]
+
 
 class BPDetector(object):
     def __init__(self, proj, window_size=7, bp_replacement=SEPARATOR,
@@ -116,6 +122,7 @@ class BPDetector(object):
         self.threshold = threshold
         self.project_info = self.client.get("/")
 
+
     def train(self, docs, tokens_to_scan=DEFAULT_TOKENS_TO_SCAN, verbose=False):#, redis, tokens_to_scan=DEFAULT_TOKENS_TO_SCAN, verbose=False):
         """
         Scan through a sequence of documents, counting their n-grams of length
@@ -134,13 +141,14 @@ class BPDetector(object):
                 proportion = n_tokens * 100 // tokens_to_scan
                 if proportion > prev_proportion:
                     print('[%d%%] Collecting ngrams' % proportion, end='\r')
-                    #redis.publish('boilerplate', '[%d%%] Collecting ngrams' % proportion)
+                    # redis.publish('boilerplate', '[%d%%] Collecting ngrams' % proportion)
                     prev_proportion = proportion
 
         if verbose:
             print('[100%] Collecting ngrams')
-            #redis.publish('boilerplate', '[100%] Collecting ngrams')
+            # redis.publish('boilerplate', '[100%] Collecting ngrams')
         self._find_bp_in_ngrams()
+
 
     def collect_ngrams_from_doc(self, doc):
         """
@@ -183,6 +191,7 @@ class BPDetector(object):
 
         return len(token_triples)
 
+
     def _find_bp_in_ngrams(self):
         """
         Scan through the counted n-grams to make a set of the ones that may
@@ -205,6 +214,7 @@ class BPDetector(object):
                 if gapped in self.boilerplate:
                     return gapped
         return False
+
 
     def merge_boilerplate_spans(self, words):
         """
@@ -242,6 +252,7 @@ class BPDetector(object):
 
         return boilerplate_spans
 
+
     def remove_boilerplate(self, doc):
         """
         Transform a document in place, removing sequences of boilerplate from
@@ -275,6 +286,7 @@ class BPDetector(object):
             del doc['bp_tokens']
         return removed_spans
 
+
     def save_data(self, output_filename, ngram_threshold=3):
         """
         Store the n-grams and the configuration of this BPDetector in a JSON
@@ -296,6 +308,7 @@ class BPDetector(object):
         with open(output_filename, 'w', encoding='utf-8') as out:
             json.dump(data, out, ensure_ascii=False)
 
+
     @classmethod
     def load_data(cls, filename):
         """
@@ -316,6 +329,7 @@ class BPDetector(object):
             }
         obj._find_bp_in_ngrams()
         return obj
+
 
     def handle_docs(self, docs, output, print_every_x, verbose=False):#, redis, print_every_x, verbose=False):
         """
@@ -339,6 +353,7 @@ class BPDetector(object):
                             + text_to_show[end:]
                         )
                     #redis.publish('boilerplate', 'Document %d: %s <br><br>' % (count, text_to_show))
+
 
     def run(self, sample_docs=10, train=False, output_ngrams=None,
             verbose=False, tokens_to_scan=DEFAULT_TOKENS_TO_SCAN):
@@ -366,6 +381,7 @@ class BPDetector(object):
         self.handle_docs(docs, output_f, print_every_x=print_every_x, verbose=verbose)
         return docs
 
+
 def add_gap(words):
     """
     Given a sequence of words, iterate through all the possibilities of
@@ -375,6 +391,7 @@ def add_gap(words):
         gapped = words[:gap_slot] + (GAP,) + words[gap_slot + 1:]
         yield gapped, words[gap_slot]
 
+
 def highlight(text):
     """
     Wrap text in an "ANSI escape" that makes it display in red.
@@ -383,13 +400,24 @@ def highlight(text):
     """
     return '<span style="color:red">{%s}</span>' % text
 
+
+def parse_url(url):
+    root_url = url.strip('/ ').split('/app')[0]
+    api_url = root_url + '/api/v5'
+
+    workspace_id = url.strip('/').split('/')[5]
+    project_id = url.strip('/').split('/')[6]
+
+    return root_url, api_url, workspace_id, project_id
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Remove boilerplate from a project'
     )
     parser.add_argument(
-        'project_id',
-        help="The ID of the project"
+        'project_url',
+        help="The url of the project"
         )
     parser.add_argument(
         'name',
@@ -406,8 +434,8 @@ def main():
         default=6
         )
     parser.add_argument(
-        '-w', '--window_size',
-        help="Size of window of text to search for boilerplate",
+        '-w', '--ngram_window_size',
+        help="Size of the ngram window of text to search for boilerplate",
         default=7
         )
     parser.add_argument(
@@ -436,14 +464,18 @@ def main():
         default=False, action='store_true'
         )
     args = parser.parse_args()
-    
-    bp = BPDetector(args.project_id)
+
+    root_url, api_url, workspace, project_id = parse_url(args.project_url)
+
+    bp = BPDetector(project_id, window_size=int(args.ngram_window_size), 
+                    threshold=int(args.threshold), use_gaps=args.use_gaps)
     new_docs = bp.run(sample_docs=args.sample_docs,
-            train=args.train,
-            tokens_to_scan=args.tokens_to_scan,
-            verbose=args.verbose,
-            output_ngrams=None)
+                      train=args.train,
+                      tokens_to_scan=args.tokens_to_scan,
+                      verbose=args.verbose,
+                      output_ngrams=None)
     create_new_proj(args.name, bp.project_info['language'], new_docs)
-    
+
+
 if __name__ == '__main__':
     main()

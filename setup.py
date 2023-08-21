@@ -12,7 +12,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         'luminoso_api', 'click', 'scipy', 'pack64', 'numpy===1.23.5', 'scikit-learn',
-        'redis', 'flask', 'networkx', 'praw', 'pandas===2.0.1'
+        'redis', 'flask', 'networkx', 'praw', 'pandas===2.0.1', 'psycopg2-binary'
         ],
     entry_points={
         'console_scripts': [
@@ -20,6 +20,7 @@ setup(
             'lumi-add-outlier-concepts-to-list = se_code.add_outlier_concepts_to_list:main',
             'lumi-add-sentiment_as_driver = se_code.add_sentiment_as_driver:main',
             'lumi-bi-tool-export = se_code.bi_tool_export:main',
+            'lumi-boilerplate_remover = se_code.boilerplate_remover:main',
             'lumi-capitalize-saved-concepts = se_code.capitalize_saved_concepts:main',
             'lumi-copy-project-with-filter = se_code.copy_project_with_filter:main',
             'lumi-copy-shared-concepts = se_code.copy_shared_concepts:main',
