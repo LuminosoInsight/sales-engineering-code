@@ -49,6 +49,14 @@ def main():
         description='Download all docs from a luminoso project, calculate which shared concepts each doc is aligned to and create a new project with them'
     )
     parser.add_argument('project_url', help="The URL of the project to analyze")
+
+    parser.add_argument(
+        "-mt",
+        "--match_type",
+        default="both",
+        help="For concept relations use exact, conceptual or both when searching",
+    )
+
     args = parser.parse_args()
 
     project_id = args.project_url.strip('/').split('/')[6]
@@ -61,7 +69,7 @@ def main():
     docs = get_all_docs(client)
     print("Done reading: {} documents".format(len(docs)))
     print("Calculating concept relations")
-    add_relations(client, docs, True)
+    add_relations(client, docs, True, match_type=args.match_type)
     print("Uploading documents")
     new_docs = format_docs_for_upload(docs)
     project_info = client.get("/")
