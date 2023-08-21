@@ -13,6 +13,9 @@ lumi-add-sentiment_as_driver
 lumi-bi-tool-export
     Business Intelligence Export. Creates CSV files for use with business 
     intelligence tools like Tableau, Microstrategy and PowerBI to name a few.
+lumi-boilerplate-remover
+    Remove boilerplate (repeated phrases) from a project and create
+    a new project.
 lumi-capitalize-saved-concepts
     Capitalize all the concepts in all the shared concept lists.
 lumi-copy-project-with-filter
