@@ -27,6 +27,7 @@ def file_to_dict(file_name, encoding="utf-8"):
     for row in rows:
         new_row = {}
         titles = []
+        col_number = 1
         for col_type, col_name, value in zip(column_types, column_names, row):
             if col_type == 'title':
                 titles.append(value)
@@ -39,8 +40,10 @@ def file_to_dict(file_name, encoding="utf-8"):
                     if ak in ['score', 'date', 'number', 'text', 'string']:
                         new_row[ak + "_" + col_name] = value
                     elif ak not in unknown_types:
-                        print(f'Warning: Unknown type [{ak}]')
+                        print(f'Warning: column {col_number} name:[{andkeys}] has unknown type:[{ak}], probably nothing wrong.')
+                        print('The column with errors has been skipped. Check output file to ensure all required columns are included. Formatting continues.')
                         unknown_types.add(ak)
+            col_number += 1
         if titles:
             new_row['title'] = '_'.join(titles)
         table.append(new_row)
