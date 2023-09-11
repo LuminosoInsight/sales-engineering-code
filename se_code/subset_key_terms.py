@@ -20,16 +20,22 @@ def subset_key_terms(client, subset_counts, terms_per_subset=10):
     results = []
 
     for name in sorted(subset_counts):
-        for subset in sorted(subset_counts[name]):
-            unique_to_filter = client.get(
-                'concepts/match_counts',
-                filter=[{'name': name, 'values': [subset]}],
-                concept_selector={'type': 'unique_to_filter',
-                                  'limit': terms_per_subset}
-            )['match_counts']
-            results.extend(
-                [(name, subset, concept) for concept in unique_to_filter]
-            )
+        # make sure all the field values are <64 characters
+        # they need to fit on a url and some projects use
+        # full documents as metadata fields so just exclude
+        # those.
+        l64 = [s for s in subset_counts[name] if len(s)<64]
+        if len(l64) == 0:
+            for subset in sorted(subset_counts[name]):
+                unique_to_filter = client.get(
+                    'concepts/match_counts',
+                    filter=[{'name': name, 'values': [subset]}],
+                    concept_selector={'type': 'unique_to_filter',
+                                      'limit': terms_per_subset}
+                )['match_counts']
+                results.extend(
+                    [(name, subset, concept) for concept in unique_to_filter]
+                )
 
     return results
 
