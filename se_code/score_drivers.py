@@ -326,17 +326,18 @@ def create_drivers_with_subsets_table(luminoso_data, topic_drive,
             for field_value in field_values:
                 filter_list = [{"name": field_name, "values": field_value}]
                 print("filter={}".format(filter_list))
-                sd_data = create_drivers_table(
-                    luminoso_data, topic_drive,
-                    filter_list=filter_list, subset_name=field_name,
-                    subset_value=field_value[0]
-                )
-                driver_table.extend(sd_data)
-                if len(sd_data) > 0:
-                    print("{}:{} complete. len={}".format(
-                        sd_data[0]['field_name'], sd_data[0]['field_value'],
-                        len(sd_data)
-                    ))
+                if (not isinstance(field_value[0], str)) or len(field_value[0])<64:
+                    sd_data = create_drivers_table(
+                        luminoso_data, topic_drive,
+                        filter_list=filter_list, subset_name=field_name,
+                        subset_value=field_value[0]
+                    )
+                    driver_table.extend(sd_data)
+                    if len(sd_data) > 0:
+                        print("{}:{} complete. len={}".format(
+                            sd_data[0]['field_name'], sd_data[0]['field_value'],
+                            len(sd_data)
+                        ))
 
     return driver_table
 
