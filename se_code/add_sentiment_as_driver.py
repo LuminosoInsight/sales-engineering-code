@@ -150,10 +150,16 @@ def main():
 
             s_conf = calcSentimentScores(avg_conf_pos, avg_conf_neg)
 
-            nd['metadata'].append({'name': 'Net Sentiment', 'type': 'number', 'value': s_conf[0]})
-            nd['metadata'].append({'name': 'Sentiment Polarization', 'type': 'number', 'value': s_conf[1]})
-            nd['metadata'].append({'name': 'Negative Sentiment', 'type': 'number', 'value': avg_conf_neg})
-            nd['metadata'].append({'name': 'Positive Sentiment', 'type': 'number', 'value': avg_conf_pos})
+            nd['metadata'].append({'name': 'Sentiment - 1. Net Sentiment', 'type': 'number', 'value': s_conf[0]})
+            nd['metadata'].append({'name': 'Sentiment - 2. Polarization', 'type': 'number', 'value': s_conf[1]})
+            nd['metadata'].append({'name': 'Sentiment - 3. Positive Concept Count', 'type': 'number', 'value': sentiment_count_positive})
+            nd['metadata'].append({'name': 'Sentiment - 4. Neutral Concept Count', 'type': 'number', 'value': sentiment_count_neutral})
+            nd['metadata'].append({'name': 'Sentiment - 5. Negative Concept Count', 'type': 'number', 'value': sentiment_count_negative})
+            nd['metadata'].append({'name': 'Sentiment - 6. Positive Concept Confidence Sum', 'type': 'number', 'value': sentiment_positive_total})
+            nd['metadata'].append({'name': 'Sentiment - 6b. Positive Concept Confidence Average', 'type': 'number', 'value': avg_conf_pos})
+            nd['metadata'].append({'name': 'Sentiment - 7. Neutral Concept Confidence Sum', 'type': 'number', 'value': sentiment_neutral_total})
+            nd['metadata'].append({'name': 'Sentiment - 8. Negative Concept Confidence Sum', 'type': 'number', 'value': sentiment_negative_total})
+            nd['metadata'].append({'name': 'Sentiment - 8b. Negative Concept Confidence Average', 'type': 'number', 'value': avg_conf_neg})
 
         new_docs.append(nd)
 
