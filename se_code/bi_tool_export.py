@@ -701,10 +701,15 @@ def write_to_sql(connection, table_name, project_id, data):
         connection.commit()
         cursor.close()
 
+# convert metadat values to strings
+def numbers_to_string(dict_list, key):
+    a = 3
+    a = a+1
+
 def limit_string_length(dict_list, key, max_len):
     # need to limit the term len to max_len-1
     for t in dict_list:
-        if len(t[key])>max_len:
+        if isinstance(t[key], str) and len(t[key])>max_len:
             t[key] = t[key][:max_len-1]
 
 def output_data(data, format, filename, sql_connection, table_name, project_id, encoding):
@@ -783,6 +788,12 @@ def run_export(project_url=None,
             luminoso_data, run_topic_drivers,
             subset_fields=driver_subset_fields
         )
+
+        if output_format in 'sql':
+            limit_string_length(driver_subset_table, 'field_name', 63)
+            numbers_to_string(driver_subset_table, 'field_value')
+            limit_string_length(driver_subset_table, 'field_value', 63)
+
         output_data(driver_subset_table, output_format,
             'drivers_subsets_table.csv', conn,
             'drivers_subsets', project_id, encoding=encoding)
@@ -791,6 +802,12 @@ def run_export(project_url=None,
         output_data(doc_table, output_format,
             'doc_table.csv', conn,
             'docs', project_id, encoding=encoding)
+
+        if output_format in 'sql':
+            limit_string_length(doc_metadata_table, 'metadata_name', 63)
+            numbers_to_string(doc_metadata_table, 'metadata_value')
+            limit_string_length(doc_metadata_table, 'metadata_value', 63)
+
         output_data(doc_metadata_table, output_format,
             'doc_metadata_table.csv', conn,
             'doc_metadata', project_id, encoding=encoding)
@@ -837,6 +854,13 @@ def run_export(project_url=None,
 
     if not skip_doc_subset:
         doc_subset_table = create_doc_subset_table(docs)
+        if output_format in 'sql':
+            limit_string_length(doc_subset_table, 'field_name', 63)
+            numbers_to_string(doc_subset_table, 'field_value')
+            numbers_to_string(doc_subset_table, 'value')
+            limit_string_length(doc_subset_table, 'field_value', 63)
+            limit_string_length(doc_subset_table, 'value', 63)
+
         output_data(doc_subset_table, output_format,
                     'doc_subsets_table.csv', conn,
                     'doc_subsets', project_id, encoding=encoding)
@@ -846,6 +870,9 @@ def run_export(project_url=None,
 
         if output_format in 'sql':
             limit_string_length(skt_table, 'term', 63)
+            limit_string_length(skt_table, 'field_name', 63)
+            numbers_to_string(skt_table, 'field_value')
+            limit_string_length(skt_table, 'field_value', 63)
 
         output_data(skt_table, output_format,
                     'skt_table.csv', conn,
@@ -862,8 +889,6 @@ def run_export(project_url=None,
         print('Creating sentiment table...')
         sentiment_table = create_sentiment_table(client, scl_match_counts,
                                                  root_url=luminoso_data.root_url)
-        write_table_to_csv(sentiment_table, 'sentiment.csv',
-                           encoding=encoding)
         output_data(sentiment_table, output_format,
                     'sentiment.csv', conn,
                     'sentiment', project_id, encoding=encoding)
@@ -873,6 +898,11 @@ def run_export(project_url=None,
         sentiment_subset_table = create_sentiment_subset_table(
             luminoso_data,
             sentiment_subset_fields)
+        if output_format in 'sql':
+            limit_string_length(sentiment_subset_table, 'field_name', 63)
+            numbers_to_string(sentiment_subset_table, 'field_value')
+            limit_string_length(sentiment_subset_table, 'field_value', 63)
+
         output_data(sentiment_subset_table, output_format,
                     'sentiment_subsets.csv', conn,
                     'sentiment_subsets', project_id, encoding=encoding)
@@ -898,6 +928,11 @@ def run_export(project_url=None,
             luminoso_data, date_field_info, sot_end,
             int(sot_iterations), sot_range, sentiment_subset_fields
         )
+        if output_format in 'sql':
+            limit_string_length(sot_table, 'field_name', 63)
+            numbers_to_string(sot_table, 'field_value')
+            limit_string_length(sot_table, 'field_value', 63)
+
         output_data(sot_table, output_format,
                     'sot_table.csv', conn,
                     'sentiment_over_time', project_id, encoding=encoding)
@@ -921,6 +956,11 @@ def run_export(project_url=None,
             luminoso_data, date_field_info, sdot_end,
             int(sdot_iterations), sdot_range, run_topic_drivers
         )
+        if output_format in 'sql':
+            limit_string_length(driver_subset_table, 'field_name', 63)
+            numbers_to_string(driver_subset_table, 'field_value')
+            limit_string_length(driver_subset_table, 'field_value', 63)
+
         output_data(sdot_table, output_format,
                     'sdot_table.csv', conn,
                     'drivers_over_time', project_id, encoding=encoding)
