@@ -873,7 +873,7 @@ def run_export(project_url=None,
             limit_string_length(u2f_table, 'field_value', 63)
 
         output_data(u2f_table, output_format,
-                    'u2f_table.csv', conn,
+                    'unique.csv', conn,
                     'unique_to_filter', project_id, encoding=encoding)
 
     # unique to filter over time (was skt)

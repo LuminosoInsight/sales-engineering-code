@@ -200,7 +200,7 @@ def bi_tool_export():
 
     if u2f_on:
         u2f_table = create_u2f_table(client, u2f)
-        write_table_to_csv(u2f_table, foldername+'u2f_table.csv')
+        write_table_to_csv(u2f_table, foldername+'unique.csv')
     
     if drivers_on:
         driver_table = create_drivers_table(luminoso_data, topic_drive)

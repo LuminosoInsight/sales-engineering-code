@@ -198,7 +198,7 @@ def main():
     result = unique_to_filter(client, subset_values_dict,
                               terms_per_subset=int(args.u2f_limit))
     table = create_u2f_table(client, result)
-    write_table_to_csv(table, 'u2f_table.csv', encoding=args.encoding)
+    write_table_to_csv(table, 'unique.csv', encoding=args.encoding)
 
     if bool(args.ot):
         print("Calculating unique terms over time (u2fot)")
