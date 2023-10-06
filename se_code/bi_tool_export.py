@@ -23,7 +23,10 @@ from se_code.sentiment import (
     create_sentiment_table, create_sentiment_subset_table,
     create_sot_table
 )
-
+from se_code.volume import (
+    create_volume_table, create_volume_subset_table,
+    create_vot_table
+)
 
 def db_create_sql_connection():
 
@@ -278,6 +281,56 @@ def db_create_tables(conn):
             sentiment_doc_count_neutral numeric,
             sentiment_doc_count_negative numeric,
             sentiment_doc_count_total numeric
+        )
+        """,
+
+        """
+        CREATE TABLE IF NOT EXISTS volume (
+            project_id varchar(16),
+            concept varchar(128),
+            texts varchar(128),
+            concept_type varchar(32),
+            shared_concept_list varchar(64),
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric,
+            url varchar(256),
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS volume_subsets (
+            project_id varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            field_name varchar(64),
+            field_value varchar(64),
+            concept varchar(128),
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS volume_over_time (
+            project_id varchar(16),
+            start_date timestamp,
+            end_date timestamp,
+            iteration_counter numeric,
+            range_type varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            field_name varchar(64),
+            field_value varchar(64),
+            concept varchar(128),
+            concept_relevance numeric,
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric
         )
         """
     )
@@ -717,6 +770,7 @@ def run_export(project_url=None,
                concept_list_names=None,
                output_format='csv',
                u2f_limit=20,
+               skip_vol=False,
                skip_docs=False,
                skip_doc_term_sentiment=False,
                skip_doc_term_sentiment_list=False,
@@ -726,6 +780,7 @@ def run_export(project_url=None,
                skip_doc_subset=False,
                skip_u2f_table=False,
                skip_drivers=False,
+               volume_subset_fields=None,
                run_topic_drivers=False,
                skip_driver_subsets=False,
                driver_subset_fields=None,
@@ -737,6 +792,11 @@ def run_export(project_url=None,
                sdot_date_field=None,
                skip_sentiment_subsets=False,
                sentiment_subset_fields=None,
+               run_vot=True,
+               vot_end=None,
+               vot_iterations=7,
+               vot_range=None,
+               vot_date_field=None,
                run_sot=True,
                sot_end=None,
                sot_iterations=7,
@@ -777,6 +837,57 @@ def run_export(project_url=None,
     luminoso_data.set_root_url(
         root_url + '/app/projects/' + workspace + '/' + project_id
     )
+
+    if not skip_vol:
+        print('Creating volume table...')
+        volume_table = create_volume_table(client, scl_match_counts,
+                                           root_url=luminoso_data.root_url)
+        output_data(volume_table, output_format,
+                    'volume.csv', conn,
+                    'volume', project_id, encoding=encoding)
+
+        print("Creating volume by subsets...")
+        volume_subset_table = create_volume_subset_table(
+            luminoso_data,
+            volume_subset_fields)
+        if output_format in 'sql':
+            limit_string_length(volume_subset_table, 'field_name', 63)
+            numbers_to_string(volume_subset_table, 'field_value')
+            limit_string_length(volume_subset_table, 'field_value', 63)
+
+        output_data(volume_subset_table, output_format,
+                    'volume_subsets.csv', conn,
+                    'volume_subsets', project_id, encoding=encoding)
+
+    if bool(run_vot):
+        print("Creating volume over time (vot)")
+
+        if vot_date_field is None:
+            date_field_info = luminoso_data.first_date_field
+            if date_field_info is None:
+                print("ERROR no date field in project for vot")
+                return
+        else:
+            date_field_info = luminoso_data.get_field_by_name(
+                vot_date_field
+            )
+            if date_field_info is None:
+                print("ERROR: (vot) no date field name:"
+                      " {}".format(vot_date_field))
+                return
+
+        vot_table = create_vot_table(
+            luminoso_data, date_field_info, sot_end,
+            int(sot_iterations), sot_range, sentiment_subset_fields
+        )
+        if output_format in 'sql':
+            limit_string_length(vot_table, 'field_name', 63)
+            numbers_to_string(vot_table, 'field_value')
+            limit_string_length(vot_table, 'field_value', 63)
+
+        output_data(vot_table, output_format,
+                    'vot_table.csv', conn,
+                    'volume_over_time', project_id, encoding=encoding)
 
     if not skip_driver_subsets:
         print("starting subset drivers - topics={}".format(run_topic_drivers))
@@ -1067,6 +1178,25 @@ def main():
     parser.add_argument('--sdot_date_field', default=None,
                         help="The name of the date field. If none, the first"
                              " date field will be used")
+    parser.add_argument('-skip_vol', '--skip_vol', default=False, action='store_true',
+                        help="Do not generate doc_table")
+    parser.add_argument('--volume_subset_fields', default=None,
+                        help='Which subsets to include in volume by'
+                             ' subset. Default = All with < 200 unique values.'
+                             ' Samp: "field1,field2"')
+    parser.add_argument('--vot', action='store_true', default=False,
+                        help="Calculate volume over time (VOT)")
+    parser.add_argument('--vot_end', default=None,
+                        help="Last date to calculate vot MM/DD/YYYY -"
+                             " algorithm works moving backwards in time.")
+    parser.add_argument('--vot_iterations', default=7,
+                        help="Number of volume over time samples")
+    parser.add_argument('--vot_range', default=None,
+                        help="Size of each sample: M,W,D. If none given, range"
+                             " type will be calculated for best fit")
+    parser.add_argument('--vot_date_field', default=None,
+                        help="The name of the date field for vot. If none, the first"
+                             " date field will be used")
     parser.add_argument('--sentiment_subsets',
                         action='store_true', default=False,
                         help="Do not generate sentiment subsets")
@@ -1108,6 +1238,13 @@ def main():
                concept_list_names=args.concept_list_names,
                output_format=args.output_format,
                u2f_limit=args.u2f_limit,
+               skip_vol=args.skip_vol,
+               volume_subset_fields=args.volume_subset_fields,
+               run_vot=args.vot,
+               vot_end=args.vot_end,
+               vot_iterations=args.vot_iterations,
+               vot_range=args.vot_range,
+               vot_date_field=args.vot_date_field,
                skip_docs=args.doc,
                skip_doc_term_sentiment=args.doc_term_sentiment,
                skip_doc_term_sentiment_list=args.doc_term_sentiment_list,
