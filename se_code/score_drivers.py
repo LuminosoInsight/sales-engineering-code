@@ -11,6 +11,16 @@ from pack64 import unpack64
 DOC_BATCH_SIZE = 5000
 
 
+def parse_url(url):
+    root_url = url.strip('/ ').split('/app')[0]
+    api_url = root_url + '/api/v5'
+
+    workspace_id = url.strip('/').split('/')[5]
+    project_id = url.strip('/').split('/')[6]
+
+    return root_url, api_url, workspace_id, project_id
+
+
 class LuminosoData:
     def __init__(self, client, root_url=''):
         self.client = client
@@ -469,9 +479,7 @@ def main():
                              ' < 200 unique values. Samp: "field1,field2"')
     args = parser.parse_args()
 
-    project_url = args.project_url.strip('/')
-    api_url = project_url.split('/app')[0].strip() + '/api/v5'
-    project_id = project_url.split('/')[6].strip()
+    root_url, api_url, workspace, project_id = parse_url(args.project_url)
 
     client = LuminosoClient.connect(
         url='%s/projects/%s' % (api_url.strip('/'), project_id),

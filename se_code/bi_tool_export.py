@@ -12,9 +12,11 @@ from urllib.parse import urlparse, unquote
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
-from se_code.subset_key_terms import subset_key_terms, create_skt_table
+from se_code.unique_to_filter import (
+    unique_to_filter, create_u2f_table, create_u2fot_table
+)
 from se_code.score_drivers import (
-    create_drivers_table, create_sdot_table,
+    parse_url, create_drivers_table, create_sdot_table,
     create_drivers_with_subsets_table, LuminosoData, write_table_to_csv
 )
 from se_code.sentiment import (
@@ -145,7 +147,7 @@ def db_create_tables(conn):
         )
         """,
         """
-        CREATE TABLE IF NOT EXISTS subset_key_terms (
+        CREATE TABLE IF NOT EXISTS unique_to_filter (
             project_id varchar(16),
             term varchar(64),
             field_name varchar(64),
@@ -303,17 +305,7 @@ def db_create_tables(conn):
     return 0
 
 
-def parse_url(url):
-    root_url = url.strip('/ ').split('/app')[0]
-    api_url = root_url + '/api/v5'
-
-    workspace_id = url.strip('/').split('/')[5]
-    project_id = url.strip('/').split('/')[6]
-
-    return root_url, api_url, workspace_id, project_id
-
-
-def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
+def pull_lumi_data(project, api_url, u2f_limit, concept_count=100,
                    num_themes=7, theme_concepts=4, cln=None,
                    token=None):
 
@@ -321,7 +313,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     Extract relevant data from Luminoso project
 
     :param project: Luminoso project id
-    :param skt_limit: Number of terms per subset when creating subset key terms
+    :param u2f_limit: Number of terms per subset when creating unique terms
     :param concept_count: Number of top concepts to include in the analysis
     :param num_themes: Number of themes to calculate
     :param theme_concepts: Number of concepts to represent each theme
@@ -369,19 +361,19 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
         concept_selector={'type': 'top', 'limit': concept_count}
     )['match_counts']
 
-    subset_counts = {}
+    subset_values_dict = {}
     for field in luminoso_data.metadata:
         if field['type'] == 'string':
-            subset_counts[field['name']] = {}
+            subset_values_dict[field['name']] = {}
             if len(field['values']) > 200:
                 print(
                     "Subset {} has {} (too many) values. Reducing to first"
                     " 200 values.".format(field['name'], len(field['values']))
                 )
             for value in field['values'][:200]:
-                subset_counts[field['name']][value['value']] = value['count']
+                subset_values_dict[field['name']][value['value']] = value['count']
 
-    skt = subset_key_terms(client, subset_counts, terms_per_subset=skt_limit)
+    u2f = unique_to_filter(client, subset_values_dict, terms_per_subset=u2f_limit)
 
     themes = client.get(
         'concepts',
@@ -401,7 +393,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
         concept['theme_name'] = theme_name
         concept['fvector'] = unpack64(concept['vectors'][0]).tolist()
 
-    return (luminoso_data, scl_match_counts, concepts, skt, themes)
+    return (luminoso_data, scl_match_counts, concepts, u2f, themes, subset_values_dict)
 
 
 def create_doc_term_summary_table(docs, concepts, scl_match_counts):
@@ -724,7 +716,7 @@ def run_export(project_url=None,
                encoding='utf-8',
                concept_list_names=None,
                output_format='csv',
-               skt_limit=20,
+               u2f_limit=20,
                skip_docs=False,
                skip_doc_term_sentiment=False,
                skip_doc_term_sentiment_list=False,
@@ -732,7 +724,7 @@ def run_export(project_url=None,
                skip_themes=False,
                skip_doc_term_summary=False,
                skip_doc_subset=False,
-               skip_skt_table=False,
+               skip_u2f_table=False,
                skip_drivers=False,
                run_topic_drivers=False,
                skip_driver_subsets=False,
@@ -750,6 +742,11 @@ def run_export(project_url=None,
                sot_iterations=7,
                sot_range=None,
                sot_date_field=None,
+               run_u2fot=True,
+               u2fot_end=None,
+               u2fot_iterations=7,
+               u2fot_range=None,
+               u2fot_date_field=None,
                token=None,
                db_connection=None
                ):
@@ -767,10 +764,10 @@ def run_export(project_url=None,
         if db_create_tables(conn) != 0:
             exit(-1)
 
-    lumi_data = pull_lumi_data(project_id, api_url, skt_limit=int(skt_limit),
+    lumi_data = pull_lumi_data(project_id, api_url, u2f_limit=int(u2f_limit),
                                concept_count=int(concept_count),
                                cln=concept_list_names, token=token)
-    (luminoso_data, scl_match_counts, concepts, skt, themes) = lumi_data
+    (luminoso_data, scl_match_counts, concepts, u2f, themes, subset_values_dict) = lumi_data
     client = luminoso_data.client
     docs = luminoso_data.docs
 
@@ -865,18 +862,48 @@ def run_export(project_url=None,
                     'doc_subsets_table.csv', conn,
                     'doc_subsets', project_id, encoding=encoding)
 
-    if not skip_skt_table:
-        skt_table = create_skt_table(client, skt)
+    # unique to filter u2f was skt
+    if not skip_u2f_table:
+        u2f_table = create_u2f_table(client, u2f)
 
         if output_format in 'sql':
-            limit_string_length(skt_table, 'term', 63)
-            limit_string_length(skt_table, 'field_name', 63)
-            numbers_to_string(skt_table, 'field_value')
-            limit_string_length(skt_table, 'field_value', 63)
+            limit_string_length(u2f_table, 'term', 63)
+            limit_string_length(u2f_table, 'field_name', 63)
+            numbers_to_string(u2f_table, 'field_value')
+            limit_string_length(u2f_table, 'field_value', 63)
 
-        output_data(skt_table, output_format,
-                    'skt_table.csv', conn,
-                    'subset_key_terms', project_id, encoding=encoding)
+        output_data(u2f_table, output_format,
+                    'u2f_table.csv', conn,
+                    'unique_to_filter', project_id, encoding=encoding)
+
+    # unique to filter over time (was skt)
+    if bool(run_u2fot):
+        if u2fot_date_field is None:
+            date_field_info = luminoso_data.first_date_field
+            if date_field_info is None:
+                print("ERROR no date field in project")
+                return
+        else:
+            date_field_info = luminoso_data.get_field_by_name(
+                u2fot_date_field
+            )
+            if date_field_info is None:
+                print("ERROR: no date field name:"
+                      " {}".format(u2fot_date_field))
+                return
+
+        u2fot_table = create_u2fot_table(
+            luminoso_data, date_field_info, u2fot_end,
+            u2fot_iterations, u2fot_range, subset_values_dict,
+            u2f_limit)
+        if output_format in 'sql':
+            limit_string_length(u2fot_table, 'field_name', 63)
+            numbers_to_string(u2fot_table, 'field_value')
+            limit_string_length(u2fot_table, 'field_value', 63)
+
+        output_data(u2fot_table, output_format,
+                    'uniqueot_table.csv', conn,
+                    'unique_over_time', project_id, encoding=encoding)
 
     if not skip_drivers:
         print("Creating score drivers...")
@@ -982,8 +1009,8 @@ def main():
                              " by |. Default = ALL lists")
     parser.add_argument("-o", '--output_format', default='csv',
                         help="Output format, csv, sql")
-    parser.add_argument('-sktl', '--skt_limit', default=20,
-                        help="The max number of subset key terms to display"
+    parser.add_argument('-u2fl', '--u2f_limit', default=20,
+                        help="The max number of unique terms to display"
                              " per subset")
     parser.add_argument('-docs', '--doc', default=False, action='store_true',
                         help="Do not generate doc_table")
@@ -1007,8 +1034,8 @@ def main():
     parser.add_argument('-dsubset', '--doc_subset', default=False,
                         action='store_true',
                         help="Do not generate doc_subsets_table")
-    parser.add_argument('-skt', '--skt_table', default=False,
-                        action='store_true', help="Do not generate skt_tables")
+    parser.add_argument('-u2f', '--u2f_table', default=False,
+                        action='store_true', help="Do not generate u2f_tables")
     parser.add_argument('-drive', '--drive', default=False,
                         action='store_true',
                         help="Do not generate driver_table")
@@ -1060,6 +1087,19 @@ def main():
     parser.add_argument('--sot_date_field', default=None,
                         help="The name of the date field for sot. If none, the first"
                              " date field will be used")
+    parser.add_argument('--u2fot', action='store_true', default=False,
+                        help="Calculate unique to filter over time (U2FOT)")
+    parser.add_argument('--u2fot_end', default=None,
+                        help="Last date to calculate sot MM/DD/YYYY -"
+                             " algorithm works moving backwards in time.")
+    parser.add_argument('--u2fot_iterations', default=7,
+                        help="Number of u2fot over time samples")
+    parser.add_argument('--u2fot_range', default=None,
+                        help="Size of each sample: M,W,D. If none given, range"
+                             " type will be calculated for best fit")
+    parser.add_argument('--u2fot_date_field', default=None,
+                        help="The name of the date field for u2fot. If none, the first"
+                             " date field will be used")
     args = parser.parse_args()
 
     run_export(project_url=args.project_url,
@@ -1067,7 +1107,7 @@ def main():
                encoding=args.encoding,
                concept_list_names=args.concept_list_names,
                output_format=args.output_format,
-               skt_limit=args.skt_limit,
+               u2f_limit=args.u2f_limit,
                skip_docs=args.doc,
                skip_doc_term_sentiment=args.doc_term_sentiment,
                skip_doc_term_sentiment_list=args.doc_term_sentiment_list,
@@ -1075,7 +1115,7 @@ def main():
                skip_themes=args.themes,
                skip_doc_term_summary=args.doc_term_summary,
                skip_doc_subset=args.doc_subset,
-               skip_skt_table=args.skt_table,
+               skip_u2f_table=args.u2f_table,
                skip_drivers=args.drive,
                run_topic_drivers=args.topic_drive,
                skip_driver_subsets=args.driver_subsets,
@@ -1092,7 +1132,12 @@ def main():
                sot_end=args.sot_end,
                sot_iterations=args.sot_iterations,
                sot_range=args.sot_range,
-               sot_date_field=args.sot_date_field)
+               sot_date_field=args.sot_date_field,
+               run_u2fot=args.u2fot,
+               u2fot_end=args.u2fot_end,
+               u2fot_iterations=args.u2fot_iterations,
+               u2fot_range=args.u2fot_range,
+               u2fot_date_field=args.u2fot_date_field)
 
 
 if __name__ == '__main__':
