@@ -164,6 +164,24 @@ def db_create_tables(conn):
         )
         """,
         """
+        CREATE TABLE IF NOT EXISTS unique_over_time (
+            project_id varchar(16),
+            start_date timestamp,
+            end_date timestamp,
+            iteration_counter numeric,
+            range_type varchar(16),
+            term varchar(64),
+            field_name varchar(64),
+            field_value varchar(64),
+            exact_matches numeric,
+            conceptual_matches numeric,
+            total_matches numeric,
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text
+        )
+        """,
+        """
         CREATE TABLE IF NOT EXISTS drivers (
             project_id varchar(16),
             concept varchar(128),
@@ -975,6 +993,8 @@ def run_export(project_url=None,
 
     # unique to filter u2f was skt
     if not skip_u2f_table:
+        print("Creating unique to filter...")
+
         u2f_table = create_u2f_table(client, u2f)
 
         if output_format in 'sql':
@@ -989,6 +1009,8 @@ def run_export(project_url=None,
 
     # unique to filter over time (was skt)
     if bool(run_u2fot):
+        print("Creating unique to filter over time...")
+
         if u2fot_date_field is None:
             date_field_info = luminoso_data.first_date_field
             if date_field_info is None:
@@ -1103,6 +1125,7 @@ def run_export(project_url=None,
                     'sdot_table.csv', conn,
                     'drivers_over_time', project_id, encoding=encoding)
 
+    print("Run export complete.")
 
 def main():
     parser = argparse.ArgumentParser(
