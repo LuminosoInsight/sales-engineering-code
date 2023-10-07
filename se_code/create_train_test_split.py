@@ -86,7 +86,7 @@ def create_train_test(read_file, train_write_file, test_write_file, split, encod
 def main():
 
     parser = argparse.ArgumentParser(
-        description='Export Subset Key Terms and write to a file'
+        description='Split a file into training and test data'
     )
 
     parser.add_argument('--input', default='input.csv', help="Filename to use as input. Default=input.csv")
