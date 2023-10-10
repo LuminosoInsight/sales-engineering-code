@@ -27,6 +27,10 @@ from se_code.volume import (
     create_volume_table, create_volume_subset_table,
     create_vot_table
 )
+from se_code.outliers import (
+    create_outlier_table, create_outlier_subset_table,
+    create_outliersot_table
+)
 
 def db_create_sql_connection():
 
@@ -825,6 +829,13 @@ def run_export(project_url=None,
                u2fot_iterations=7,
                u2fot_range=None,
                u2fot_date_field=None,
+               run_outliers=True,
+               outlier_subset_fields=None,
+               run_outliersot=True,
+               outliersot_end=None,
+               outliersot_iterations=7,
+               outliersot_range=None,
+               outliersot_date_field=None,
                token=None,
                db_connection=None
                ):
@@ -855,6 +866,89 @@ def run_export(project_url=None,
     luminoso_data.set_root_url(
         root_url + '/app/projects/' + workspace + '/' + project_id
     )
+
+
+    if bool(run_outliers) or (bool(run_outliersot)):
+
+        print('Getting outlier data...')
+
+        concept_lists = client.get("concept_lists/")
+
+        # get project info for calculating coverage
+        proj_info = client.get("/")
+
+        # For naming purposes scl = shared_concept_list
+        scl_match_counts = {}
+        for clist in concept_lists:
+            concept_selector = {"type": "concept_list",
+                                "concept_list_id": clist['concept_list_id']}
+            clist_match_counts = client.get('concepts/match_counts',
+                                            concept_selector=concept_selector)
+            clist_match_counts['concept_list_id'] = clist['concept_list_id']
+            scl_match_counts[clist['name']] = clist_match_counts
+
+    if bool(run_outliers):
+        print("Generating project outliers...")
+        outlier_table = create_outlier_table(client, proj_info, scl_match_counts,
+                                             "both", root_url=luminoso_data.root_url)
+        outlier_table.extend(create_outlier_table(client, proj_info, scl_match_counts,
+                                                  "exact", root_url=luminoso_data.root_url))
+        write_table_to_csv(outlier_table, 'outliers.csv',
+                           encoding=encoding)
+
+        print("Generating outliers by subsets...")
+        outlier_subset_table = create_outlier_subset_table(
+            luminoso_data,
+            proj_info, 
+            scl_match_counts, 
+            "both",
+            outlier_subset_fields)
+        outlier_subset_table.extend(create_outlier_subset_table(
+            luminoso_data,
+            proj_info, 
+            scl_match_counts, 
+            "exact",
+            outlier_subset_fields))
+        write_table_to_csv(outlier_subset_table, 'outlier_subsets.csv',
+                           encoding=encoding)
+
+    if bool(run_outliersot):
+        print("Calculating outliers over time (outliersot)")
+
+        if outliersot_date_field is None:
+            date_field_info = luminoso_data.first_date_field
+            if date_field_info is None:
+                print("ERROR no date field in project for outliersot")
+                return
+        else:
+            date_field_info = luminoso_data.get_field_by_name(
+                sot_date_field
+            )
+            if date_field_info is None:
+                print("ERROR: (outliersot) no date field name:"
+                      " {}".format(sot_date_field))
+                return
+
+        outliersot_table = create_outliersot_table(
+            luminoso_data, proj_info, scl_match_counts, "both",
+            date_field_info, outliersot_end,
+            int(outliersot_iterations), outliersot_range, 
+            outlier_subset_fields
+        )
+        outliersot_table.extend(create_outliersot_table(
+            luminoso_data, proj_info, scl_match_counts, "exact",
+            date_field_info, outliersot_end,
+            int(outliersot_iterations), outliersot_range, 
+            outlier_subset_fields
+        ))
+        write_table_to_csv(outliersot_table, 'outliersot_table.csv',
+                           encoding=encoding)
+
+
+
+
+
+
 
     if not skip_vol:
         print('Creating volume table...')
@@ -1253,6 +1347,27 @@ def main():
     parser.add_argument('--u2fot_date_field', default=None,
                         help="The name of the date field for u2fot. If none, the first"
                              " date field will be used")
+    parser.add_argument('--outliers',
+                        action='store_true', default=True,
+                        help="Do not generate outliers and outlier subsets")
+    parser.add_argument('--outlier_subset_fields', default=None,
+                        help='Which subsets to include in outlier by'
+                             ' subset. Default = All with < 200 unique values.'
+                             ' Samp: "field1,field2"')
+    parser.add_argument('--outliersot', action='store_true', default=False,
+                        help="Calculate outliers over time (SOT)")
+    parser.add_argument('--outliersot_end', default=None,
+                        help="Last date to calculate outlierot MM/DD/YYYY -"
+                             " algorithm works moving backwards in time.")
+    parser.add_argument('--outliersot_iterations', default=7,
+                        help="Number of outliers over time samples")
+    parser.add_argument('--outliersot_range', default=None,
+                        help="Size of each sample: M,W,D. If none given, range"
+                             " type will be calculated for best fit")
+    parser.add_argument('--outliersot_date_field', default=None,
+                        help="The name of the date field for sot. If none, the first"
+                             " date field will be used")
+    
     args = parser.parse_args()
 
     run_export(project_url=args.project_url,
@@ -1297,7 +1412,14 @@ def main():
                u2fot_end=args.u2fot_end,
                u2fot_iterations=args.u2fot_iterations,
                u2fot_range=args.u2fot_range,
-               u2fot_date_field=args.u2fot_date_field)
+               u2fot_date_field=args.u2fot_date_field,
+               run_outliers=args.outliers,
+               outlier_subset_fields=args.outlier_subset_fields,
+               run_outliersot=args.sot,
+               outliersot_end=args.outliersot_end,
+               outliersot_iterations=args.outliersot_iterations,
+               outliersot_range=args.outliersot_range,
+               outliersot_date_field=args.outliersot_date_field,)
 
 
 if __name__ == '__main__':

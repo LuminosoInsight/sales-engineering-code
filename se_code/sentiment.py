@@ -294,7 +294,7 @@ def create_sot_table(luminoso_data, date_field_info, end_date, iterations,
 def main():
 
     parser = argparse.ArgumentParser(
-        description='Export score drivers and write to a file'
+        description='Export sentiment and write to a file'
     )
     parser.add_argument('project_url',
                         help="The complete URL of the Daylight project")
