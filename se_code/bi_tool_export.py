@@ -354,6 +354,69 @@ def db_create_tables(conn):
             exact_match_count numeric,
             conceptual_match_count numeric
         )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS outliers (
+            project_id varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            concept varchar(128),
+            relevance numeric,
+            texts varchar(128),
+            coverage numeric,
+            match_type varchar(32),
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric,
+            url varchar(256),
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS outlier_subsets (
+            project_id varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            field_name varchar(64),
+            field_value varchar(64),
+            concept varchar(128),
+            relevance numeric,
+            texts varchar(128),
+            coverage numeric,
+            match_type varchar(32),
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric,
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS outliers_over_time (
+            project_id varchar(16),
+            start_date timestamp,
+            end_date timestamp,
+            iteration_counter numeric,
+            range_type varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            field_name varchar(64),
+            field_value varchar(64),
+            concept varchar(128),
+            relevance numeric,
+            texts varchar(128),
+            coverage numeric,
+            match_type varchar(32),
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric,
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text
+        )
         """
     )
     # THOUGHTS
@@ -867,89 +930,6 @@ def run_export(project_url=None,
         root_url + '/app/projects/' + workspace + '/' + project_id
     )
 
-
-    if bool(run_outliers) or (bool(run_outliersot)):
-
-        print('Getting outlier data...')
-
-        concept_lists = client.get("concept_lists/")
-
-        # get project info for calculating coverage
-        proj_info = client.get("/")
-
-        # For naming purposes scl = shared_concept_list
-        scl_match_counts = {}
-        for clist in concept_lists:
-            concept_selector = {"type": "concept_list",
-                                "concept_list_id": clist['concept_list_id']}
-            clist_match_counts = client.get('concepts/match_counts',
-                                            concept_selector=concept_selector)
-            clist_match_counts['concept_list_id'] = clist['concept_list_id']
-            scl_match_counts[clist['name']] = clist_match_counts
-
-    if bool(run_outliers):
-        print("Generating project outliers...")
-        outlier_table = create_outlier_table(client, proj_info, scl_match_counts,
-                                             "both", root_url=luminoso_data.root_url)
-        outlier_table.extend(create_outlier_table(client, proj_info, scl_match_counts,
-                                                  "exact", root_url=luminoso_data.root_url))
-        write_table_to_csv(outlier_table, 'outliers.csv',
-                           encoding=encoding)
-
-        print("Generating outliers by subsets...")
-        outlier_subset_table = create_outlier_subset_table(
-            luminoso_data,
-            proj_info, 
-            scl_match_counts, 
-            "both",
-            outlier_subset_fields)
-        outlier_subset_table.extend(create_outlier_subset_table(
-            luminoso_data,
-            proj_info, 
-            scl_match_counts, 
-            "exact",
-            outlier_subset_fields))
-        write_table_to_csv(outlier_subset_table, 'outlier_subsets.csv',
-                           encoding=encoding)
-
-    if bool(run_outliersot):
-        print("Calculating outliers over time (outliersot)")
-
-        if outliersot_date_field is None:
-            date_field_info = luminoso_data.first_date_field
-            if date_field_info is None:
-                print("ERROR no date field in project for outliersot")
-                return
-        else:
-            date_field_info = luminoso_data.get_field_by_name(
-                sot_date_field
-            )
-            if date_field_info is None:
-                print("ERROR: (outliersot) no date field name:"
-                      " {}".format(sot_date_field))
-                return
-
-        outliersot_table = create_outliersot_table(
-            luminoso_data, proj_info, scl_match_counts, "both",
-            date_field_info, outliersot_end,
-            int(outliersot_iterations), outliersot_range, 
-            outlier_subset_fields
-        )
-        outliersot_table.extend(create_outliersot_table(
-            luminoso_data, proj_info, scl_match_counts, "exact",
-            date_field_info, outliersot_end,
-            int(outliersot_iterations), outliersot_range, 
-            outlier_subset_fields
-        ))
-        write_table_to_csv(outliersot_table, 'outliersot_table.csv',
-                           encoding=encoding)
-
-
-
-
-
-
-
     if not skip_vol:
         print('Creating volume table...')
         volume_table = create_volume_table(client, scl_match_counts,
@@ -998,7 +978,7 @@ def run_export(project_url=None,
             limit_string_length(vot_table, 'field_value', 63)
 
         output_data(vot_table, output_format,
-                    'vot_table.csv', conn,
+                    'volume_over_time.csv', conn,
                     'volume_over_time', project_id, encoding=encoding)
 
     if not skip_driver_subsets:
@@ -1015,12 +995,12 @@ def run_export(project_url=None,
             limit_string_length(driver_subset_table, 'field_value', 63)
 
         output_data(driver_subset_table, output_format,
-            'drivers_subsets_table.csv', conn,
+            'drivers_subsets.csv', conn,
             'drivers_subsets', project_id, encoding=encoding)
 
     if not skip_docs:
         output_data(doc_table, output_format,
-            'doc_table.csv', conn,
+            'docs.csv', conn,
             'docs', project_id, encoding=encoding)
 
         if output_format in 'sql':
@@ -1029,7 +1009,7 @@ def run_export(project_url=None,
             limit_string_length(doc_metadata_table, 'metadata_value', 63)
 
         output_data(doc_metadata_table, output_format,
-            'doc_metadata_table.csv', conn,
+            'doc_metadata.csv', conn,
             'doc_metadata', project_id, encoding=encoding)
 
     if not skip_doc_term_sentiment:
@@ -1051,14 +1031,14 @@ def run_export(project_url=None,
             limit_string_length(terms_table, 'term', 63)
 
         output_data(terms_table, output_format,
-                    'terms_table.csv', conn,
+                    'terms.csv', conn,
                     'terms', project_id, encoding=encoding)
 
     if not skip_themes:
         print('Creating themes table...')
         themes_table = create_themes_table(client, themes)
         output_data(themes_table, output_format,
-                    'themes_table.csv', conn,
+                    'themes.csv', conn,
                     'themes', project_id, encoding=encoding)
 
     # Combines list of concepts and shared concept lists
@@ -1069,7 +1049,7 @@ def run_export(project_url=None,
             limit_string_length(doc_term_summary_table, 'term', 63)
 
         output_data(doc_term_summary_table, output_format,
-                    'doc_term_summary_table.csv', conn,
+                    'doc_term_summary.csv', conn,
                     'doc_term_summary', project_id, encoding=encoding)
 
     if not skip_doc_subset:
@@ -1082,7 +1062,7 @@ def run_export(project_url=None,
             limit_string_length(doc_subset_table, 'value', 63)
 
         output_data(doc_subset_table, output_format,
-                    'doc_subsets_table.csv', conn,
+                    'doc_subsets.csv', conn,
                     'doc_subsets', project_id, encoding=encoding)
 
     # unique to filter u2f was skt
@@ -1098,7 +1078,7 @@ def run_export(project_url=None,
             limit_string_length(u2f_table, 'field_value', 63)
 
         output_data(u2f_table, output_format,
-                    'unique.csv', conn,
+                    'unique_to_filter.csv', conn,
                     'unique_to_filter', project_id, encoding=encoding)
 
     # unique to filter over time (was skt)
@@ -1129,14 +1109,14 @@ def run_export(project_url=None,
             limit_string_length(u2fot_table, 'field_value', 63)
 
         output_data(u2fot_table, output_format,
-                    'uniqueot_table.csv', conn,
+                    'unique_over_time.csv', conn,
                     'unique_over_time', project_id, encoding=encoding)
 
     if not skip_drivers:
         print("Creating score drivers...")
         driver_table = create_drivers_table(luminoso_data, run_topic_drivers)
         output_data(driver_table, output_format,
-                    'drivers_table.csv', conn,
+                    'drivers.csv', conn,
                     'drivers', project_id, encoding=encoding)
 
     if not skip_sentiment:
@@ -1188,7 +1168,7 @@ def run_export(project_url=None,
             limit_string_length(sot_table, 'field_value', 63)
 
         output_data(sot_table, output_format,
-                    'sot_table.csv', conn,
+                    'sentiment_over_time.csv', conn,
                     'sentiment_over_time', project_id, encoding=encoding)
 
     if bool(run_sdot):
@@ -1216,8 +1196,87 @@ def run_export(project_url=None,
             limit_string_length(driver_subset_table, 'field_value', 63)
 
         output_data(sdot_table, output_format,
-                    'sdot_table.csv', conn,
+                    'drivers_over_time.csv', conn,
                     'drivers_over_time', project_id, encoding=encoding)
+
+    if bool(run_outliers) or (bool(run_outliersot)):
+
+        print('Getting outlier data...')
+
+        concept_lists = client.get("concept_lists/")
+
+        # get project info for calculating coverage
+        proj_info = client.get("/")
+
+        # For naming purposes scl = shared_concept_list
+        scl_match_counts = {}
+        for clist in concept_lists:
+            concept_selector = {"type": "concept_list",
+                                "concept_list_id": clist['concept_list_id']}
+            clist_match_counts = client.get('concepts/match_counts',
+                                            concept_selector=concept_selector)
+            clist_match_counts['concept_list_id'] = clist['concept_list_id']
+            scl_match_counts[clist['name']] = clist_match_counts
+
+    if bool(run_outliers):
+        print("Generating project outliers...")
+        outlier_table = create_outlier_table(client, proj_info, scl_match_counts,
+                                             "both", root_url=luminoso_data.root_url)
+        outlier_table.extend(create_outlier_table(client, proj_info, scl_match_counts,
+                                                  "exact", root_url=luminoso_data.root_url))
+        output_data(outlier_table, output_format,
+                    'outliers.csv', conn,
+                    'outliers', project_id, encoding=encoding)
+
+        print("Generating outliers by subsets...")
+        outlier_subset_table = create_outlier_subset_table(
+            luminoso_data,
+            proj_info, 
+            scl_match_counts, 
+            "both",
+            outlier_subset_fields)
+        outlier_subset_table.extend(create_outlier_subset_table(
+            luminoso_data,
+            proj_info, 
+            scl_match_counts, 
+            "exact",
+            outlier_subset_fields))
+        output_data(outlier_subset_table, output_format,
+                    'outlier_subsets.csv', conn,
+                    'outlier_subsets', project_id, encoding=encoding)
+
+    if bool(run_outliersot):
+        print("Calculating outliers over time (outliersot)")
+
+        if outliersot_date_field is None:
+            date_field_info = luminoso_data.first_date_field
+            if date_field_info is None:
+                print("ERROR no date field in project for outliersot")
+                return
+        else:
+            date_field_info = luminoso_data.get_field_by_name(
+                sot_date_field
+            )
+            if date_field_info is None:
+                print("ERROR: (outliersot) no date field name:"
+                      " {}".format(sot_date_field))
+                return
+
+        outliersot_table = create_outliersot_table(
+            luminoso_data, proj_info, scl_match_counts, "both",
+            date_field_info, outliersot_end,
+            int(outliersot_iterations), outliersot_range, 
+            outlier_subset_fields
+        )
+        outliersot_table.extend(create_outliersot_table(
+            luminoso_data, proj_info, scl_match_counts, "exact",
+            date_field_info, outliersot_end,
+            int(outliersot_iterations), outliersot_range, 
+            outlier_subset_fields
+        ))
+        output_data(outliersot_table, output_format,
+                    'outliers_over_time.csv', conn,
+                    'outliers_over_time', project_id, encoding=encoding)
 
     print("Run export complete.")
 

@@ -67,40 +67,6 @@ def create_outlier_table(client, proj_info, scl_match_counts, match_type, root_u
     return outliers
 
 
-def _create_row_for_outlier_subsets(luminoso_data, api_params, proj_info, subset_name, subset_value, list_type, list_name, prepend_to_rows=None):
-    """
-    Helper function for create_outlier_subset_table().
-    """
-    rows = []
-
-    outliers = luminoso_data.client.get(
-        'concepts/match_counts', **api_params
-    )
-
-    for c in outliers['match_counts']:
-
-        row = [
-            {'list_type': list_type,
-             'list_name': list_name,
-             'field_name': subset_name,
-             'field_value': subset_value,
-             'concept': concept["name"],
-             'relevance': concept['relevance'],
-             'texts': concept['texts'],
-             'coverage': coverage_pct,
-             'match_type': match_type,
-             'match_count': concept['match_count'],
-             'exact_match_count': concept['exact_match_count'],
-             'conceptual_match_count': concept['match_count'] - concept['exact_match_count']}
-            for concept in outliers['match_counts']
-        ]
-
-        if prepend_to_rows:
-            row = {**prepend_to_rows, **row}
-        rows.append(row)
-    return rows
-
-
 def create_outlier_subset_table(luminoso_data, proj_info, scl_match_counts, match_type, subset_fields=None, filter_list=None, prepend_to_rows=None):
     '''
     Create tabulation of outlier output
@@ -163,8 +129,28 @@ def create_outlier_subset_table(luminoso_data, proj_info, scl_match_counts, matc
                                    'match_count': concept['match_count'],
                                    'exact_match_count': concept['exact_match_count'],
                                    'conceptual_match_count': concept['match_count'] - concept['exact_match_count']}
+
+                            # add three sample documents to the row
+                            # Use the texts to find related documents
+                            search_docs = luminoso_data.client.get(
+                                'docs', search={'texts': row['texts']}, limit=3,
+                                match_type='exact',
+                                filter=outlier_filter
+                            )['result']
+
+                            row['example_doc1'] = ''
+                            row['example_doc2'] = ''
+                            row['example_doc3'] = ''
+                            if len(search_docs) >= 1:
+                                row['example_doc1'] = search_docs[0]['text']
+                            if len(search_docs) >= 2:
+                                row['example_doc2'] = search_docs[1]['text']
+                            if len(search_docs) >= 3:
+                                row['example_doc3'] = search_docs[2]['text']
+
+                            # add the prepend rows to the result
                             if prepend_to_rows:
-                                row = {**prepend_to_rows, **row}                            
+                                row = {**prepend_to_rows, **row}
                             outliers_table.append(row)
 
     return outliers_table
@@ -317,7 +303,6 @@ def main():
         args.outlier_subset_fields))
     write_table_to_csv(outlier_subset_table, 'outlier_subsets.csv',
                        encoding=args.encoding)
-
 
     if bool(args.outliersot):
         print("Calculating outliers over time (outliersot)")
