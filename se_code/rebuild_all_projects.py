@@ -62,8 +62,6 @@ def main():
         pclient = client.client_for_path('/projects/{}/'.format(p['project_id']))
         pinfo = pclient.get('/', fields=['last_build_info'])['last_build_info']
 
-        print("pinfo :: ",pinfo)
-
         is_sentiment_built = pinfo.get('sentiment', {}).get('success')
         if only_if_sentiment_stalled and is_sentiment_built:
             print('  sentiment okay, skipping build')
@@ -81,9 +79,7 @@ def main():
             print('  waiting for completion...')
             try:
                 if args.wait_for_build:
-                    print("wait_for_build~~~~~~~~~~111")
                     pclient.wait_for_sentiment_build()
-                    print("wait_for_build~~~~~~~~~~wait11")
             except LuminosoError as e:
                 print('  Error:', str(e))
 
@@ -95,9 +91,7 @@ def main():
                 pclient.post('/build/')
                 print('  rebuild started, waiting for completion...')
                 if args.wait_for_build:
-                    print("wait_for_build~~~~~~~~~~222")
                     pclient.wait_for_sentiment_build()
-                    print("wait_for_build~~~~~~~~~~wait22")
             except LuminosoError as e:
                 print('  Error:', str(e))
 
