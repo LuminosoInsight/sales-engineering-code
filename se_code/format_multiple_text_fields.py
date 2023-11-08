@@ -1,6 +1,7 @@
 import csv
 import argparse
 
+
 def file_to_dict(file_name, encoding="utf-8-sig"):
     table = []
     with open(file_name, encoding=encoding) as f:
@@ -9,6 +10,7 @@ def file_to_dict(file_name, encoding="utf-8-sig"):
             table.append(row)
     return table
 
+
 def file_to_list(file_name, encoding="utf-8-sig"):
     table = []
     with open(file_name, encoding=encoding) as f:
@@ -16,6 +18,7 @@ def file_to_list(file_name, encoding="utf-8-sig"):
         for row in reader:
             table.append(row)
     return table
+
 
 def dict_to_file(table, file_name, encoding="utf-8"):
     fields = []
@@ -26,16 +29,19 @@ def dict_to_file(table, file_name, encoding="utf-8"):
         writer.writeheader()
         writer.writerows(table)
 
+
 def list_to_file(table, file_name, encoding="utf-8"):
     with open(file_name, 'w', newline='', encoding=encoding) as f:
         writer = csv.writer(f)
         writer.writerows(table)
+
 
 def char_position(letters):
     index = 0
     for i, char in enumerate(letters):
         index += ((ord(char.lower()) - 97) + (i * 26))
     return index
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -68,7 +74,7 @@ def main():
     table = file_to_dict(args.input_file, encoding=args.encoding)
 
     text_only_fields = [field for field in table[0] if 'text' == field.lower().strip()]
-    if len(text_only_fields) >0:
+    if len(text_only_fields) > 0:
         print("Text fields must have an underscore followed by the name for the field")
         print("Example: text_my question")
         print("Your file has a column with just 'text' for the column name")
@@ -93,6 +99,7 @@ def main():
                     
                 write_table.append(write_row)
     dict_to_file(write_table, args.output_file, encoding=args.encoding)
+
 
 if __name__ == "__main__":
     main()
