@@ -6,11 +6,11 @@ import datetime
 from luminoso_api import V5LuminosoClient as LuminosoClient
 
 
-def get_all_docs(client):
+def get_all_docs(client, include_sentiment_on_concepts):
     docs = []
     while True:
         new_docs = client.get(
-            "docs", include_sentiment_on_concepts=True, limit=2500, offset=len(docs)
+            "docs", include_sentiment_on_concepts=include_sentiment_on_concepts, limit=2500, offset=len(docs)
         )
         if new_docs["result"]:
             docs.extend(new_docs["result"])
@@ -332,7 +332,7 @@ def main():
 
     client = LuminosoClient.connect(url=proj_apiv5, user_agent_suffix='se_code:doc_downloader')
 
-    docs = get_all_docs(client)
+    docs = get_all_docs(client, args.concept_relations_sentiment)
     if args.concept_relations or args.individual_tags:
         add_relations(
             client,
