@@ -34,16 +34,19 @@ def main():
                      '\n ]'), 
         formatter_class=RawTextHelpFormatter
     )
+    parser.add_argument("project_url", help="The URL of the project to use.")
     parser.add_argument(
         'filename',
         help=('Full name of the file containing shared concept definitions,'
               ' including the extension. Must be CSV or JSON.'
              )
         )
-    parser.add_argument("project_url", help="The URL of the project to use.")
-
     parser.add_argument('-d', '--delete', default=False, action="store_true", 
         help="Whether to delete all the existing shared concepts or not.")
+    parser.add_argument('-g', '--download',
+                        action="store_true",
+                        default=False,
+                        help="Download the shared concept lists from a project to a json file.")
     parser.add_argument('-e', '--encoding', default="utf-8", 
         help="Encoding type of the files to read from")
     args = parser.parse_args()
@@ -54,7 +57,20 @@ def main():
 
     filename = args.filename
     true_data = []
-    if '.csv' in filename:
+    if args.download:
+        scl = client.get('concept_lists/')
+
+        # remove all 'concept_list_id' and 'shared_concept_id' so it can be re-uploaded
+        for cl in scl:
+            cl.pop('concept_list_id', None)
+            for c in cl['concepts']:
+                c.pop('shared_concept_id', None)
+
+        with open(filename, 'w') as f:
+            json.dump(scl, f, indent=2)
+        statement = f'Shared concept lists downloaded to {filename}'
+
+    elif '.csv' in filename:
         with open(filename, encoding=args.encoding) as f:
             reader = csv.DictReader(f)
             true_data = {}
@@ -90,13 +106,14 @@ def main():
         print('ERROR: you must pass in a CSV or JSON file.')
         return
 
-    statement = 'New Shared Concepts added to project'
-    if args.delete:
-        delete_shared_concepts(client)
-        statement += ' and old Shared Concepts deleted'
+    if not args.download:
+        statement = 'New Shared Concepts added to project'
+        if args.delete:
+            delete_shared_concepts(client)
+            statement += ' and old Shared Concepts deleted'
 
-    for cl in true_data:
-        client.post('concept_lists/', name=cl['concept_list_name'], concepts=cl['concepts'])
+        for cl in true_data:
+            client.post('concept_lists/', name=cl['concept_list_name'], concepts=cl['concepts'])
 
     print(statement)
     print('Project URL: %s' % args.project_url)
