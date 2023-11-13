@@ -44,7 +44,7 @@ lumi-format-survey
 lumi-list-metadata
     This simply lists all the metadata fields and how many unique values 
     there are in each field.
-lumi-mange-concept-lists
+lumi-manage-concept-lists
     This will upload a file of shared concepts to a daylight project.
 lumi-manage-concepts
     Uses the /concepts/manage endpoint to fine-tune the concepts in a
