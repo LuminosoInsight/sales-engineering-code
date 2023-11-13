@@ -1,7 +1,0 @@
-concept_list_name,texts, name, color
-lista,"tablet,ipad",tablet,#808080
-lista,device,device,#800080
-lista,speakers, speakers,#800000
-listb,"usb,usb-c,micro-usb","cable","#008080"
-listb,"battery","battery","#000080"
-listb,"switch","switch","#808000"
