@@ -66,8 +66,31 @@ def main():
             for c in cl['concepts']:
                 c.pop('shared_concept_id', None)
 
-        with open(filename, 'w') as f:
-            json.dump(scl, f, indent=2)
+        if '.json' in filename:
+            with open(filename, 'w') as f:
+                json.dump(scl, f, indent=2)
+        elif '.csv' in filename:
+            lists_out = []
+            for cl in scl:
+                for c in cl['concepts']:
+                    row = {
+                        'concept_list_name': cl['name'],
+                        'texts': ','.join(c['texts']),
+                        'name': c['name']}
+                    if 'color' in c:
+                        row['color'] = c['color']
+
+                    lists_out.append(row)
+
+            # calculated list of fields
+            fields = list(set(val for dic in lists_out for val in dic.keys())) 
+            with open(filename, 'w') as f:
+                writer = csv.DictWriter(f, fields)
+                writer.writeheader()
+                writer.writerows(lists_out)
+        else:
+            print(f'Filename must end with .csv or .json got: {filename}')
+
         statement = f'Shared concept lists downloaded to {filename}'
 
     elif '.csv' in filename:
@@ -85,14 +108,14 @@ def main():
                     return
                 row = {}
                 for k, v in d.items():
-                    if 'text' in k.lower():
+                    if 'text' in k.lower().strip():
                         row['texts'] = [t.strip() for t in v.split(',')]
-                    if 'name' in k.lower():
+                    if 'name' == k.lower().strip():
                         row['name'] = v
-                    if 'color' in k.lower():
+                    if 'color' in k.lower().strip():
                         row['color'] = v
                 true_data[d['concept_list_name']]['concepts'].append(row)
-            
+
         # reformat true_data for export
         true_data = [{'concept_list_name':cl[1]['name'],
                       'concepts':cl[1]['concepts']} for cl in true_data.items()]
