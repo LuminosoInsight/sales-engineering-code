@@ -241,7 +241,7 @@ def _create_rows_from_drivers(luminoso_data, field, api_params, list_type, list_
     return rows
 
 
-def create_one_table(luminoso_data, field, topic_drive, filter_list=None, prepend_to_rows=None):
+def create_one_table(luminoso_data, field, topic_drive, filter_list=None, prepend_to_rows=None, match_type="exact"):
     '''
     Create tabulation of ScoreDrivers output, complete with doc counts, example
     docs, scores and driver clusters
@@ -256,7 +256,7 @@ def create_one_table(luminoso_data, field, topic_drive, filter_list=None, prepen
     # Set up a dict that's either empty or contains "filter", so we can use it
     # in keyword arguments to client.get()
 
-    api_params = {}
+    api_params = {'match_type': match_type}
     if filter_list:
         api_params['filter'] = filter_list
     if topic_drive:
@@ -288,11 +288,13 @@ def create_one_table(luminoso_data, field, topic_drive, filter_list=None, prepen
     return driver_table
 
 
-def create_one_sdot_table(luminoso_data, field, topic_drive, filter_list, prepend_to_rows=None):
+def create_one_sdot_table(luminoso_data, field, topic_drive, filter_list, prepend_to_rows=None, match_type="exact"):
     print("{}:{} sdot starting".format(filter_list[0]['maximum'], field))
 
     driver_table = create_one_table(luminoso_data, field, topic_drive,
-                                    filter_list=filter_list, prepend_to_rows=prepend_to_rows)
+                                    filter_list=filter_list, 
+                                    prepend_to_rows=prepend_to_rows,
+                                    match_type=match_type)
 
     print("{}:{} sdot done data len={}".format(
         filter_list[0]['maximum'], field, len(driver_table))
@@ -301,11 +303,12 @@ def create_one_sdot_table(luminoso_data, field, topic_drive, filter_list, prepen
 
 
 def create_drivers_table(luminoso_data, topic_drive, filter_list=None,
-                         subset_name=None, subset_value=None):
+                         subset_name=None, subset_value=None, match_type="exact"):
     all_tables = []
     for field in luminoso_data.driver_fields:
         table = create_one_table(luminoso_data, field, topic_drive,
-                                 filter_list=filter_list)
+                                 filter_list=filter_list,
+                                 match_type=match_type)
         all_tables.extend(table)
 
     if subset_name is not None:
@@ -317,7 +320,8 @@ def create_drivers_table(luminoso_data, topic_drive, filter_list=None,
 
 
 def create_drivers_with_subsets_table(luminoso_data, topic_drive,
-                                      subset_fields=None):
+                                      subset_fields=None,
+                                      match_type="exact"):
     # if the user specifies the list of subsets to process
     if not subset_fields:
         subset_fields = luminoso_data.get_best_subset_fields()
@@ -340,7 +344,8 @@ def create_drivers_with_subsets_table(luminoso_data, topic_drive,
                     sd_data = create_drivers_table(
                         luminoso_data, topic_drive,
                         filter_list=filter_list, subset_name=field_name,
-                        subset_value=field_value[0]
+                        subset_value=field_value[0],
+                        match_type=match_type
                     )
                     driver_table.extend(sd_data)
                     if len(sd_data) > 0:
@@ -353,7 +358,7 @@ def create_drivers_with_subsets_table(luminoso_data, topic_drive,
 
 
 def create_sdot_table(luminoso_data, date_field_info, end_date, iterations,
-                      range_type, topic_drive):
+                      range_type, topic_drive, match_type="exact"):
     sd_data_raw = []
 
     if end_date is None or len(end_date) == 0:
@@ -415,7 +420,7 @@ def create_sdot_table(luminoso_data, date_field_info, end_date, iterations,
             
             sd_data = create_one_sdot_table(luminoso_data, field_value,
                                             topic_drive, filter_list,
-                                            prepend_to_rows)
+                                            prepend_to_rows, match_type)
             sd_data_raw.extend(sd_data)
 
         # move to the nextdate
@@ -459,6 +464,8 @@ def main():
                              " user-defined topics as well")
     parser.add_argument('--encoding', default='utf-8',
                         help="Encoding type of the files to write to")
+    parser.add_argument('--match_type', default="exact",
+                        help="The type of match total or exact. default=exact")
     parser.add_argument('--sdot', action='store_true',
                         help="Calculate score drivers over time")
     parser.add_argument('--sdot_end', default=None,
@@ -508,12 +515,13 @@ def main():
 
         sdot_table = create_sdot_table(
             luminoso_data, date_field_info, args.sdot_end,
-            int(args.sdot_iterations), args.sdot_range, args.topic_drivers
+            int(args.sdot_iterations), args.sdot_range, args.topic_drivers,
+            args.match_type
         )
         write_table_to_csv(sdot_table, 'sdot_table.csv',
                            encoding=args.encoding)
 
-    driver_table = create_drivers_table(luminoso_data, args.topic_drivers)
+    driver_table = create_drivers_table(luminoso_data, args.topic_drivers, match_type=args.match_type)
     write_table_to_csv(driver_table, 'drivers_table.csv',
                        encoding=args.encoding)
 
@@ -521,7 +529,8 @@ def main():
     if bool(args.subset):
         driver_table = create_drivers_with_subsets_table(
             luminoso_data, args.topic_drivers,
-            subset_fields=args.subset_fields
+            subset_fields=args.subset_fields,
+            match_type=args.match_type
         )
         write_table_to_csv(driver_table, 'subset_drivers_table.csv',
                            encoding=args.encoding)
