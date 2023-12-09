@@ -1,8 +1,10 @@
 from luminoso_api import V5LuminosoClient as LuminosoClient
+from luminoso_api import LuminosoError
 
 from se_code.bi_tool_export import parse_url
 
 import argparse
+import time
 
 
 def delete_shared_concepts(client):
@@ -41,11 +43,25 @@ def copy_shared_concepts(from_client, to_client, overwrite=False):
             for c in cl['concepts']:
                 c.pop('shared_concept_id', None)
 
-            to_client.post('concept_lists/', name=cl['name'], concepts=cl['concepts'])
+            retry = True
+            retry_count = 0
+            while retry and retry_count < 3:
+                retry_count += 1
+                retry = False
+                try:
+                    to_client.post('concept_lists/', name=cl['name'], concepts=cl['concepts'])
+                except LuminosoError as e:
+                    eobj = e.args[0]
+                    if eobj['error'] == 'TOO_MANY_REQUESTS':
+                        time.sleep(1)
+                        print("  API retry")
+                        retry = True
+                    else:
+                        print(f"  Error: {e}")
             add_count += 1
         else:
             skip_count += 1
-        
+
     print('Added {} concept lists, skipped {}, overwrote {}'.format(add_count, skip_count, overwrite_count))
 
 
