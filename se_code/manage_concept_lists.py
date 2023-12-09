@@ -1,10 +1,12 @@
 import argparse
 import csv
 import json
+import time
 
 from argparse import RawTextHelpFormatter
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
+from luminoso_api import LuminosoError
 from se_code.copy_shared_concepts import delete_shared_concepts
 
 
@@ -136,7 +138,26 @@ def main():
             statement += ' and old Shared Concepts deleted'
 
         for cl in true_data:
-            client.post('concept_lists/', name=cl['concept_list_name'], concepts=cl['concepts'])
+            retry = True
+            retry_count = 0
+            while retry and retry_count<3:
+                retry_count += 1
+                try:
+                    print(f"attempting to create: {cl['concept_list_name']}")
+                    client.post('concept_lists/', name=cl['concept_list_name'], concepts=cl['concepts'])
+                except LuminosoError as e:
+                    eobj = e.args[0]
+                    if eobj['error'] == 'CONCEPT_LIST_EXISTS':
+                        print(f"  Skipped list: {eobj['name']} already exists.")
+                        retry = False
+                    elif eobj['error'] == 'TOO_MANY_REQUESTS':
+                        time.sleep(1)
+                        print("  API retry")
+                    else:
+                        print(f"  Error: {e}")
+                        retry = False
+                else:
+                    print(f"Created list: {cl['concept_list_name']}")
 
     print(statement)
     print('Project URL: %s' % args.project_url)
