@@ -27,6 +27,10 @@ from se_code.volume import (
     create_volume_table, create_volume_subset_table,
     create_vot_table
 )
+from se_code.outliers import (
+    create_outlier_table, create_outlier_subset_table,
+    create_outliersot_table
+)
 
 def db_create_sql_connection():
 
@@ -55,8 +59,43 @@ def db_create_sql_connection():
     return conn
 
 
-def db_create_tables(conn):
-    commands = (
+def get_sql_var_types(cmd):
+    psplit = cmd.split("(", 1)
+    command = psplit[0].strip()
+
+    if command.upper().startswith("CREATE TABLE"):
+        # the last on the line is the table name
+        table_name = command.split(" ")[-1]
+    else:
+        # this isn't a create table command. Ignore
+        return None
+
+    cols = {}
+    rest = psplit[1].strip()
+    # trim the final ) off of it
+    rest = ")".join(rest.split(")")[0:-1]).split(",")
+    for col in rest:
+        col = col.strip()
+        col_name = col.split(" ")[0].strip()
+        col_type = col.split(" ")[1].split("(")[0].split(",")[0].strip()
+        max_col_len = -1
+        if ("varchar" in col_type):
+            max_col_len = int(col.split(" ")[1].split("(")[1].split(")")[0].strip())
+        cols[col_name] = (col_name, col_type, max_col_len)
+
+    return table_name, cols
+
+
+def parse_schemas(commands):
+    table_schemas = {}
+    for c in commands:
+        cdata = get_sql_var_types(c)
+        table_schemas[cdata[0]] = cdata[1]
+
+    return table_schemas
+
+
+create_tables_commands = (
         """
         CREATE TABLE IF NOT EXISTS docs (
             project_id varchar(16),
@@ -189,6 +228,7 @@ def db_create_tables(conn):
             list_type varchar(32),
             list_name varchar(64),
             relevance numeric,
+            average_score numeric,
             impact numeric,
             doc_count numeric,
             url varchar(256),
@@ -350,8 +390,76 @@ def db_create_tables(conn):
             exact_match_count numeric,
             conceptual_match_count numeric
         )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS outliers (
+            project_id varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            concept varchar(128),
+            relevance numeric,
+            texts varchar(128),
+            coverage numeric,
+            match_type varchar(32),
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric,
+            url varchar(256),
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS outlier_subsets (
+            project_id varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            field_name varchar(64),
+            field_value varchar(64),
+            concept varchar(128),
+            relevance numeric,
+            texts varchar(128),
+            coverage numeric,
+            match_type varchar(32),
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric,
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS outliers_over_time (
+            project_id varchar(16),
+            start_date timestamp,
+            end_date timestamp,
+            iteration_counter numeric,
+            range_type varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            field_name varchar(64),
+            field_value varchar(64),
+            concept varchar(128),
+            relevance numeric,
+            texts varchar(128),
+            coverage numeric,
+            match_type varchar(32),
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric,
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text
+        )
         """
     )
+table_schemas = parse_schemas(create_tables_commands)
+
+
+def db_create_tables(conn):
+
     # THOUGHTS
     # I'm concerned with the doc_metadata that this should three separate tables based on type
     # date, string, numeric so deciding the graph type will be easier. We can have
@@ -364,7 +472,7 @@ def db_create_tables(conn):
         cur = conn.cursor()
 
         # create tables one by one
-        for command in commands:
+        for command in create_tables_commands:
             cur.execute(command)
 
         cur.close()
@@ -537,6 +645,7 @@ def create_doc_subset_table(docs):
                                      'value': field['value']})
     return doc_subset_table
 
+
 def create_doc_metadata_table(luminoso_data):
     metadata_table = []
     for doc in luminoso_data.docs:
@@ -551,6 +660,7 @@ def create_doc_metadata_table(luminoso_data):
             metadata_table.append(mdrow)
 
     return metadata_table
+
 
 def create_doc_table(luminoso_data, suggested_concepts):
     '''
@@ -588,24 +698,27 @@ def create_doc_table(luminoso_data, suggested_concepts):
         if date_number == 0:
             row['doc_date 0'] = 0
         '''
-        # add the them (cluster) data
-        doc['fvector'] = unpack64(doc['vector']).tolist()
+        if (len(doc['text'])>0):
+            # add the them (cluster) data
+            doc['fvector'] = unpack64(doc['vector']).tolist()
 
-        max_score = 0
-        max_id = ''
-        for concept in suggested_concepts['result']:
-            if len(concept['vectors'][0]) > 0:
-                concept['fvector'] = unpack64(concept['vectors'][0]).tolist()
-                score = np.dot(doc['fvector'], concept['fvector'])
-                if score > max_score:
-                    max_score = score
-                    max_id = concept['theme_name']
-                    max_theme_name = concept['name']
-                    max_cluster_name = concept['cluster_label'].split('|')[0]
+            max_score = 0
+            max_id = ''
+            max_cluster_name = None
+            for concept in suggested_concepts['result']:
+                if len(concept['vectors'][0]) > 0:
+                    concept['fvector'] = unpack64(concept['vectors'][0]).tolist()
+                    score = np.dot(doc['fvector'], concept['fvector'])
+                    if score > max_score:
+                        max_score = score
+                        max_id = concept['theme_name']
+                        max_theme_name = concept['name']
+                        max_cluster_name = concept['cluster_label'].split('|')[0]
 
-        row['theme_name'] = max_id
-        row['theme_score'] = max_score
-        row['theme_name'] = max_cluster_name
+            if max_cluster_name:
+                row['theme_name'] = max_id
+                row['theme_score'] = max_score
+                row['theme_name'] = max_cluster_name
 
         doc_table.append(row)
 
@@ -749,9 +862,18 @@ def write_to_sql(connection, table_name, project_id, data):
 
             for k in keys:
                 if k in row:
-                    tup += (str(row[k]),)
+                    val = row[k]
+                    # k=col_name val=(col_name, col_type, max_len)
+                    if table_schemas[table_name][k][1] in ["varchar", "text"]:
+                        val = str(val)
+                        if table_schemas[table_name][k][2]>0:
+                            val = val[0:table_schemas[table_name][k][2]]
+                    tup += (str(val),)
                 else:
-                    tup += ("",)
+                    if table_schemas[table_name][k][1] in ["numeric"]:
+                        tup += (0.0,)
+                    else:
+                        tup += ("",)
 
             sql_data.append(tup)
 
@@ -764,16 +886,6 @@ def write_to_sql(connection, table_name, project_id, data):
         connection.commit()
         cursor.close()
 
-# convert metadat values to strings
-def numbers_to_string(dict_list, key):
-    a = 3
-    a = a+1
-
-def limit_string_length(dict_list, key, max_len):
-    # need to limit the term len to max_len-1
-    for t in dict_list:
-        if isinstance(t[key], str) and len(t[key])>max_len:
-            t[key] = t[key][:max_len-1]
 
 def output_data(data, format, filename, sql_connection, table_name, project_id, encoding):
     if format in 'sql':
@@ -825,6 +937,13 @@ def run_export(project_url=None,
                u2fot_iterations=7,
                u2fot_range=None,
                u2fot_date_field=None,
+               run_outliers=True,
+               outlier_subset_fields=None,
+               run_outliersot=True,
+               outliersot_end=None,
+               outliersot_iterations=7,
+               outliersot_range=None,
+               outliersot_date_field=None,
                token=None,
                db_connection=None
                ):
@@ -868,11 +987,6 @@ def run_export(project_url=None,
         volume_subset_table = create_volume_subset_table(
             luminoso_data,
             volume_subset_fields)
-        if output_format in 'sql':
-            limit_string_length(volume_subset_table, 'field_name', 63)
-            numbers_to_string(volume_subset_table, 'field_value')
-            limit_string_length(volume_subset_table, 'field_value', 63)
-
         output_data(volume_subset_table, output_format,
                     'volume_subsets.csv', conn,
                     'volume_subsets', project_id, encoding=encoding)
@@ -898,13 +1012,8 @@ def run_export(project_url=None,
             luminoso_data, date_field_info, sot_end,
             int(sot_iterations), sot_range, sentiment_subset_fields
         )
-        if output_format in 'sql':
-            limit_string_length(vot_table, 'field_name', 63)
-            numbers_to_string(vot_table, 'field_value')
-            limit_string_length(vot_table, 'field_value', 63)
-
         output_data(vot_table, output_format,
-                    'vot_table.csv', conn,
+                    'volume_over_time.csv', conn,
                     'volume_over_time', project_id, encoding=encoding)
 
     if not skip_driver_subsets:
@@ -914,28 +1023,16 @@ def run_export(project_url=None,
             luminoso_data, run_topic_drivers,
             subset_fields=driver_subset_fields
         )
-
-        if output_format in 'sql':
-            limit_string_length(driver_subset_table, 'field_name', 63)
-            numbers_to_string(driver_subset_table, 'field_value')
-            limit_string_length(driver_subset_table, 'field_value', 63)
-
         output_data(driver_subset_table, output_format,
-            'drivers_subsets_table.csv', conn,
+            'drivers_subsets.csv', conn,
             'drivers_subsets', project_id, encoding=encoding)
 
     if not skip_docs:
         output_data(doc_table, output_format,
-            'doc_table.csv', conn,
+            'docs.csv', conn,
             'docs', project_id, encoding=encoding)
-
-        if output_format in 'sql':
-            limit_string_length(doc_metadata_table, 'metadata_name', 63)
-            numbers_to_string(doc_metadata_table, 'metadata_value')
-            limit_string_length(doc_metadata_table, 'metadata_value', 63)
-
         output_data(doc_metadata_table, output_format,
-            'doc_metadata_table.csv', conn,
+            'doc_metadata.csv', conn,
             'doc_metadata', project_id, encoding=encoding)
 
     if not skip_doc_term_sentiment:
@@ -952,43 +1049,28 @@ def run_export(project_url=None,
 
     if not skip_terms:
         terms_table = create_terms_table(concepts, scl_match_counts)
-
-        if output_format in 'sql':
-            limit_string_length(terms_table, 'term', 63)
-
         output_data(terms_table, output_format,
-                    'terms_table.csv', conn,
+                    'terms.csv', conn,
                     'terms', project_id, encoding=encoding)
 
     if not skip_themes:
         print('Creating themes table...')
         themes_table = create_themes_table(client, themes)
         output_data(themes_table, output_format,
-                    'themes_table.csv', conn,
+                    'themes.csv', conn,
                     'themes', project_id, encoding=encoding)
 
     # Combines list of concepts and shared concept lists
     if not skip_doc_term_summary:
         doc_term_summary_table = create_doc_term_summary_table(docs, concepts, scl_match_counts)
-
-        if output_format in 'sql':
-            limit_string_length(doc_term_summary_table, 'term', 63)
-
         output_data(doc_term_summary_table, output_format,
-                    'doc_term_summary_table.csv', conn,
+                    'doc_term_summary.csv', conn,
                     'doc_term_summary', project_id, encoding=encoding)
 
     if not skip_doc_subset:
         doc_subset_table = create_doc_subset_table(docs)
-        if output_format in 'sql':
-            limit_string_length(doc_subset_table, 'field_name', 63)
-            numbers_to_string(doc_subset_table, 'field_value')
-            numbers_to_string(doc_subset_table, 'value')
-            limit_string_length(doc_subset_table, 'field_value', 63)
-            limit_string_length(doc_subset_table, 'value', 63)
-
         output_data(doc_subset_table, output_format,
-                    'doc_subsets_table.csv', conn,
+                    'doc_subsets.csv', conn,
                     'doc_subsets', project_id, encoding=encoding)
 
     # unique to filter u2f was skt
@@ -996,15 +1078,8 @@ def run_export(project_url=None,
         print("Creating unique to filter...")
 
         u2f_table = create_u2f_table(client, u2f)
-
-        if output_format in 'sql':
-            limit_string_length(u2f_table, 'term', 63)
-            limit_string_length(u2f_table, 'field_name', 63)
-            numbers_to_string(u2f_table, 'field_value')
-            limit_string_length(u2f_table, 'field_value', 63)
-
         output_data(u2f_table, output_format,
-                    'unique.csv', conn,
+                    'unique_to_filter.csv', conn,
                     'unique_to_filter', project_id, encoding=encoding)
 
     # unique to filter over time (was skt)
@@ -1029,20 +1104,16 @@ def run_export(project_url=None,
             luminoso_data, date_field_info, u2fot_end,
             u2fot_iterations, u2fot_range, subset_values_dict,
             u2f_limit)
-        if output_format in 'sql':
-            limit_string_length(u2fot_table, 'field_name', 63)
-            numbers_to_string(u2fot_table, 'field_value')
-            limit_string_length(u2fot_table, 'field_value', 63)
 
         output_data(u2fot_table, output_format,
-                    'uniqueot_table.csv', conn,
+                    'unique_over_time.csv', conn,
                     'unique_over_time', project_id, encoding=encoding)
 
     if not skip_drivers:
         print("Creating score drivers...")
         driver_table = create_drivers_table(luminoso_data, run_topic_drivers)
         output_data(driver_table, output_format,
-                    'drivers_table.csv', conn,
+                    'drivers.csv', conn,
                     'drivers', project_id, encoding=encoding)
 
     if not skip_sentiment:
@@ -1058,11 +1129,6 @@ def run_export(project_url=None,
         sentiment_subset_table = create_sentiment_subset_table(
             luminoso_data,
             sentiment_subset_fields)
-        if output_format in 'sql':
-            limit_string_length(sentiment_subset_table, 'field_name', 63)
-            numbers_to_string(sentiment_subset_table, 'field_value')
-            limit_string_length(sentiment_subset_table, 'field_value', 63)
-
         output_data(sentiment_subset_table, output_format,
                     'sentiment_subsets.csv', conn,
                     'sentiment_subsets', project_id, encoding=encoding)
@@ -1088,13 +1154,8 @@ def run_export(project_url=None,
             luminoso_data, date_field_info, sot_end,
             int(sot_iterations), sot_range, sentiment_subset_fields
         )
-        if output_format in 'sql':
-            limit_string_length(sot_table, 'field_name', 63)
-            numbers_to_string(sot_table, 'field_value')
-            limit_string_length(sot_table, 'field_value', 63)
-
         output_data(sot_table, output_format,
-                    'sot_table.csv', conn,
+                    'sentiment_over_time.csv', conn,
                     'sentiment_over_time', project_id, encoding=encoding)
 
     if bool(run_sdot):
@@ -1116,14 +1177,88 @@ def run_export(project_url=None,
             luminoso_data, date_field_info, sdot_end,
             int(sdot_iterations), sdot_range, run_topic_drivers
         )
-        if output_format in 'sql':
-            limit_string_length(driver_subset_table, 'field_name', 63)
-            numbers_to_string(driver_subset_table, 'field_value')
-            limit_string_length(driver_subset_table, 'field_value', 63)
-
         output_data(sdot_table, output_format,
-                    'sdot_table.csv', conn,
+                    'drivers_over_time.csv', conn,
                     'drivers_over_time', project_id, encoding=encoding)
+
+    if bool(run_outliers) or (bool(run_outliersot)):
+
+        print('Getting outlier data...')
+
+        concept_lists = client.get("concept_lists/")
+
+        # get project info for calculating coverage
+        proj_info = client.get("/")
+
+        # For naming purposes scl = shared_concept_list
+        scl_match_counts = {}
+        for clist in concept_lists:
+            concept_selector = {"type": "concept_list",
+                                "concept_list_id": clist['concept_list_id']}
+            clist_match_counts = client.get('concepts/match_counts',
+                                            concept_selector=concept_selector)
+            clist_match_counts['concept_list_id'] = clist['concept_list_id']
+            scl_match_counts[clist['name']] = clist_match_counts
+
+    if bool(run_outliers):
+        print("Generating project outliers...")
+        outlier_table = create_outlier_table(client, proj_info, scl_match_counts,
+                                             "both", root_url=luminoso_data.root_url)
+        outlier_table.extend(create_outlier_table(client, proj_info, scl_match_counts,
+                                                  "exact", root_url=luminoso_data.root_url))
+        output_data(outlier_table, output_format,
+                    'outliers.csv', conn,
+                    'outliers', project_id, encoding=encoding)
+
+        print("Generating outliers by subsets...")
+        outlier_subset_table = create_outlier_subset_table(
+            luminoso_data,
+            proj_info, 
+            scl_match_counts, 
+            "both",
+            outlier_subset_fields)
+        outlier_subset_table.extend(create_outlier_subset_table(
+            luminoso_data,
+            proj_info, 
+            scl_match_counts, 
+            "exact",
+            outlier_subset_fields))
+        output_data(outlier_subset_table, output_format,
+                    'outlier_subsets.csv', conn,
+                    'outlier_subsets', project_id, encoding=encoding)
+
+    if bool(run_outliersot):
+        print("Calculating outliers over time (outliersot)")
+
+        if outliersot_date_field is None:
+            date_field_info = luminoso_data.first_date_field
+            if date_field_info is None:
+                print("ERROR no date field in project for outliersot")
+                return
+        else:
+            date_field_info = luminoso_data.get_field_by_name(
+                sot_date_field
+            )
+            if date_field_info is None:
+                print("ERROR: (outliersot) no date field name:"
+                      " {}".format(sot_date_field))
+                return
+
+        outliersot_table = create_outliersot_table(
+            luminoso_data, proj_info, scl_match_counts, "both",
+            date_field_info, outliersot_end,
+            int(outliersot_iterations), outliersot_range, 
+            outlier_subset_fields
+        )
+        outliersot_table.extend(create_outliersot_table(
+            luminoso_data, proj_info, scl_match_counts, "exact",
+            date_field_info, outliersot_end,
+            int(outliersot_iterations), outliersot_range, 
+            outlier_subset_fields
+        ))
+        output_data(outliersot_table, output_format,
+                    'outliers_over_time.csv', conn,
+                    'outliers_over_time', project_id, encoding=encoding)
 
     print("Run export complete.")
 
@@ -1253,6 +1388,27 @@ def main():
     parser.add_argument('--u2fot_date_field', default=None,
                         help="The name of the date field for u2fot. If none, the first"
                              " date field will be used")
+    parser.add_argument('--outliers',
+                        action='store_true', default=True,
+                        help="Do not generate outliers and outlier subsets")
+    parser.add_argument('--outlier_subset_fields', default=None,
+                        help='Which subsets to include in outlier by'
+                             ' subset. Default = All with < 200 unique values.'
+                             ' Samp: "field1,field2"')
+    parser.add_argument('--outliersot', action='store_true', default=False,
+                        help="Calculate outliers over time (SOT)")
+    parser.add_argument('--outliersot_end', default=None,
+                        help="Last date to calculate outlierot MM/DD/YYYY -"
+                             " algorithm works moving backwards in time.")
+    parser.add_argument('--outliersot_iterations', default=7,
+                        help="Number of outliers over time samples")
+    parser.add_argument('--outliersot_range', default=None,
+                        help="Size of each sample: M,W,D. If none given, range"
+                             " type will be calculated for best fit")
+    parser.add_argument('--outliersot_date_field', default=None,
+                        help="The name of the date field for sot. If none, the first"
+                             " date field will be used")
+    
     args = parser.parse_args()
 
     run_export(project_url=args.project_url,
@@ -1297,7 +1453,14 @@ def main():
                u2fot_end=args.u2fot_end,
                u2fot_iterations=args.u2fot_iterations,
                u2fot_range=args.u2fot_range,
-               u2fot_date_field=args.u2fot_date_field)
+               u2fot_date_field=args.u2fot_date_field,
+               run_outliers=args.outliers,
+               outlier_subset_fields=args.outlier_subset_fields,
+               run_outliersot=args.sot,
+               outliersot_end=args.outliersot_end,
+               outliersot_iterations=args.outliersot_iterations,
+               outliersot_range=args.outliersot_range,
+               outliersot_date_field=args.outliersot_date_field,)
 
 
 if __name__ == '__main__':
