@@ -31,7 +31,7 @@ setup(
             'lumi-format-multiple-text-fields = se_code.format_multiple_text_fields:main',
             'lumi-format-survey = se_code.format_survey:main',
             'lumi-list-metadata = se_code.list_metadata:main',
-            'lumi-load-shared-concepts = se_code.load_shared_concepts:main',
+            'lumi-manage-concept-lists = se_code.manage_concept_lists:main',
             'lumi-manage-concepts = se_code.manage_concepts:main',
             'lumi-project-migration = se_code.project_migration:main',
             'lumi-sentiment = se_code.sentiment:main',

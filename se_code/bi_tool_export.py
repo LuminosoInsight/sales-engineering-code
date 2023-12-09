@@ -12,16 +12,21 @@ from urllib.parse import urlparse, unquote
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
-from se_code.subset_key_terms import subset_key_terms, create_skt_table
+from se_code.unique_to_filter import (
+    unique_to_filter, create_u2f_table, create_u2fot_table
+)
 from se_code.score_drivers import (
-    create_drivers_table, create_sdot_table,
+    parse_url, create_drivers_table, create_sdot_table,
     create_drivers_with_subsets_table, LuminosoData, write_table_to_csv
 )
 from se_code.sentiment import (
     create_sentiment_table, create_sentiment_subset_table,
     create_sot_table
 )
-
+from se_code.volume import (
+    create_volume_table, create_volume_subset_table,
+    create_vot_table
+)
 
 def db_create_sql_connection():
 
@@ -145,8 +150,26 @@ def db_create_tables(conn):
         )
         """,
         """
-        CREATE TABLE IF NOT EXISTS subset_key_terms (
+        CREATE TABLE IF NOT EXISTS unique_to_filter (
             project_id varchar(16),
+            term varchar(64),
+            field_name varchar(64),
+            field_value varchar(64),
+            exact_matches numeric,
+            conceptual_matches numeric,
+            total_matches numeric,
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS unique_over_time (
+            project_id varchar(16),
+            start_date timestamp,
+            end_date timestamp,
+            iteration_counter numeric,
+            range_type varchar(16),
             term varchar(64),
             field_name varchar(64),
             field_value varchar(64),
@@ -277,6 +300,56 @@ def db_create_tables(conn):
             sentiment_doc_count_negative numeric,
             sentiment_doc_count_total numeric
         )
+        """,
+
+        """
+        CREATE TABLE IF NOT EXISTS volume (
+            project_id varchar(16),
+            concept varchar(128),
+            texts varchar(128),
+            concept_type varchar(32),
+            shared_concept_list varchar(64),
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric,
+            url varchar(256),
+            example_doc1 text,
+            example_doc2 text,
+            example_doc3 text
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS volume_subsets (
+            project_id varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            field_name varchar(64),
+            field_value varchar(64),
+            concept varchar(128),
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS volume_over_time (
+            project_id varchar(16),
+            start_date timestamp,
+            end_date timestamp,
+            iteration_counter numeric,
+            range_type varchar(16),
+            list_type varchar(32),
+            list_name varchar(64),
+            relevance numeric,
+            field_name varchar(64),
+            field_value varchar(64),
+            concept varchar(128),
+            concept_relevance numeric,
+            match_count numeric,
+            exact_match_count numeric,
+            conceptual_match_count numeric
+        )
         """
     )
     # THOUGHTS
@@ -303,17 +376,7 @@ def db_create_tables(conn):
     return 0
 
 
-def parse_url(url):
-    root_url = url.strip('/ ').split('/app')[0]
-    api_url = root_url + '/api/v5'
-
-    workspace_id = url.strip('/').split('/')[5]
-    project_id = url.strip('/').split('/')[6]
-
-    return root_url, api_url, workspace_id, project_id
-
-
-def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
+def pull_lumi_data(project, api_url, u2f_limit, concept_count=100,
                    num_themes=7, theme_concepts=4, cln=None,
                    token=None):
 
@@ -321,7 +384,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
     Extract relevant data from Luminoso project
 
     :param project: Luminoso project id
-    :param skt_limit: Number of terms per subset when creating subset key terms
+    :param u2f_limit: Number of terms per subset when creating unique terms
     :param concept_count: Number of top concepts to include in the analysis
     :param num_themes: Number of themes to calculate
     :param theme_concepts: Number of concepts to represent each theme
@@ -369,19 +432,19 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
         concept_selector={'type': 'top', 'limit': concept_count}
     )['match_counts']
 
-    subset_counts = {}
+    subset_values_dict = {}
     for field in luminoso_data.metadata:
         if field['type'] == 'string':
-            subset_counts[field['name']] = {}
+            subset_values_dict[field['name']] = {}
             if len(field['values']) > 200:
                 print(
                     "Subset {} has {} (too many) values. Reducing to first"
                     " 200 values.".format(field['name'], len(field['values']))
                 )
             for value in field['values'][:200]:
-                subset_counts[field['name']][value['value']] = value['count']
+                subset_values_dict[field['name']][value['value']] = value['count']
 
-    skt = subset_key_terms(client, subset_counts, terms_per_subset=skt_limit)
+    u2f = unique_to_filter(client, subset_values_dict, terms_per_subset=u2f_limit)
 
     themes = client.get(
         'concepts',
@@ -401,7 +464,7 @@ def pull_lumi_data(project, api_url, skt_limit, concept_count=100,
         concept['theme_name'] = theme_name
         concept['fvector'] = unpack64(concept['vectors'][0]).tolist()
 
-    return (luminoso_data, scl_match_counts, concepts, skt, themes)
+    return (luminoso_data, scl_match_counts, concepts, u2f, themes, subset_values_dict)
 
 
 def create_doc_term_summary_table(docs, concepts, scl_match_counts):
@@ -701,10 +764,15 @@ def write_to_sql(connection, table_name, project_id, data):
         connection.commit()
         cursor.close()
 
+# convert metadat values to strings
+def numbers_to_string(dict_list, key):
+    a = 3
+    a = a+1
+
 def limit_string_length(dict_list, key, max_len):
     # need to limit the term len to max_len-1
     for t in dict_list:
-        if len(t[key])>max_len:
+        if isinstance(t[key], str) and len(t[key])>max_len:
             t[key] = t[key][:max_len-1]
 
 def output_data(data, format, filename, sql_connection, table_name, project_id, encoding):
@@ -719,7 +787,8 @@ def run_export(project_url=None,
                encoding='utf-8',
                concept_list_names=None,
                output_format='csv',
-               skt_limit=20,
+               u2f_limit=20,
+               skip_vol=False,
                skip_docs=False,
                skip_doc_term_sentiment=False,
                skip_doc_term_sentiment_list=False,
@@ -727,8 +796,9 @@ def run_export(project_url=None,
                skip_themes=False,
                skip_doc_term_summary=False,
                skip_doc_subset=False,
-               skip_skt_table=False,
+               skip_u2f_table=False,
                skip_drivers=False,
+               volume_subset_fields=None,
                run_topic_drivers=False,
                skip_driver_subsets=False,
                driver_subset_fields=None,
@@ -740,11 +810,21 @@ def run_export(project_url=None,
                sdot_date_field=None,
                skip_sentiment_subsets=False,
                sentiment_subset_fields=None,
+               run_vot=True,
+               vot_end=None,
+               vot_iterations=7,
+               vot_range=None,
+               vot_date_field=None,
                run_sot=True,
                sot_end=None,
                sot_iterations=7,
                sot_range=None,
                sot_date_field=None,
+               run_u2fot=True,
+               u2fot_end=None,
+               u2fot_iterations=7,
+               u2fot_range=None,
+               u2fot_date_field=None,
                token=None,
                db_connection=None
                ):
@@ -762,10 +842,10 @@ def run_export(project_url=None,
         if db_create_tables(conn) != 0:
             exit(-1)
 
-    lumi_data = pull_lumi_data(project_id, api_url, skt_limit=int(skt_limit),
+    lumi_data = pull_lumi_data(project_id, api_url, u2f_limit=int(u2f_limit),
                                concept_count=int(concept_count),
                                cln=concept_list_names, token=token)
-    (luminoso_data, scl_match_counts, concepts, skt, themes) = lumi_data
+    (luminoso_data, scl_match_counts, concepts, u2f, themes, subset_values_dict) = lumi_data
     client = luminoso_data.client
     docs = luminoso_data.docs
 
@@ -776,6 +856,57 @@ def run_export(project_url=None,
         root_url + '/app/projects/' + workspace + '/' + project_id
     )
 
+    if not skip_vol:
+        print('Creating volume table...')
+        volume_table = create_volume_table(client, scl_match_counts,
+                                           root_url=luminoso_data.root_url)
+        output_data(volume_table, output_format,
+                    'volume.csv', conn,
+                    'volume', project_id, encoding=encoding)
+
+        print("Creating volume by subsets...")
+        volume_subset_table = create_volume_subset_table(
+            luminoso_data,
+            volume_subset_fields)
+        if output_format in 'sql':
+            limit_string_length(volume_subset_table, 'field_name', 63)
+            numbers_to_string(volume_subset_table, 'field_value')
+            limit_string_length(volume_subset_table, 'field_value', 63)
+
+        output_data(volume_subset_table, output_format,
+                    'volume_subsets.csv', conn,
+                    'volume_subsets', project_id, encoding=encoding)
+
+    if bool(run_vot):
+        print("Creating volume over time (vot)")
+
+        if vot_date_field is None:
+            date_field_info = luminoso_data.first_date_field
+            if date_field_info is None:
+                print("ERROR no date field in project for vot")
+                return
+        else:
+            date_field_info = luminoso_data.get_field_by_name(
+                vot_date_field
+            )
+            if date_field_info is None:
+                print("ERROR: (vot) no date field name:"
+                      " {}".format(vot_date_field))
+                return
+
+        vot_table = create_vot_table(
+            luminoso_data, date_field_info, sot_end,
+            int(sot_iterations), sot_range, sentiment_subset_fields
+        )
+        if output_format in 'sql':
+            limit_string_length(vot_table, 'field_name', 63)
+            numbers_to_string(vot_table, 'field_value')
+            limit_string_length(vot_table, 'field_value', 63)
+
+        output_data(vot_table, output_format,
+                    'vot_table.csv', conn,
+                    'volume_over_time', project_id, encoding=encoding)
+
     if not skip_driver_subsets:
         print("starting subset drivers - topics={}".format(run_topic_drivers))
 
@@ -783,6 +914,12 @@ def run_export(project_url=None,
             luminoso_data, run_topic_drivers,
             subset_fields=driver_subset_fields
         )
+
+        if output_format in 'sql':
+            limit_string_length(driver_subset_table, 'field_name', 63)
+            numbers_to_string(driver_subset_table, 'field_value')
+            limit_string_length(driver_subset_table, 'field_value', 63)
+
         output_data(driver_subset_table, output_format,
             'drivers_subsets_table.csv', conn,
             'drivers_subsets', project_id, encoding=encoding)
@@ -791,6 +928,12 @@ def run_export(project_url=None,
         output_data(doc_table, output_format,
             'doc_table.csv', conn,
             'docs', project_id, encoding=encoding)
+
+        if output_format in 'sql':
+            limit_string_length(doc_metadata_table, 'metadata_name', 63)
+            numbers_to_string(doc_metadata_table, 'metadata_value')
+            limit_string_length(doc_metadata_table, 'metadata_value', 63)
+
         output_data(doc_metadata_table, output_format,
             'doc_metadata_table.csv', conn,
             'doc_metadata', project_id, encoding=encoding)
@@ -837,19 +980,63 @@ def run_export(project_url=None,
 
     if not skip_doc_subset:
         doc_subset_table = create_doc_subset_table(docs)
+        if output_format in 'sql':
+            limit_string_length(doc_subset_table, 'field_name', 63)
+            numbers_to_string(doc_subset_table, 'field_value')
+            numbers_to_string(doc_subset_table, 'value')
+            limit_string_length(doc_subset_table, 'field_value', 63)
+            limit_string_length(doc_subset_table, 'value', 63)
+
         output_data(doc_subset_table, output_format,
                     'doc_subsets_table.csv', conn,
                     'doc_subsets', project_id, encoding=encoding)
 
-    if not skip_skt_table:
-        skt_table = create_skt_table(client, skt)
+    # unique to filter u2f was skt
+    if not skip_u2f_table:
+        print("Creating unique to filter...")
+
+        u2f_table = create_u2f_table(client, u2f)
 
         if output_format in 'sql':
-            limit_string_length(skt_table, 'term', 63)
+            limit_string_length(u2f_table, 'term', 63)
+            limit_string_length(u2f_table, 'field_name', 63)
+            numbers_to_string(u2f_table, 'field_value')
+            limit_string_length(u2f_table, 'field_value', 63)
 
-        output_data(skt_table, output_format,
-                    'skt_table.csv', conn,
-                    'subset_key_terms', project_id, encoding=encoding)
+        output_data(u2f_table, output_format,
+                    'unique.csv', conn,
+                    'unique_to_filter', project_id, encoding=encoding)
+
+    # unique to filter over time (was skt)
+    if bool(run_u2fot):
+        print("Creating unique to filter over time...")
+
+        if u2fot_date_field is None:
+            date_field_info = luminoso_data.first_date_field
+            if date_field_info is None:
+                print("ERROR no date field in project")
+                return
+        else:
+            date_field_info = luminoso_data.get_field_by_name(
+                u2fot_date_field
+            )
+            if date_field_info is None:
+                print("ERROR: no date field name:"
+                      " {}".format(u2fot_date_field))
+                return
+
+        u2fot_table = create_u2fot_table(
+            luminoso_data, date_field_info, u2fot_end,
+            u2fot_iterations, u2fot_range, subset_values_dict,
+            u2f_limit)
+        if output_format in 'sql':
+            limit_string_length(u2fot_table, 'field_name', 63)
+            numbers_to_string(u2fot_table, 'field_value')
+            limit_string_length(u2fot_table, 'field_value', 63)
+
+        output_data(u2fot_table, output_format,
+                    'uniqueot_table.csv', conn,
+                    'unique_over_time', project_id, encoding=encoding)
 
     if not skip_drivers:
         print("Creating score drivers...")
@@ -862,8 +1049,6 @@ def run_export(project_url=None,
         print('Creating sentiment table...')
         sentiment_table = create_sentiment_table(client, scl_match_counts,
                                                  root_url=luminoso_data.root_url)
-        write_table_to_csv(sentiment_table, 'sentiment.csv',
-                           encoding=encoding)
         output_data(sentiment_table, output_format,
                     'sentiment.csv', conn,
                     'sentiment', project_id, encoding=encoding)
@@ -873,6 +1058,11 @@ def run_export(project_url=None,
         sentiment_subset_table = create_sentiment_subset_table(
             luminoso_data,
             sentiment_subset_fields)
+        if output_format in 'sql':
+            limit_string_length(sentiment_subset_table, 'field_name', 63)
+            numbers_to_string(sentiment_subset_table, 'field_value')
+            limit_string_length(sentiment_subset_table, 'field_value', 63)
+
         output_data(sentiment_subset_table, output_format,
                     'sentiment_subsets.csv', conn,
                     'sentiment_subsets', project_id, encoding=encoding)
@@ -898,6 +1088,11 @@ def run_export(project_url=None,
             luminoso_data, date_field_info, sot_end,
             int(sot_iterations), sot_range, sentiment_subset_fields
         )
+        if output_format in 'sql':
+            limit_string_length(sot_table, 'field_name', 63)
+            numbers_to_string(sot_table, 'field_value')
+            limit_string_length(sot_table, 'field_value', 63)
+
         output_data(sot_table, output_format,
                     'sot_table.csv', conn,
                     'sentiment_over_time', project_id, encoding=encoding)
@@ -921,10 +1116,16 @@ def run_export(project_url=None,
             luminoso_data, date_field_info, sdot_end,
             int(sdot_iterations), sdot_range, run_topic_drivers
         )
+        if output_format in 'sql':
+            limit_string_length(driver_subset_table, 'field_name', 63)
+            numbers_to_string(driver_subset_table, 'field_value')
+            limit_string_length(driver_subset_table, 'field_value', 63)
+
         output_data(sdot_table, output_format,
                     'sdot_table.csv', conn,
                     'drivers_over_time', project_id, encoding=encoding)
 
+    print("Run export complete.")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -942,8 +1143,8 @@ def main():
                              " by |. Default = ALL lists")
     parser.add_argument("-o", '--output_format', default='csv',
                         help="Output format, csv, sql")
-    parser.add_argument('-sktl', '--skt_limit', default=20,
-                        help="The max number of subset key terms to display"
+    parser.add_argument('-u2fl', '--u2f_limit', default=20,
+                        help="The max number of unique terms to display"
                              " per subset")
     parser.add_argument('-docs', '--doc', default=False, action='store_true',
                         help="Do not generate doc_table")
@@ -967,8 +1168,8 @@ def main():
     parser.add_argument('-dsubset', '--doc_subset', default=False,
                         action='store_true',
                         help="Do not generate doc_subsets_table")
-    parser.add_argument('-skt', '--skt_table', default=False,
-                        action='store_true', help="Do not generate skt_tables")
+    parser.add_argument('-u2f', '--u2f_table', default=False,
+                        action='store_true', help="Do not generate u2f_tables")
     parser.add_argument('-drive', '--drive', default=False,
                         action='store_true',
                         help="Do not generate driver_table")
@@ -1000,6 +1201,25 @@ def main():
     parser.add_argument('--sdot_date_field', default=None,
                         help="The name of the date field. If none, the first"
                              " date field will be used")
+    parser.add_argument('-skip_vol', '--skip_vol', default=False, action='store_true',
+                        help="Do not generate doc_table")
+    parser.add_argument('--volume_subset_fields', default=None,
+                        help='Which subsets to include in volume by'
+                             ' subset. Default = All with < 200 unique values.'
+                             ' Samp: "field1,field2"')
+    parser.add_argument('--vot', action='store_true', default=False,
+                        help="Calculate volume over time (VOT)")
+    parser.add_argument('--vot_end', default=None,
+                        help="Last date to calculate vot MM/DD/YYYY -"
+                             " algorithm works moving backwards in time.")
+    parser.add_argument('--vot_iterations', default=7,
+                        help="Number of volume over time samples")
+    parser.add_argument('--vot_range', default=None,
+                        help="Size of each sample: M,W,D. If none given, range"
+                             " type will be calculated for best fit")
+    parser.add_argument('--vot_date_field', default=None,
+                        help="The name of the date field for vot. If none, the first"
+                             " date field will be used")
     parser.add_argument('--sentiment_subsets',
                         action='store_true', default=False,
                         help="Do not generate sentiment subsets")
@@ -1020,6 +1240,19 @@ def main():
     parser.add_argument('--sot_date_field', default=None,
                         help="The name of the date field for sot. If none, the first"
                              " date field will be used")
+    parser.add_argument('--u2fot', action='store_true', default=False,
+                        help="Calculate unique to filter over time (U2FOT)")
+    parser.add_argument('--u2fot_end', default=None,
+                        help="Last date to calculate sot MM/DD/YYYY -"
+                             " algorithm works moving backwards in time.")
+    parser.add_argument('--u2fot_iterations', default=7,
+                        help="Number of u2fot over time samples")
+    parser.add_argument('--u2fot_range', default=None,
+                        help="Size of each sample: M,W,D. If none given, range"
+                             " type will be calculated for best fit")
+    parser.add_argument('--u2fot_date_field', default=None,
+                        help="The name of the date field for u2fot. If none, the first"
+                             " date field will be used")
     args = parser.parse_args()
 
     run_export(project_url=args.project_url,
@@ -1027,7 +1260,14 @@ def main():
                encoding=args.encoding,
                concept_list_names=args.concept_list_names,
                output_format=args.output_format,
-               skt_limit=args.skt_limit,
+               u2f_limit=args.u2f_limit,
+               skip_vol=args.skip_vol,
+               volume_subset_fields=args.volume_subset_fields,
+               run_vot=args.vot,
+               vot_end=args.vot_end,
+               vot_iterations=args.vot_iterations,
+               vot_range=args.vot_range,
+               vot_date_field=args.vot_date_field,
                skip_docs=args.doc,
                skip_doc_term_sentiment=args.doc_term_sentiment,
                skip_doc_term_sentiment_list=args.doc_term_sentiment_list,
@@ -1035,7 +1275,7 @@ def main():
                skip_themes=args.themes,
                skip_doc_term_summary=args.doc_term_summary,
                skip_doc_subset=args.doc_subset,
-               skip_skt_table=args.skt_table,
+               skip_u2f_table=args.u2f_table,
                skip_drivers=args.drive,
                run_topic_drivers=args.topic_drive,
                skip_driver_subsets=args.driver_subsets,
@@ -1052,7 +1292,12 @@ def main():
                sot_end=args.sot_end,
                sot_iterations=args.sot_iterations,
                sot_range=args.sot_range,
-               sot_date_field=args.sot_date_field)
+               sot_date_field=args.sot_date_field,
+               run_u2fot=args.u2fot,
+               u2fot_end=args.u2fot_end,
+               u2fot_iterations=args.u2fot_iterations,
+               u2fot_range=args.u2fot_range,
+               u2fot_date_field=args.u2fot_date_field)
 
 
 if __name__ == '__main__':

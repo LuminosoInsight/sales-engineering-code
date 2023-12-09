@@ -9,7 +9,7 @@ from reddit_utilities import get_reddit_api, get_posts_from_past, get_posts_by_n
 from term_utilities import get_terms, ignore_terms, merge_terms
 from se_code.copy_shared_concepts import copy_shared_concepts, delete_shared_concepts
 from se_code.create_train_test_split import create_train_test
-from se_code.bi_tool_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_skt_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, create_drivers_with_subsets_table, parse_url
+from se_code.bi_tool_export import pull_lumi_data, create_doc_table, create_doc_term_table, create_doc_subset_table, create_themes_table, create_u2f_table, create_drivers_table, write_table_to_csv, create_terms_table, create_sentiment_table, create_sdot_table, create_drivers_with_subsets_table, parse_url
 from subset_utilities import search_subsets, calc_metadata_vectors
 
 # Implement this for login checking for each route http://flask.pocoo.org/snippets/8/
@@ -135,17 +135,17 @@ def bi_tool_export():
         concept_count = 100
     else:
         concept_count = int(concept_count)
-    skt_limit = request.form['skt_limit'].strip()
-    if skt_limit == '':
-        skt_limit = 20
+    u2f_limit = request.form['u2f_limit'].strip()
+    if u2f_limit == '':
+        u2f_limit = 20
     else:
-        skt_limit = int(skt_limit)
+        u2f_limit = int(u2f_limit)
         
     term_table = (request.form.get('terms') == 'on')
     doc_term = (request.form.get('doc_term') == 'on')
     doc_subset = (request.form.get('doc_subset') == 'on')
     themes_on = (request.form.get('themes') == 'on')
-    skt_on = (request.form.get('skt') == 'on')
+    u2f_on = (request.form.get('u2f') == 'on')
     drivers_on = (request.form.get('drivers') == 'on')
     driver_subsets = (request.form.get('driver_subsets') == 'on')
     driver_subset_fields = request.form['driver_subset_fields'].strip()
@@ -167,7 +167,7 @@ def bi_tool_export():
     if 'sdot_date_field_name' in request.form:
         sdot_date_field_name = request.form['sdot_date_field_name'].strip()
     
-    luminoso_data, scl_match_counts, concepts, skt, themes = pull_lumi_data(proj, api_url, skt_limit=int(skt_limit), concept_count=int(concept_count))
+    luminoso_data, scl_match_counts, concepts, u2f, themes = pull_lumi_data(proj, api_url, u2f_limit=int(u2f_limit), concept_count=int(concept_count))
     client = luminoso_data.client
     docs = luminoso_data.docs
 
@@ -198,9 +198,9 @@ def bi_tool_export():
         themes_table = create_themes_table(client, themes)
         write_table_to_csv(themes_table, foldername+'themes_table.csv')
 
-    if skt_on:
-        skt_table = create_skt_table(client, skt)
-        write_table_to_csv(skt_table, foldername+'skt_table.csv')
+    if u2f_on:
+        u2f_table = create_u2f_table(client, u2f)
+        write_table_to_csv(u2f_table, foldername+'unique.csv')
     
     if drivers_on:
         driver_table = create_drivers_table(luminoso_data, topic_drive)
