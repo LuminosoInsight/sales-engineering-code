@@ -151,7 +151,15 @@ def parse_csv_file(file, max_text_length):
                     continue
                 try:
                     metadata_field = parse_metadata_field(header, cell_value)
-                    new_doc['metadata'].append(metadata_field)
+                    if "|" in metadata_field['value']:
+                        # need to expand out all the field values
+                        value_list = metadata_field['value'].split("|")
+                        for v in value_list:
+                            mfcopy = metadata_field.copy()
+                            mfcopy['value'] = v
+                            new_doc['metadata'].append(mfcopy)
+                    else:
+                        new_doc['metadata'].append(metadata_field)
                 except ValueError as e:
                     print(
                         'Metadata error in document {}: {}'.format(i, str(e))
