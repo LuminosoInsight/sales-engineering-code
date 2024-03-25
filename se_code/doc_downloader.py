@@ -195,7 +195,7 @@ def add_relations(
 
 
 # flatten the doc structure for csv export
-def flatten_docs(docs, date_format):
+def flatten_docs(docs, date_format, include_doc_id=False):
 
     # dict for sorting the names once the values have been changed to have lumi types
     field_name_dict = {}
@@ -203,6 +203,8 @@ def flatten_docs(docs, date_format):
     flat_docs = []
     for d in docs:
         flat_doc = {"text": d["text"], "title": d["title"]}
+        if include_doc_id:
+            flat_doc["doc_id"] = d['doc_id']
         names_to_values = collections.defaultdict(set)
 
         for md in d["metadata"]:
@@ -228,6 +230,8 @@ def flatten_docs(docs, date_format):
         flat_docs.append(flat_doc)
 
     field_names = ["text", "title"]
+    if include_doc_id:
+        field_names.append("doc_id")
     field_names.extend(
         [v for k, v
          in sorted(field_name_dict.items(), key=lambda item: item[0])]
@@ -296,6 +300,13 @@ def main():
         help="For concept relations also include the match_score",
     )
     parser.add_argument(
+        "-o",
+        "--doc_id",
+        default=False,
+        action="store_true",
+        help="Include doc_id in the export",
+    )
+    parser.add_argument(
         "-s",
         "--concept_relations_sentiment",
         default=False,
@@ -345,7 +356,7 @@ def main():
             add_term_concept_sentiment=args.concept_relations_sentiment,
         )
 
-    field_names, docs = flatten_docs(docs, args.date_format)
+    field_names, docs = flatten_docs(docs, args.date_format, args.doc_id)
 
     write_to_csv(args.filename, docs, field_names, encoding=args.encoding)
 
