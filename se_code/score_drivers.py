@@ -1,14 +1,16 @@
 import argparse
 import csv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import urllib.parse
 import numpy as np
 import pandas as pd
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
+from luminoso_api import LuminosoServerError
+from se_code.data_writer import (LumiCsvWriter)
 from pack64 import unpack64
 
-DOC_BATCH_SIZE = 5000
+WRITER_BATCH_SIZE = 5000
 
 
 def parse_url(url):
@@ -21,13 +23,30 @@ def parse_url(url):
     return root_url, api_url, workspace_id, project_id
 
 
+def lumi_date_to_epoch(lumidate):
+    # 2023-05-17T12:02:48Z
+    # 2013-01-07T00:00:00.000Z
+    date_formats = ["%Y-%m-%dT%H:%M:%SZ","%Y-%m-%dT%H:%M:%S.%fZ","%Y-%m-%d","%m/%d/%Y","%m/%d/%y","%m/%d/%y %H:%M"]
+    edate = None
+    for df in date_formats:
+        try:
+            edate = datetime.strptime(lumidate, df).replace(tzinfo=timezone.utc).timestamp()
+        except ValueError:
+            pass
+    if edate is None:
+        print("Error in date format: {}".format(lumidate))
+        return None
+    return edate
+
+
 class LuminosoData:
-    def __init__(self, client, root_url=''):
+    def __init__(self, client, root_url='', download_docs=True):
         self.client = client
         self.root_url = root_url
         self.cache_docs = {}
         self._docs = None
         self._metadata = None
+        self.reduce_field_list = False
 
     def set_root_url(self, root_url):
         """
@@ -38,19 +57,30 @@ class LuminosoData:
         self.root_url = root_url
 
     @property
-    def docs(self):
-        if self._docs is None:
-            self._docs = []
+    def get_docs(self, date_field_name=None):
+        if self.docs is None or len(self.docs) < 1:
+            self.docs = []
+            self.docs_by_date = []
             while True:
                 new_docs = self.client.get(
-                    'docs', limit=DOC_BATCH_SIZE, offset=len(self._docs),
+                    'docs', limit=WRITER_BATCH_SIZE, offset=len(self._docs),
                     include_sentiment_on_concepts=True
                 )['result']
+
+                # create the docs by date
+                if date_field_name:
+                    for i, d in enumerate(new_docs):
+                        for m in d['metadata']:
+                            if m['name'] == date_field_name:
+                                date = lumi_date_to_epoch(m['value'])
+                                if date is not None:
+                                    self.docs_by_date.append({'date': date, 'doc_id': d['doc_id'],'i': 1})
+
                 if new_docs:
                     self._docs.extend(new_docs)
                 else:
                     break
-        return self._docs
+        return self.docs
 
     @property
     def metadata(self):
@@ -93,13 +123,21 @@ class LuminosoData:
             return None
         return date_fields[0]
 
-    def get_fieldvalues_for_fieldname(self, field_name):
+    def get_fieldvalue_lists_for_fieldname(self, field_name):
         field = self.get_field_by_name(field_name)
         if not field:
             print("Invalid field name:", field_name)
             print("Fieldnames:", [d['name'] for d in self.metadata])
             return
         return [[item['value']] for item in field['values']]
+
+    def get_all_fieldvalues_for_fieldname(self, field_name):
+        field = self.get_field_by_name(field_name)
+        if not field:
+            print("Invalid field name:", field_name)
+            print("Fieldnames:", [d['name'] for d in self.metadata])
+            return
+        return [item['value'] for item in field['values']]
 
     def get_field_by_name(self, field_name):
         '''
@@ -114,8 +152,15 @@ class LuminosoData:
         return None
 
     def get_best_subset_fields(self):
+        if self.reduce_field_list:
+            mdlist = self.metadata[0:10]
+            if len(self.metadata) > 10:
+                print("WARNING: metadata list reduced to first 10 fields")
+        else:
+            mdlist = self.metadata
+
         field_names = []
-        for md in self.metadata:
+        for md in mdlist:
             if 'values' in md:
                 if len(md['values']) < 200:
                     field_names.append(md['name'])
@@ -125,23 +170,22 @@ class LuminosoData:
                         " {}".format(md['name']))
         return field_names
 
-    def find_best_interval(self, date_field_name, num_intervals):
-        docs_by_date = []
-        for i, d in enumerate(self.docs):
+    def calc_docs_by_date(self, docs, date_field_name):
+        self.docs_by_date = []
+        for i, d in enumerate(docs):
             for m in d['metadata']:
                 if m['name'] == date_field_name:
-                    date = datetime.strptime(m['value'],
-                                             '%Y-%m-%dT%H:%M:%S.%fZ')
-                    docs_by_date.append({'date': date, 'doc_id': d['doc_id'],
-                                         'i': 1})
-                    break
+                    date = lumi_date_to_epoch(m['value'])
+                    if date is not None:
+                        self.docs_by_date.append({'date': date, 'doc_id': d['doc_id'],'i': 1})
 
-        df = pd.DataFrame(docs_by_date)
+    def find_best_interval(self, num_intervals):
+        df = pd.DataFrame(self.docs_by_date)
         df.set_index(['date'])
         pd.to_datetime(df.date, unit='s')
 
         interval_types = ['M', 'W', 'D']
-        df = pd.DataFrame(docs_by_date)
+        df = pd.DataFrame(self.docs_by_date)
         df.set_index(['date'])
         df.index = pd.to_datetime(df.date, unit='s')
 
@@ -188,9 +232,16 @@ def _create_rows_from_drivers(luminoso_data, field, api_params, list_type, list_
     """
     rows = []
 
-    score_drivers = luminoso_data.client.get(
-        'concepts/score_drivers', score_field=field, **api_params
-    )
+    try:
+        score_drivers = luminoso_data.client.get(
+            'concepts/score_drivers', score_field=field, **api_params
+        )
+    except LuminosoServerError as e:
+        print(f"LuminosoServerError {e}, score_drivers - url too long? - skipping this subset {str(api_params['filter'])})")
+        return rows
+    except Exception as e2:
+        print(f"Exception in score_drivers score_field: {field}.")
+        raise e2
 
     if 'concept_selector' not in api_params:
         score_drivers = [d for d in score_drivers if d['importance'] >= .4]
@@ -316,7 +367,7 @@ def create_drivers_table(luminoso_data, topic_drive, filter_list=None,
     return all_tables
 
 
-def create_drivers_with_subsets_table(luminoso_data, topic_drive,
+def create_drivers_with_subsets_table(lumi_writer, luminoso_data, topic_drive,
                                       subset_fields=None):
     # if the user specifies the list of subsets to process
     if not subset_fields:
@@ -328,14 +379,14 @@ def create_drivers_with_subsets_table(luminoso_data, topic_drive,
     driver_table = []
 
     for field_name in subset_fields:
-        field_values = luminoso_data.get_fieldvalues_for_fieldname(field_name)
-        print("{}: field_values = {}".format(field_name, field_values))
+        field_values = luminoso_data.get_fieldvalue_lists_for_fieldname(field_name)
+        print("{}: driver field_values = {}".format(field_name, field_values))
         if not field_values:
             print("{}: skipping".format(field_name))
         else:
             for field_value in field_values:
                 filter_list = [{"name": field_name, "values": field_value}]
-                print("filter={}".format(filter_list))
+                # print("filter={}".format(filter_list))
                 if (not isinstance(field_value[0], str)) or len(field_value[0])<64:
                     sd_data = create_drivers_table(
                         luminoso_data, topic_drive,
@@ -343,16 +394,41 @@ def create_drivers_with_subsets_table(luminoso_data, topic_drive,
                         subset_value=field_value[0]
                     )
                     driver_table.extend(sd_data)
-                    if len(sd_data) > 0:
-                        print("{}:{} complete. len={}".format(
-                            sd_data[0]['field_name'], sd_data[0]['field_value'],
-                            len(sd_data)
-                        ))
+                    # if len(sd_data) > 0:
+                    #     print("{}:{} complete. len={}".format(
+                    #         sd_data[0]['field_name'], sd_data[0]['field_value'],
+                    #         len(sd_data)
+                    #     ))
 
-    return driver_table
+            # do an _all_ category for this subset
+            field_values = luminoso_data.get_all_fieldvalues_for_fieldname(field_name)
+            filter_list = [{"name": field_name, "values": field_values}]
+            # print("_all_ filter={}".format(filter_list))
+            if (not isinstance(field_value[0], str)) or len(field_value[0])<64:
+                sd_data = create_drivers_table(
+                    luminoso_data, topic_drive,
+                    filter_list=filter_list, subset_name=field_name,
+                    subset_value="_all_"
+                )
+                driver_table.extend(sd_data)
+                # if len(sd_data) > 0:
+                #     print("{}:{} complete. len={}".format(
+                #         sd_data[0]['field_name'], sd_data[0]['field_value'],
+                #         len(sd_data)
+                #     ))
+
+            if len(driver_table) > WRITER_BATCH_SIZE:
+                if lumi_writer:
+                    lumi_writer.output_data(driver_table)
+                driver_table = []
+    if len(driver_table) > 0:
+        if lumi_writer:
+            lumi_writer.output_data(driver_table)
+        driver_table = []
+    return
 
 
-def create_sdot_table(luminoso_data, date_field_info, end_date, iterations,
+def create_sdot_table(lumi_writer, luminoso_data, date_field_info, end_date, iterations,
                       range_type, topic_drive):
     sd_data_raw = []
 
@@ -369,8 +445,7 @@ def create_sdot_table(luminoso_data, date_field_info, end_date, iterations,
     start_date_dt = None
 
     if range_type is None or range_type not in ['M', 'W', 'D']:
-        range_type = luminoso_data.find_best_interval(date_field_name,
-                                                      iterations)
+        range_type = luminoso_data.find_best_interval(iterations)
     range_descriptions = {'M': 'Month', 'W': 'Week', 'D': 'Day'}
     range_description = range_descriptions[range_type]
 
@@ -412,17 +487,29 @@ def create_sdot_table(luminoso_data, date_field_info, end_date, iterations,
                 "iteration_counter": count,
                 "range_type": range_description
             }
-            
+
+            print(f"sdot starting. Iteration: {range_description}-{count}, Date: {start_date_dt.isoformat()},")
+
             sd_data = create_one_sdot_table(luminoso_data, field_value,
                                             topic_drive, filter_list,
                                             prepend_to_rows)
             sd_data_raw.extend(sd_data)
 
+            if len(sd_data_raw) > WRITER_BATCH_SIZE:
+                if lumi_writer:
+                    lumi_writer.output_data(sd_data_raw)
+                sd_data_raw = []
+
         # move to the nextdate
         end_date_epoch = start_date_epoch
         end_date_dt = datetime.fromtimestamp(end_date_epoch)
 
-    return sd_data_raw
+    if len(sd_data_raw) > 0:
+        if lumi_writer:
+            lumi_writer.output_data(sd_data_raw)
+        sd_data_raw = []
+
+    return
 
 
 def write_table_to_csv(table, filename, encoding='utf-8'):
@@ -505,13 +592,11 @@ def main():
                 print("ERROR: no date field name:"
                       " {}".format(args.sdot_date_field))
                 return
-
-        sdot_table = create_sdot_table(
-            luminoso_data, date_field_info, args.sdot_end,
+        lumi_writer = LumiCsvWriter('drivers_over_time.csv', 'drivers_over_time', project_id, args.encoding)
+        create_sdot_table(
+            lumi_writer, luminoso_data, date_field_info, args.sdot_end,
             int(args.sdot_iterations), args.sdot_range, args.topic_drivers
         )
-        write_table_to_csv(sdot_table, 'sdot_table.csv',
-                           encoding=args.encoding)
 
     driver_table = create_drivers_table(luminoso_data, args.topic_drivers)
     write_table_to_csv(driver_table, 'drivers_table.csv',
@@ -519,12 +604,12 @@ def main():
 
     # find score drivers by subset
     if bool(args.subset):
+        lumi_writer = LumiCsvWriter('subset_drivers_table.csv', 'subset_drivers_table', project_id, args.encoding)
         driver_table = create_drivers_with_subsets_table(
-            luminoso_data, args.topic_drivers,
+            lumi_writer, luminoso_data, args.topic_drivers,
             subset_fields=args.subset_fields
         )
-        write_table_to_csv(driver_table, 'subset_drivers_table.csv',
-                           encoding=args.encoding)
+
 
 
 if __name__ == '__main__':
