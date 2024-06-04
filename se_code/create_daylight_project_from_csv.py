@@ -102,6 +102,8 @@ def parse_csv_file(file, max_text_length):
     Given a file and a length at which to truncate document text, yield batches
     of documents suitable for uploading.
     """
+    csv.field_size_limit(100000000)
+
     # Note that we don't use a DictReader here because there may be
     # multiple columns with the same header
     reader = csv.reader(file)
@@ -143,7 +145,7 @@ def parse_csv_file(file, max_text_length):
             elif header == 'text':
                 new_doc['text'] = cell_value[:max_text_length]
             elif header == 'title':
-                new_doc['title'] = cell_value
+                new_doc['title'] = cell_value[:64]
             else:
                 # Blank cells indicate no metadata value
                 cell_value = cell_value.strip()
