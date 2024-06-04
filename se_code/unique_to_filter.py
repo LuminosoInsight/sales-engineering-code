@@ -2,9 +2,12 @@ import argparse
 from datetime import datetime, timedelta
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
+from se_code.data_writer import (LumiCsvWriter)
 from se_code.score_drivers import (
      parse_url, LuminosoData, write_table_to_csv
 )
+
+WRITER_BATCH_SIZE = 5000
 
 
 def unique_to_filter(client, subset_values_dict, terms_per_subset=10, filter_list=None):
@@ -61,7 +64,10 @@ def create_u2f_table(client, u2f_tuples, prepend_to_rows=None):
         # excel has a max doc length of 32k; pad the list with two additional
         # values, and then pull out the first three
         doc_texts = [doc['text'][:32766] for doc in docs['result']]
-        text_1, text_2, text_3, *_ = (doc_texts + ['', ''])
+        if len(doc_texts)>0:
+            text_1, text_2, text_3, *_ = (doc_texts + ['', ''])
+        else:
+            text_1, text_2, text_3 = (['','',''])
         row = {'term': concept['name'],
                'field_name': name,
                'field_value': subset,
@@ -79,7 +85,7 @@ def create_u2f_table(client, u2f_tuples, prepend_to_rows=None):
     return u2f_table
 
 
-def create_u2fot_table(luminoso_data, date_field_info, end_date, iterations,
+def create_u2fot_table(lumi_writer, luminoso_data, date_field_info, end_date, iterations,
                        range_type, subset_values_dict, terms_per_subset):
     u2fot_data_raw = []
 
@@ -96,8 +102,7 @@ def create_u2fot_table(luminoso_data, date_field_info, end_date, iterations,
     start_date_dt = None
 
     if range_type is None or range_type not in ['M', 'W', 'D']:
-        range_type = luminoso_data.find_best_interval(date_field_name,
-                                                      iterations)
+        range_type = luminoso_data.find_best_interval(iterations)
     range_descriptions = {'M': 'Month', 'W': 'Week', 'D': 'Day'}
     range_description = range_descriptions[range_type]
 
@@ -136,20 +141,30 @@ def create_u2fot_table(luminoso_data, date_field_info, end_date, iterations,
                         "minimum": int(start_date_epoch),
                         "maximum": int(end_date_epoch)}]
 
+        print(f"u2fot starting. Iteration: {range_description}-{count}, Date: {start_date_dt.isoformat()},")
+
         result = unique_to_filter(luminoso_data.client, subset_values_dict,
                                   terms_per_subset=terms_per_subset, 
                                   filter_list=filter_list)
-        u2f_data = create_u2f_table(luminoso_data.client, result, prepend_to_rows=prepend_to_rows)
+        u2f_data = create_u2f_table(luminoso_data.client, result,
+                                    prepend_to_rows=prepend_to_rows)
 
-        #u2f_data = create_u2f_table(luminoso_data, u2f_tuples,
-        #                            filter_list, prepend_to_rows)
         u2fot_data_raw.extend(u2f_data)
+
+        if len(u2fot_data_raw) > WRITER_BATCH_SIZE:
+            if lumi_writer:
+                lumi_writer.output_data(u2fot_data_raw)
+            u2fot_data_raw = []
 
         # move to the nextdate
         end_date_epoch = start_date_epoch
         end_date_dt = datetime.fromtimestamp(end_date_epoch)
 
-    return u2fot_data_raw
+    if len(u2fot_data_raw) > 0:
+        if lumi_writer:
+            lumi_writer.output_data(u2fot_data_raw)
+        u2fot_data_raw = []
+    return
 
 
 def main():
@@ -217,13 +232,13 @@ def main():
                       " {}".format(args.ot_date_field))
                 return
 
-        u2fot_table = create_u2fot_table(
-            luminoso_data, date_field_info, args.ot_end,
+        lumi_writer = LumiCsvWriter('unique_over_time.csv', 'unique_over_time', project_id, args.encoding)
+
+        create_u2fot_table(
+            lumi_writer, luminoso_data, date_field_info, args.ot_end,
             int(args.ot_iterations), args.ot_range, subset_values_dict,
             int(args.u2f_limit)
         )
-        write_table_to_csv(u2fot_table, 'u2fot_table.csv',
-                           encoding=args.encoding)
 
 if __name__ == '__main__':
     main()

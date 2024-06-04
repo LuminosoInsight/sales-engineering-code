@@ -1,13 +1,16 @@
 import argparse
-import csv
 from datetime import datetime, timedelta
+import requests
 import urllib.parse
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
+from luminoso_api import LuminosoServerError
+from se_code.data_writer import (LumiCsvWriter)
 from se_code.score_drivers import (
      LuminosoData, write_table_to_csv
 )
 
+WRITER_BATCH_SIZE = 5000
 
 def create_volume_table(client, scl_match_counts, root_url=''):
 
@@ -80,9 +83,19 @@ def _create_row_for_volume_subsets(luminoso_data, api_params, subset_name, subse
     """
     rows = []
 
-    volumes = luminoso_data.client.get(
-        'concepts/match_counts', **api_params
-    )
+    try:
+        volumes = luminoso_data.client.get(
+            'concepts/match_counts', **api_params
+        )
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTPError {e}, volume - url too long? - skipping this subset {str(api_params['filter'])}")
+        return rows
+    except LuminosoServerError as e2:
+        print(f"LuminosoServerError {e2}, volume - url too long? - skipping this subset {str(api_params['filter'])}")
+        return rows
+    except Exception as e3:
+        print(f"Exception {e3}, volume - url too long? - skipping this subset {str(api_params['filter'])}")
+        return rows
 
     for c in volumes['match_counts']:
         row = {'list_type': list_type,
@@ -101,7 +114,7 @@ def _create_row_for_volume_subsets(luminoso_data, api_params, subset_name, subse
     return rows
 
 
-def create_volume_subset_table(luminoso_data, subset_fields=None, filter_list=None, prepend_to_rows=None, add_overall_values=False):
+def create_volume_subset_table(lumi_writer, luminoso_data, subset_fields=None, filter_list=None, prepend_to_rows=None, add_overall_values=False):
     '''
     Create tabulation of volume output
     :param luminoso_data: a LuminosoData object
@@ -133,24 +146,24 @@ def create_volume_subset_table(luminoso_data, subset_fields=None, filter_list=No
             luminoso_data, concept_list_params, '', '', 
             'overall', 'Top Concepts', prepend_to_rows
         ))
-    
+
         concept_list_params = dict(api_params,
                                    concept_selector={"type": "suggested", "num_clusters": 7, "num_cluster_concepts": 4})
         volume_table.extend(_create_row_for_volume_subsets(
-            luminoso_data, concept_list_params, '', '', 
+            luminoso_data, concept_list_params, '', '',
             'overall', 'Suggested Clusters', prepend_to_rows
         ))
 
         concept_list_params = dict(api_params,
                                    concept_selector={'type': 'sentiment_suggested'})
         volume_table.extend(_create_row_for_volume_subsets(
-            luminoso_data, concept_list_params, '', '', 
+            luminoso_data, concept_list_params, '', '',
             'overall', 'Suggested Sentiment', prepend_to_rows
         ))
 
     for field_name in subset_fields:
-        field_values = luminoso_data.get_fieldvalues_for_fieldname(field_name)
-        print("{}: field_values = {}".format(field_name, field_values))
+        field_values = luminoso_data.get_fieldvalue_lists_for_fieldname(field_name)
+        print("{}: volume field_values = {}".format(field_name, field_values))
         if not field_values:
             print("  {}: skipping".format(field_name))
         else:
@@ -160,7 +173,7 @@ def create_volume_subset_table(luminoso_data, subset_fields=None, filter_list=No
                     if orig_filter_list:
                         filter_list.extend(orig_filter_list)
                     filter_list.append({"name": field_name, "values": field_value})
-                    print("volume filter={}".format(filter_list))
+                    # print("volume filter={}".format(filter_list))
 
                     api_params = {'filter': filter_list}
 
@@ -174,43 +187,112 @@ def create_volume_subset_table(luminoso_data, subset_fields=None, filter_list=No
 
                     top_params = dict(api_params, concept_selector={'type': 'top'})
                     volume_table.extend(_create_row_for_volume_subsets(
-                        luminoso_data, top_params, field_name, field_value[0], 
+                        luminoso_data, top_params, field_name, field_value[0],
                         'auto', 'Top', prepend_to_rows
                     ))
-        
+
                     suggested_params = dict(api_params,
                                             concept_selector={"type": "suggested", "num_clusters": 7, "num_cluster_concepts": 4})
                     volume_table.extend(_create_row_for_volume_subsets(
-                        luminoso_data, suggested_params, field_name, field_value[0], 
+                        luminoso_data, suggested_params, field_name, field_value[0],
                         'auto', 'Suggested Clusters', prepend_to_rows
                         ))
 
                     suggested_params = dict(api_params,
                                             concept_selector={"type": "suggested", "num_clusters": 7, "num_cluster_concepts": 4})
                     volume_table.extend(_create_row_for_volume_subsets(
-                        luminoso_data, suggested_params, field_name, field_value[0], 
+                        luminoso_data, suggested_params, field_name, field_value[0],
                         'auto', 'Suggested Clusters', prepend_to_rows
                     ))
 
                     sentiment_params = dict(api_params, concept_selector={'type': 'sentiment_suggested'})
                     volume_table.extend(_create_row_for_volume_subsets(
-                        luminoso_data, sentiment_params, field_name, field_value[0], 
+                        luminoso_data, sentiment_params, field_name, field_value[0],
                         'auto', 'sentiment_suggested', prepend_to_rows
                     ))
 
                     unique_params = dict(api_params, concept_selector={'type': 'unique_to_filter'})
                     volume_table.extend(_create_row_for_volume_subsets(
-                        luminoso_data, unique_params, field_name, field_value[0], 
+                        luminoso_data, unique_params, field_name, field_value[0],
                         'auto', 'unique_to_filter', prepend_to_rows
                     ))
 
-    return volume_table
+                if len(volume_table) > WRITER_BATCH_SIZE:
+                    if lumi_writer:
+                        lumi_writer.output_data(volume_table)
+                    volume_table = []
+
+            # Need to add one entry that covers this entire field
+            # only use this field value list if all the field values are less than len 64
+            # because there are issues with overly long field value names.
+            field_values = luminoso_data.get_all_fieldvalues_for_fieldname(field_name)
+            field_values_oversize = [fv for fv in field_values if isinstance(field_value,str) and len(field_value)>63]
+            if len(field_values_oversize) == 0:
+                filter_list = []
+                if orig_filter_list:
+                    filter_list.extend(orig_filter_list)
+                filter_list.append({"name": field_name, "values": field_values})
+                # print("volume _all_ filter={}".format(filter_list))
+
+                api_params = {'filter': filter_list}
+
+                for list_name in luminoso_data.concept_lists:
+                    concept_list_params = dict(api_params,
+                                               concept_selector={'type': 'concept_list', 'name': list_name})
+                    volume_table.extend(_create_row_for_volume_subsets(
+                        luminoso_data, concept_list_params, field_name, "_all_",
+                        'shared_concept_list', list_name, prepend_to_rows
+                    ))
+
+                top_params = dict(api_params, concept_selector={'type': 'top'})
+                volume_table.extend(_create_row_for_volume_subsets(
+                    luminoso_data, top_params, field_name, "_all_",
+                    'auto', 'Top', prepend_to_rows
+                ))
+
+                suggested_params = dict(api_params,
+                                        concept_selector={"type": "suggested", "num_clusters": 7, "num_cluster_concepts": 4})
+                volume_table.extend(_create_row_for_volume_subsets(
+                    luminoso_data, suggested_params, field_name, "_all_",
+                    'auto', 'Suggested Clusters', prepend_to_rows
+                    ))
+
+                suggested_params = dict(api_params,
+                                        concept_selector={"type": "suggested", "num_clusters": 7, "num_cluster_concepts": 4})
+                volume_table.extend(_create_row_for_volume_subsets(
+                    luminoso_data, suggested_params, field_name, "_all_",
+                    'auto', 'Suggested Clusters', prepend_to_rows
+                ))
+
+                sentiment_params = dict(api_params, concept_selector={'type': 'sentiment_suggested'})
+                volume_table.extend(_create_row_for_volume_subsets(
+                    luminoso_data, sentiment_params, field_name, "_all_",
+                    'auto', 'sentiment_suggested', prepend_to_rows
+                ))
+
+                unique_params = dict(api_params, concept_selector={'type': 'unique_to_filter'})
+                volume_table.extend(_create_row_for_volume_subsets(
+                    luminoso_data, unique_params, field_name, "_all_",
+                    'auto', 'unique_to_filter', prepend_to_rows
+                ))
+
+            if len(volume_table) > WRITER_BATCH_SIZE:
+                if lumi_writer:
+                    lumi_writer.output_data(volume_table)
+                volume_table = []
+
+    # write any excess data
+    if len(volume_table) > 0:
+        if lumi_writer:
+            lumi_writer.output_data(volume_table)
+        volume_table = []
+
+    return
 
 
-def create_vot_table(luminoso_data, date_field_info, end_date, iterations,
+def create_vot_table(lumi_writer, luminoso_data, date_field_info,
+                     end_date, iterations,
                      range_type, subset_fields):
-    vot_data_raw = []
-
     if end_date is None or len(end_date) == 0:
         end_date = date_field_info['maximum']
 
@@ -224,8 +306,7 @@ def create_vot_table(luminoso_data, date_field_info, end_date, iterations,
     start_date_dt = None
 
     if range_type is None or range_type not in ['M', 'W', 'D']:
-        range_type = luminoso_data.find_best_interval(date_field_name,
-                                                      iterations)
+        range_type = luminoso_data.find_best_interval(iterations)
     range_descriptions = {'M': 'Month', 'W': 'Week', 'D': 'Day'}
     range_description = range_descriptions[range_type]
 
@@ -264,15 +345,16 @@ def create_vot_table(luminoso_data, date_field_info, end_date, iterations,
                         "minimum": int(start_date_epoch),
                         "maximum": int(end_date_epoch)}]
 
-        vol_data = create_volume_subset_table(luminoso_data, subset_fields,
+        print(f"vot starting. Iteration: {range_description}-{count}, Date: {start_date_dt.isoformat()},")
+
+        create_volume_subset_table(lumi_writer, luminoso_data, subset_fields,
                                                 filter_list, prepend_to_rows, True)
-        vot_data_raw.extend(vol_data)
 
         # move to the nextdate
         end_date_epoch = start_date_epoch
         end_date_dt = datetime.fromtimestamp(end_date_epoch)
 
-    return vot_data_raw
+    return 
 
 
 def main():
@@ -356,11 +438,10 @@ def main():
                        encoding=args.encoding)
 
     print("Generating volume by subsets...")
-    volume_subset_table = create_volume_subset_table(
-        luminoso_data,
+    lumi_writer = LumiCsvWriter('volume_subsets.csv', 'volume_subsets', project_id, args.encoding)
+    create_volume_subset_table(
+        lumi_writer, luminoso_data,
         args.volume_subset_fields)
-    write_table_to_csv(volume_subset_table, 'volume_subsets.csv',
-                       encoding=args.encoding)
 
 
 if __name__ == '__main__':

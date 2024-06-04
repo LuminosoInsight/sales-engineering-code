@@ -1,10 +1,12 @@
 import argparse
 import csv
 from datetime import datetime, timedelta
-import itertools 
+import itertools
+import time
 import urllib.parse
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
+from luminoso_api import LuminosoError
 from se_code.score_drivers import (
      LuminosoData, write_table_to_csv
 )
@@ -87,8 +89,8 @@ def create_outlier_subset_table(luminoso_data, proj_info, scl_match_counts, matc
     orig_filter_list = filter_list
 
     for field_name in subset_fields:
-        field_values = luminoso_data.get_fieldvalues_for_fieldname(field_name)
-        print("{}: field_values = {}".format(field_name, field_values))
+        field_values = luminoso_data.get_fieldvalue_lists_for_fieldname(field_name)
+        print("{}: outlier field_values = {}".format(field_name, field_values))
         if not field_values:
             print("  {}: skipping".format(field_name))
         else:
@@ -98,15 +100,30 @@ def create_outlier_subset_table(luminoso_data, proj_info, scl_match_counts, matc
                     if orig_filter_list:
                         filter_list.extend(orig_filter_list)
                     filter_list.append({"name": field_name, "values": field_value})
-                    print("outlier filter={}".format(filter_list))
+                    #print("outlier filter={}".format(filter_list))
 
                     for scl_name, cl in scl_match_counts.items():
 
                         outlier_cs = {"type": "concept_list", "concept_list_id": cl['concept_list_id']}
 
-                        setup_outlier_both_results = luminoso_data.client.post("concepts/outliers/", 
-                                                                concept_selector=outlier_cs, 
-                                                                match_type=match_type)
+                        # outlier has a low retry threshold
+                        retry = True
+                        retry_count = 0
+                        while retry and retry_count < 5:
+                            retry = False
+                            try:
+                                setup_outlier_both_results = luminoso_data.client.post("concepts/outliers/",
+                                                                        concept_selector=outlier_cs,
+                                                                        match_type=match_type)
+                            except LuminosoError as e:
+                                retry_count += 1
+                                retry = True
+
+                                if retry_count < 5:
+                                    print(f"outlier got exception {e} - retry count {retry_count} - brief sleep starting")
+                                    time.sleep(5)
+                                else:
+                                    raise
 
                         coverage_pct = 100-((setup_outlier_both_results['filter_count'] / proj_info['document_count']) * 100)
 
@@ -174,13 +191,9 @@ def create_outliersot_table(luminoso_data, proj_info, scl_match_counts, match_ty
     start_date_dt = None
 
     if range_type is None or range_type not in ['M', 'W', 'D']:
-        range_type = luminoso_data.find_best_interval(date_field_name,
-                                                      iterations)
+        range_type = luminoso_data.find_best_interval(iterations)
     range_descriptions = {'M': 'Month', 'W': 'Week', 'D': 'Day'}
     range_description = range_descriptions[range_type]
-
-    print("Outliersot starting. Date Field: {}, Iterations: {},"
-          " Range Type: {}".format(date_field_name, iterations, range_type))
 
     # run the number of iterations
     for count in range(iterations):
@@ -213,6 +226,8 @@ def create_outliersot_table(luminoso_data, proj_info, scl_match_counts, match_ty
         filter_list = [{"name": date_field_name,
                         "minimum": int(start_date_epoch),
                         "maximum": int(end_date_epoch)}]
+
+        print(f"Outliersot starting. Iteration: {range_description}-{count}, Date: {start_date_dt.isoformat()},")
 
         od_data = create_outlier_subset_table(luminoso_data, proj_info, scl_match_counts, 
                                               match_type, subset_fields,
