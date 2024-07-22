@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="se_code",
-    version='0.13.0',
+    version='0.14.0',
     maintainer='Luminoso Technologies, Inc.',
     maintainer_email='dev@luminoso.com',
     license="LICENSE",
@@ -11,8 +11,8 @@ setup(
     description=("Code for sales engineering, particularly for code that will be given to customers"),
     packages=find_packages(),
     install_requires=[
-        'luminoso_api', 'click', 'scipy', 'pack64', 'numpy===1.23.5', 'scikit-learn',
-        'redis', 'flask', 'networkx', 'praw', 'pandas===2.0.1', 'psycopg2-binary'
+        'luminoso_api', 'click', 'scipy', 'pack64', 'numpy', 'scikit-learn',
+        'redis', 'flask', 'networkx', 'praw', 'pandas', 'psycopg2-binary'
         ],
     entry_points={
         'console_scripts': [
