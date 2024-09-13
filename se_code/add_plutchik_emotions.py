@@ -44,6 +44,11 @@ def read_documents(client, max_docs=0):
 # Initialize the OpenAI API with your key
 openai.api_key = os.environ['OPENAI_API_KEY']
 
+oai_client = openai.OpenAI(
+    # This is the default and can be omitted
+    api_key=os.environ.get("OPENAI_API_KEY"),
+)
+
 plutchik_lists = {
     'Emotion 1': ["A:Ecstasy", "B:Admiration", "C:Terror", "D:Amazement", "E:Grief", "F:Loathing", "G:Rage", "H:Vigilance"],
     'Emotion 2': ["A:Joy", "B:Trust", "C:Fear", "D:Surprise","E:Sadness", "F:Disgust", "G:Anger", "H:Anticipation"],
@@ -65,7 +70,7 @@ def identify_emotions(text):
     #shortened_text = text.split(" ")
     #shortened_text = " ".join(shortened_text[0:100])
 
-    response = openai.ChatCompletion.create(
+    response = oai_client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {
@@ -191,7 +196,7 @@ def main():
         else:
             print(f"skipped document: {d['text'][0:100]}")
 
-        if (len(new_docs) % 100) == 0:
+        if (len(new_docs) % 15) == 0:
             print(f"completed: {len(new_docs)} of {len(docs)}")
 
     # create the new project
