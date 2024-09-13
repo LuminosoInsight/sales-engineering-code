@@ -988,253 +988,326 @@ def run_export(export_config):
 
     if not export_config['skip_docs']:
 
-        doc_table_writer = create_writer(export_config['output_format'],
-                                         'docs.csv', conn,
-                                         'docs', project_id, 
-                                         encoding=export_config['encoding'])
-        doc_metadata_table_writer = create_writer(export_config['output_format'],
-                                                  'doc_metadata.csv', conn,
-                                                  'doc_metadata', project_id, 
-                                                  encoding=export_config['encoding'])
+        # if we are not a csv file then do it
+        # if we are a csv file and the file already exists, skip this part of the export
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('docs.csv'))):
+            doc_table_writer = create_writer(export_config['output_format'],
+                                            'docs.csv', conn,
+                                            'docs', project_id, 
+                                            encoding=export_config['encoding'])
+            doc_metadata_table_writer = create_writer(export_config['output_format'],
+                                                    'doc_metadata.csv', conn,
+                                                    'doc_metadata', project_id, 
+                                                    encoding=export_config['encoding'])
+        else:
+            print("skipping doc export - csv exists")
     else:
         doc_table_writer = None
         doc_metadata_table_writer = None
 
     if not export_config['skip_doc_term_sentiment']:
-        doc_term_sentiment_writer = create_writer(export_config['output_format'],
-                                                  'doc_term_sentiment.csv', conn,
-                                                  'doc_term_sentiment', project_id,
-                                                  encoding=export_config['encoding'])
-        concept_lists = client.get("concept_lists/")
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('doc_term_sentiment.csv'))):
+
+            doc_term_sentiment_writer = create_writer(export_config['output_format'],
+                                                    'doc_term_sentiment.csv', conn,
+                                                    'doc_term_sentiment', project_id,
+                                                    encoding=export_config['encoding'])
+            concept_lists = client.get("concept_lists/")
+        else:
+            print("skipping doc_term_sentiment.csv - file exists")
 
     else:
         doc_term_sentiment_writer = None
         concept_lists = None
 
     if not export_config['skip_doc_term_summary']:
-        doc_term_summary_writer = create_writer(export_config['output_format'],
-                                    'doc_term_summary.csv', conn,
-                                    'doc_term_summary', project_id,
-                                    encoding=export_config['encoding'])
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('doc_term_summary.csv'))):
+
+            doc_term_summary_writer = create_writer(export_config['output_format'],
+                                        'doc_term_summary.csv', conn,
+                                        'doc_term_summary', project_id,
+                                        encoding=export_config['encoding'])
+        else:
+            print("Skipping doc_term_summary.csv - file exists")
     else:
         doc_term_summary_writer = None
 
     if not export_config['skip_doc_subset']:
-        doc_subset_writer = create_writer(export_config['output_format'],
-                                    'doc_subsets.csv', conn,
-                                    'doc_subsets', project_id,
-                                    encoding=export_config['encoding'])
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('doc_subsets.csv'))):
+
+            doc_subset_writer = create_writer(export_config['output_format'],
+                                        'doc_subsets.csv', conn,
+                                        'doc_subsets', project_id,
+                                        encoding=export_config['encoding'])
+            docs_by_date = create_doc_table(luminoso_data.client, 
+                                            doc_table_writer,
+                                            doc_metadata_table_writer,
+                                            doc_term_sentiment_writer, concept_lists,
+                                            doc_term_summary_writer, concepts, scl_match_counts,
+                                            doc_subset_writer,
+                                            date_field_name, themes, export_config['tag_doc_term_sentiment_list'])
+            luminoso_data.docs_by_date = docs_by_date
+        else:
+            print("Skipping doc_subsets.csv - file exists")
     else:
         doc_subset_writer = None
 
-    docs_by_date = create_doc_table(luminoso_data.client, 
-                                    doc_table_writer,
-                                    doc_metadata_table_writer,
-                                    doc_term_sentiment_writer, concept_lists,
-                                    doc_term_summary_writer, concepts, scl_match_counts,
-                                    doc_subset_writer,
-                                    date_field_name, themes, export_config['tag_doc_term_sentiment_list'])
-    luminoso_data.docs_by_date = docs_by_date
-
     if not export_config['skip_terms']:
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'terms.csv', conn,
-                                    'terms', project_id,
-                                    encoding=export_config['encoding'])
-        create_terms_table(lumi_writer, concepts, scl_match_counts)
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('terms.csv'))):
+
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'terms.csv', conn,
+                                        'terms', project_id,
+                                        encoding=export_config['encoding'])
+            create_terms_table(lumi_writer, concepts, scl_match_counts)
+        else:
+            print("Skipping terms.csv - file exists")
+
 
     if not export_config['skip_themes']:
+
         print('Creating themes table...')
         themes_table = create_themes_table(client, themes)
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'themes.csv', conn,
-                                    'themes', project_id,
-                                    encoding=export_config['encoding'])
-        lumi_writer.output_data(themes_table)
+
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('themes.csv'))):
+
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'themes.csv', conn,
+                                        'themes', project_id,
+                                        encoding=export_config['encoding'])
+            lumi_writer.output_data(themes_table)
+        else:
+            print("Skipping themes.csv - file exists")
+
 
     if not export_config['skip_vol']:
         print('Creating volume table...')
 
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'volume.csv', conn,
-                                    'volume', project_id,
-                                    encoding=export_config['encoding'])
-        volume_table = create_volume_table(client, scl_match_counts,
-                                           root_url=luminoso_data.root_url)
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('volume.csv'))):
 
-        lumi_writer.output_data(volume_table)
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'volume.csv', conn,
+                                        'volume', project_id,
+                                        encoding=export_config['encoding'])
+            volume_table = create_volume_table(client, scl_match_counts,
+                                            root_url=luminoso_data.root_url)
 
-        print("Creating volume by subsets...")
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'volume_subsets.csv', conn,
-                                    'volume_subsets', project_id, 
-                                    encoding=export_config['encoding'])
-        create_volume_subset_table(
-            lumi_writer, luminoso_data,
-            export_config['volume_subset_fields'])
+            lumi_writer.output_data(volume_table)
+        else:
+            print("Skipping volume.csv - file exists")
+
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('volume_subsets.csv'))):
+
+            print("Creating volume by subsets...")
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'volume_subsets.csv', conn,
+                                        'volume_subsets', project_id, 
+                                        encoding=export_config['encoding'])
+            create_volume_subset_table(
+                lumi_writer, luminoso_data,
+                export_config['volume_subset_fields'])
+        else:
+            print("Skipping volumne_subsets.csv - file exists")
 
     if bool(export_config['run_vot']):
-        print("Creating volume over time (vot)")
 
-        if export_config['vot_date_field'] is None:
-            date_field_info = luminoso_data.first_date_field
-            if date_field_info is None:
-                print("ERROR no date field in project for vot")
-                return
-        else:
-            date_field_info = luminoso_data.get_field_by_name(
-                export_config['vot_date_field']
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('volume_over_time.csv'))):
+
+            print("Creating volume over time (vot)")
+
+            if export_config['vot_date_field'] is None:
+                date_field_info = luminoso_data.first_date_field
+                if date_field_info is None:
+                    print("ERROR no date field in project for vot")
+                    return
+            else:
+                date_field_info = luminoso_data.get_field_by_name(
+                    export_config['vot_date_field']
+                )
+                if date_field_info is None:
+                    print("ERROR: (vot) no date field name:"
+                        " {}".format(export_config['vot_date_field']))
+                    return
+
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'volume_over_time.csv', conn,
+                                        'volume_over_time', project_id,
+                                        encoding=export_config['encoding'])
+            create_vot_table(
+                lumi_writer, luminoso_data,
+                date_field_info, export_config['sot_end'],
+                int(export_config['sot_iterations']), export_config['sot_range'],
+                export_config['volume_subset_fields']
             )
-            if date_field_info is None:
-                print("ERROR: (vot) no date field name:"
-                      " {}".format(export_config['vot_date_field']))
-                return
-
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'volume_over_time.csv', conn,
-                                    'volume_over_time', project_id,
-                                    encoding=export_config['encoding'])
-        create_vot_table(
-            lumi_writer, luminoso_data,
-            date_field_info, export_config['sot_end'],
-            int(export_config['sot_iterations']), export_config['sot_range'],
-            export_config['volume_subset_fields']
-        )
-        # lumi_writer.output_data(vot_table)
+            # lumi_writer.output_data(vot_table)
+        else:
+            print("Skipping volume_over_time.csv - file exits")
 
     # unique to filter u2f was skt
     if not export_config['skip_u2f_table']:
-        print("Creating unique to filter...")
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('unique_to_filter.csv'))):
 
-        u2f = unique_to_filter(client, subset_values_dict, terms_per_subset=int(export_config['u2f_limit']))
+            print("Creating unique to filter...")
 
-        u2f_table = create_u2f_table(client, u2f)
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'unique_to_filter.csv', conn,
-                                    'unique_to_filter', project_id,
-                                    encoding=export_config['encoding'])
-        lumi_writer.output_data(u2f_table)
+            u2f = unique_to_filter(client, subset_values_dict, terms_per_subset=int(export_config['u2f_limit']))
+
+            u2f_table = create_u2f_table(client, u2f)
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'unique_to_filter.csv', conn,
+                                        'unique_to_filter', project_id,
+                                        encoding=export_config['encoding'])
+            lumi_writer.output_data(u2f_table)
+        else:
+            print("Skipping unique_to_filter.csv - file exists")
 
     # unique to filter over time (was skt)
     if bool(export_config['run_u2fot']):
-        print("Creating unique to filter over time...")
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('unique_over_time.csv'))):
 
-        if export_config['u2fot_date_field'] is None:
-            date_field_info = luminoso_data.first_date_field
-            if date_field_info is None:
-                print("ERROR no date field in project")
-                return
+            print("Creating unique to filter over time...")
+
+            if export_config['u2fot_date_field'] is None:
+                date_field_info = luminoso_data.first_date_field
+                if date_field_info is None:
+                    print("ERROR no date field in project")
+                    return
+            else:
+                date_field_info = luminoso_data.get_field_by_name(
+                    export_config['u2fot_date_field']
+                )
+                if date_field_info is None:
+                    print("ERROR: no date field name:"
+                        " {}".format(export_config['u2fot_date_field']))
+                    return
+
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'unique_over_time.csv', conn,
+                                        'unique_over_time', project_id,
+                                        encoding=export_config['encoding'])
+            create_u2fot_table(
+                lumi_writer, luminoso_data, date_field_info,
+                export_config['u2fot_end'], export_config['u2fot_iterations'],
+                export_config['u2fot_range'], subset_values_dict,
+                export_config['u2f_limit'])
         else:
-            date_field_info = luminoso_data.get_field_by_name(
-                export_config['u2fot_date_field']
-            )
-            if date_field_info is None:
-                print("ERROR: no date field name:"
-                      " {}".format(export_config['u2fot_date_field']))
-                return
-
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'unique_over_time.csv', conn,
-                                    'unique_over_time', project_id,
-                                    encoding=export_config['encoding'])
-        create_u2fot_table(
-            lumi_writer, luminoso_data, date_field_info,
-            export_config['u2fot_end'], export_config['u2fot_iterations'],
-            export_config['u2fot_range'], subset_values_dict,
-            export_config['u2f_limit'])
+            print("Skipping unique_over_time.csv - file exists")
 
     if not export_config['skip_drivers']:
-        print("Creating score drivers...")
-        driver_table = create_drivers_table(luminoso_data, export_config['run_topic_drivers'])
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'drivers.csv', conn,
-                                    'drivers', project_id,
-                                    encoding=export_config['encoding'])
-        lumi_writer.output_data(driver_table)
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('drivers.csv'))):
+
+            print("Creating score drivers...")
+            driver_table = create_drivers_table(luminoso_data, export_config['run_topic_drivers'])
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'drivers.csv', conn,
+                                        'drivers', project_id,
+                                        encoding=export_config['encoding'])
+            lumi_writer.output_data(driver_table)
+        else:
+            print("Skipping drivers.csv - file exists")
 
     if not export_config['skip_driver_subsets']:
-        print("starting subset drivers - topics={}".format(export_config['run_topic_drivers']))
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('drivers_subsets.csv'))):
 
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'drivers_subsets.csv', conn,
-                                    'drivers_subsets', project_id, 
-                                    encoding=export_config['encoding'])
+            print("starting subset drivers - topics={}".format(export_config['run_topic_drivers']))
 
-        create_drivers_with_subsets_table(
-            lumi_writer, luminoso_data, export_config['run_topic_drivers'],
-            subset_fields=export_config['driver_subset_fields']
-        )
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'drivers_subsets.csv', conn,
+                                        'drivers_subsets', project_id, 
+                                        encoding=export_config['encoding'])
+
+            create_drivers_with_subsets_table(
+                lumi_writer, luminoso_data, export_config['run_topic_drivers'],
+                subset_fields=export_config['driver_subset_fields']
+            )
+        else:
+            print("Skipping drivers_subsets.csv - file exists")
 
     if bool(export_config['run_sdot']):
-        if export_config['sdot_date_field'] is None:
-            date_field_info = luminoso_data.first_date_field
-            if date_field_info is None:
-                print("ERROR no date field in project")
-                return
-        else:
-            date_field_info = luminoso_data.get_field_by_name(
-                export_config['sdot_date_field']
-            )
-            if date_field_info is None:
-                print("ERROR: no date field name:"
-                      " {}".format(export_config['sdot_date_field']))
-                return
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('drivers_over_time.csv'))):
 
-        lumi_writer = create_writer(export_config['output_format'],
-                    'drivers_over_time.csv', conn,
-                    'drivers_over_time', project_id, encoding=export_config['encoding'])
-        create_sdot_table(
-            lumi_writer, luminoso_data, date_field_info, export_config['sdot_end'],
-            int(export_config['sdot_iterations']),
-            export_config['sdot_range'], export_config['run_topic_drivers']
-        )
+            if export_config['sdot_date_field'] is None:
+                date_field_info = luminoso_data.first_date_field
+                if date_field_info is None:
+                    print("ERROR no date field in project")
+                    return
+            else:
+                date_field_info = luminoso_data.get_field_by_name(
+                    export_config['sdot_date_field']
+                )
+                if date_field_info is None:
+                    print("ERROR: no date field name:"
+                        " {}".format(export_config['sdot_date_field']))
+                    return
+
+            lumi_writer = create_writer(export_config['output_format'],
+                        'drivers_over_time.csv', conn,
+                        'drivers_over_time', project_id, encoding=export_config['encoding'])
+            create_sdot_table(
+                lumi_writer, luminoso_data, date_field_info, export_config['sdot_end'],
+                int(export_config['sdot_iterations']),
+                export_config['sdot_range'], export_config['run_topic_drivers']
+            )
+        else:
+            print("Skipping drivers_over_time.csv - file exists")
 
     if not export_config['skip_sentiment']:
-        print('Creating sentiment table...')
-        sentiment_table = create_sentiment_table(client, scl_match_counts,
-                                                 root_url=luminoso_data.root_url)
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'sentiment.csv', conn,
-                                    'sentiment', project_id, 
-                                    encoding=export_config['encoding'])
-        lumi_writer.output_data(sentiment_table)
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('sentiment.csv'))):
+
+            print('Creating sentiment table...')
+            sentiment_table = create_sentiment_table(client, scl_match_counts,
+                                                    root_url=luminoso_data.root_url)
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'sentiment.csv', conn,
+                                        'sentiment', project_id, 
+                                        encoding=export_config['encoding'])
+            lumi_writer.output_data(sentiment_table)
+        else:
+            print("skipping sentiment.csv - file exists")
 
     if not export_config['skip_sentiment_subsets']:
-        print("Creating sentiment by subsets...")
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'sentiment_subsets.csv', conn,
-                                    'sentiment_subsets', project_id,
-                                    encoding=export_config['encoding'])
-        create_sentiment_subset_table(
-            lumi_writer, luminoso_data,
-            export_config['sentiment_subset_fields'])
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('sentiment_subsets.csv'))):
+
+            print("Creating sentiment by subsets...")
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'sentiment_subsets.csv', conn,
+                                        'sentiment_subsets', project_id,
+                                        encoding=export_config['encoding'])
+            create_sentiment_subset_table(
+                lumi_writer, luminoso_data,
+                export_config['sentiment_subset_fields'])
+        else:
+            print("Skipping sentiment_subsets.csv - file exists")
 
     if bool(export_config['run_sot']):
-        print("Creating sentiment over time (sot)")
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('sentiment_over_time.csv'))):
 
-        if export_config['sot_date_field'] is None:
-            date_field_info = luminoso_data.first_date_field
-            if date_field_info is None:
-                print("ERROR no date field in project for sot")
-                return
-        else:
-            date_field_info = luminoso_data.get_field_by_name(
-                export_config['sot_date_field']
+            print("Creating sentiment over time (sot)")
+
+            if export_config['sot_date_field'] is None:
+                date_field_info = luminoso_data.first_date_field
+                if date_field_info is None:
+                    print("ERROR no date field in project for sot")
+                    return
+            else:
+                date_field_info = luminoso_data.get_field_by_name(
+                    export_config['sot_date_field']
+                )
+                if date_field_info is None:
+                    print("ERROR: (sot) no date field name:"
+                        " {}".format(export_config['sot_date_field']))
+                    return
+
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'sentiment_over_time.csv', conn,
+                                        'sentiment_over_time', project_id,
+                                        encoding=export_config['encoding'])
+            create_sot_table(
+                lumi_writer, luminoso_data, date_field_info, export_config['sot_end'],
+                int(export_config['sot_iterations']), export_config['sot_range'],
+                export_config['sentiment_subset_fields']
             )
-            if date_field_info is None:
-                print("ERROR: (sot) no date field name:"
-                      " {}".format(export_config['sot_date_field']))
-                return
-
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'sentiment_over_time.csv', conn,
-                                    'sentiment_over_time', project_id,
-                                    encoding=export_config['encoding'])
-        create_sot_table(
-            lumi_writer, luminoso_data, date_field_info, export_config['sot_end'],
-            int(export_config['sot_iterations']), export_config['sot_range'],
-            export_config['sentiment_subset_fields']
-        )
+        else:
+            print("Skipping sentiment_over_time.csv - file exists")
 
     if not bool(export_config['skip_outliers']) or (bool(export_config['run_outliersot'])):
 
@@ -1256,20 +1329,24 @@ def run_export(export_config):
             scl_match_counts[clist['name']] = clist_match_counts
 
     if not bool(export_config['skip_outliers']):
-        print("Generating outlier concepts...")
-        outlier_table = create_outlier_table(client, proj_info,
-                                             scl_match_counts,
-                                             "both",
-                                             root_url=luminoso_data.root_url)
-        outlier_table.extend(create_outlier_table(client, proj_info,
-                                                  scl_match_counts,
-                                                  "exact",
-                                                  root_url=luminoso_data.root_url))
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'outliers.csv', conn,
-                                    'outliers', project_id,
-                                    encoding=export_config['encoding'])
-        lumi_writer.output_data(outlier_table)
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('outliers.csv'))):
+
+            print("Generating outlier concepts...")
+            outlier_table = create_outlier_table(client, proj_info,
+                                                scl_match_counts,
+                                                "both",
+                                                root_url=luminoso_data.root_url)
+            outlier_table.extend(create_outlier_table(client, proj_info,
+                                                    scl_match_counts,
+                                                    "exact",
+                                                    root_url=luminoso_data.root_url))
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'outliers.csv', conn,
+                                        'outliers', project_id,
+                                        encoding=export_config['encoding'])
+            lumi_writer.output_data(outlier_table)
+        else:
+            print("Skipping outliers.csv - file exitst")
 
         print("Generating outliers by subsets...")
         outlier_subset_table = create_outlier_subset_table(
@@ -1284,48 +1361,57 @@ def run_export(export_config):
             scl_match_counts, 
             "exact",
             export_config['outlier_subset_fields']))
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'outlier_subsets.csv', conn,
-                                    'outlier_subsets', project_id,
-                                    encoding=export_config['encoding'])
-        lumi_writer.output_data(outlier_subset_table)
+
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('outlier_subsets.csv'))):
+
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'outlier_subsets.csv', conn,
+                                        'outlier_subsets', project_id,
+                                        encoding=export_config['encoding'])
+            lumi_writer.output_data(outlier_subset_table)
+        else:
+            print("Skipping outlier_subsets.csv - file exists")
 
     if bool(export_config['run_outliersot']):
-        print("Calculating outlier concepts over time (outliersot)")
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('outliers_over_time.csv'))):
 
-        if export_config['outliersot_date_field'] is None:
-            date_field_info = luminoso_data.first_date_field
-            if date_field_info is None:
-                print("ERROR no date field in project for outliersot")
-                return
-        else:
-            date_field_info = luminoso_data.get_field_by_name(
-                export_config['outliersot_date_field']
+            print("Calculating outlier concepts over time (outliersot)")
+
+            if export_config['outliersot_date_field'] is None:
+                date_field_info = luminoso_data.first_date_field
+                if date_field_info is None:
+                    print("ERROR no date field in project for outliersot")
+                    return
+            else:
+                date_field_info = luminoso_data.get_field_by_name(
+                    export_config['outliersot_date_field']
+                )
+                if date_field_info is None:
+                    print("ERROR: (outliersot) no date field name:"
+                        " {}".format(export_config['outliersot_date_field']))
+                    return
+
+            outliersot_table = create_outliersot_table(
+                luminoso_data, proj_info, scl_match_counts, "both",
+                date_field_info, export_config['outliersot_end'],
+                int(export_config['outliersot_iterations']),
+                export_config['outliersot_range'], 
+                export_config['outlier_subset_fields']
             )
-            if date_field_info is None:
-                print("ERROR: (outliersot) no date field name:"
-                      " {}".format(export_config['outliersot_date_field']))
-                return
-
-        outliersot_table = create_outliersot_table(
-            luminoso_data, proj_info, scl_match_counts, "both",
-            date_field_info, export_config['outliersot_end'],
-            int(export_config['outliersot_iterations']),
-            export_config['outliersot_range'], 
-            export_config['outlier_subset_fields']
-        )
-        outliersot_table.extend(create_outliersot_table(
-            luminoso_data, proj_info, scl_match_counts, "exact",
-            date_field_info, export_config['outliersot_end'],
-            int(export_config['outliersot_iterations']),
-            export_config['outliersot_range'], 
-            export_config['outlier_subset_fields']
-        ))
-        lumi_writer = create_writer(export_config['output_format'],
-                                    'outliers_over_time.csv', conn,
-                                    'outliers_over_time', project_id,
-                                    encoding=export_config['encoding'])
-        lumi_writer.output_data(outliersot_table)
+            outliersot_table.extend(create_outliersot_table(
+                luminoso_data, proj_info, scl_match_counts, "exact",
+                date_field_info, export_config['outliersot_end'],
+                int(export_config['outliersot_iterations']),
+                export_config['outliersot_range'], 
+                export_config['outlier_subset_fields']
+            ))
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'outliers_over_time.csv', conn,
+                                        'outliers_over_time', project_id,
+                                        encoding=export_config['encoding'])
+            lumi_writer.output_data(outliersot_table)
+        else:
+            print("Skipping outliers_over_time.csv - file exists")
 
     print("Run export complete.")
 
@@ -1349,6 +1435,9 @@ def main():
     parser.add_argument('-u2fl', '--u2f_limit', default=20,
                         help="The max number of unique terms to display"
                              " per subset")
+    parser.add_argument('-s', '--skip_if_csv_exists', default=False,
+                        action='store_true',
+                        help="Skip if the csv already exists, for run again speedup" )
     parser.add_argument('-skip_docs', '--skip_docs',
                         default=False,
                         action='store_true',
@@ -1492,6 +1581,7 @@ def main():
         'encoding': args.encoding,
         'concept_list_names': args.concept_list_names,
         'output_format': args.output_format,
+        'skip_if_csv_exists': args.skip_if_csv_exists,
         'u2f_limit': args.u2f_limit,
         'skip_vol': args.skip_vol,
         'volume_subset_fields': args.volume_subset_fields,
