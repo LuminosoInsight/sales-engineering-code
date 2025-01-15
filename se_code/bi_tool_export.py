@@ -1062,17 +1062,17 @@ def run_export(export_config):
     # else:
     #     doc_subset_writer = None
     # 
-    # if not export_config['skip_terms']:
-    #     if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('terms.csv'))):
-    # 
-    #         lumi_writer = create_writer(export_config['output_format'],
-    #                                     'terms.csv', conn,
-    #                                     'terms', project_id,
-    #                                     encoding=export_config['encoding'])
-    #         create_terms_table(lumi_writer, concepts, scl_match_counts)
-    #     else:
-    #         print("Skipping terms.csv - file exists")
-    # 
+    if not export_config['skip_terms']:
+        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('terms.csv'))):
+    
+            lumi_writer = create_writer(export_config['output_format'],
+                                        'terms.csv', conn,
+                                        'terms', project_id,
+                                        encoding=export_config['encoding'])
+            create_terms_table(lumi_writer, concepts, scl_match_counts)
+        else:
+            print("Skipping terms.csv - file exists")
+    
     # 
     # if not export_config['skip_themes']:
     # 
@@ -1274,25 +1274,25 @@ def run_export(export_config):
     #     else:
     #         print("skipping sentiment.csv - file exists")
 
-    logger.info("start.")
-
-    if not export_config['skip_sentiment_subsets']:
-        if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('sentiment_subsets.csv'))):
-
-            print("Creating sentiment by subsets...")
-            lumi_writer = create_writer(export_config['output_format'],
-                                        'sentiment_subsets.csv', conn,
-                                        'sentiment_subsets', project_id,
-                                        encoding=export_config['encoding'])
-            create_sentiment_subset_table(
-                lumi_writer, luminoso_data,
-                export_config['sentiment_subset_fields'])
-        else:
-            print("Skipping sentiment_subsets.csv - file exists")
-            
-                
-                
-    logger.info("done.")
+    # logger.info("start.")
+    # 
+    # if not export_config['skip_sentiment_subsets']:
+    #     if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('sentiment_subsets.csv'))):
+    # 
+    #         print("Creating sentiment by subsets...")
+    #         lumi_writer = create_writer(export_config['output_format'],
+    #                                     'sentiment_subsets.csv', conn,
+    #                                     'sentiment_subsets', project_id,
+    #                                     encoding=export_config['encoding'])
+    #         create_sentiment_subset_table(
+    #             lumi_writer, luminoso_data,
+    #             export_config['sentiment_subset_fields'])
+    #     else:
+    #         print("Skipping sentiment_subsets.csv - file exists")
+    #         
+    #             
+    #             
+    # logger.info("done.")
 
     # if bool(export_config['run_sot']):
     #     if (export_config['output_format']!='csv') or ((not export_config['skip_if_csv_exists'] or not os.path.isfile('sentiment_over_time.csv'))):
