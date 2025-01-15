@@ -893,7 +893,7 @@ def create_terms_table(lumi_writer, concepts, scl_match_counts):
             table = []
 
     # one final write to empty the data to storage
-    if len(table) > DOC_BATCH_SIZE:
+    if len(table):
         lumi_writer.output_data(table)
         table = []
     return
