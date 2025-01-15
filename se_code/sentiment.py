@@ -189,7 +189,11 @@ def create_sentiment_subset_table(lumi_writer, luminoso_data,
         ))
 
     logger.info("mark main outer loop")
-    for field_name in tqdm(subset_fields, desc="for field_name in subset_fields"):
+    subset_fields_len = len(subset_fields)
+    logger.info(f"subset_fields: \n {subset_fields}")
+    
+    for field_name_index, field_name in tqdm(list(enumerate(subset_fields)), desc="for field_name in subset_fields"):
+        logger.info(f"[{field_name_index}/{subset_fields_len}] main outer loop: field_name: {field_name}")
         field_values = luminoso_data.get_fieldvalue_lists_for_fieldname(field_name)
         print("{}: sentiment field_values = {}".format(field_name, field_values))
         if not field_values:
