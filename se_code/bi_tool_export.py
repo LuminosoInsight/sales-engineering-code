@@ -12,6 +12,8 @@ from urllib.parse import urlparse, unquote
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
+from loguru import logger
+from tqdm import tqdm
 
 from se_code.data_writer import (LumiDataWriter, LumiCsvWriter, LumiSqlWriter)
 from se_code.unique_to_filter import (
@@ -540,7 +542,10 @@ def pull_lumi_data(project, api_url, concept_count=100,
         client = LuminosoClient.connect('{}/projects/{}'.format(api_url, project))
     luminoso_data = LuminosoData(client)
     luminoso_data.project_id = project
+    
+    logger.info("connected to luminoso client")
 
+    logger.info("getting concept_lists...")
     if cln:
         concept_list_names = cln.split("|")
         concept_lists_raw = client.get("concept_lists/")
@@ -557,10 +562,13 @@ def pull_lumi_data(project, api_url, concept_count=100,
             sys.exit(1)
     else:
         concept_lists = client.get("concept_lists/")
+    logger.info("getting concept_lists... done")
+    
+    logger.info("getting concept list match counts")
 
     # For naming purposes scl = shared_concept_list
     scl_match_counts = {}
-    for clist in concept_lists:
+    for clist in tqdm(concept_lists):
         concept_selector = {"type": "concept_list",
                             "concept_list_id": clist['concept_list_id']}
         clist_match_counts = client.get('concepts/match_counts',
