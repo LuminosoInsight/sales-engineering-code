@@ -1,6 +1,7 @@
 import argparse
 from datetime import datetime, timedelta
 import urllib.parse
+from tqdm import tqdm
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from luminoso_api import LuminosoServerError
@@ -8,6 +9,7 @@ from se_code.data_writer import (LumiCsvWriter)
 from se_code.score_drivers import (
      LuminosoData, write_table_to_csv
 )
+
 
 WRITER_BATCH_SIZE = 5000
 
@@ -184,13 +186,13 @@ def create_sentiment_subset_table(lumi_writer, luminoso_data,
             'overall', 'Suggested Sentiment', prepend_to_rows
         ))
 
-    for field_name in subset_fields:
+    for field_name in tqdm(subset_fields):
         field_values = luminoso_data.get_fieldvalue_lists_for_fieldname(field_name)
         print("{}: sentiment field_values = {}".format(field_name, field_values))
         if not field_values:
             print("  {}: skipping".format(field_name))
         else:
-            for field_value in field_values:
+            for field_value in tqdm(field_values):
                 if (not isinstance(field_value[0], str)) or len(field_value[0])<64:
                     filter_list = []
                     if orig_filter_list:
@@ -200,7 +202,7 @@ def create_sentiment_subset_table(lumi_writer, luminoso_data,
 
                     api_params = {'filter': filter_list}
 
-                    for list_name in luminoso_data.concept_lists:
+                    for list_name in tqdm(luminoso_data.concept_lists):
                         concept_list_params = dict(api_params,
                                                 concept_selector={'type': 'concept_list', 'name': list_name})
                         sentiment_table.extend(_create_row_for_sentiment_subsets(
