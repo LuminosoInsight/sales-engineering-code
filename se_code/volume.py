@@ -103,7 +103,7 @@ def _create_row_for_volume_subsets(luminoso_data, api_params, subset_name, subse
         print(f"Exception {e3}, volume - url too long? - skipping this subset {str(api_params['filter'])}")
         return rows
 
-    for c in volumes['match_counts']:
+    for c in tqdm(volumes['match_counts'], desc="_create_row_for_volume_subsets", leave=False):
         row = {'list_type': list_type,
                'list_name': list_name,
                'field_name': subset_name,
@@ -127,6 +127,7 @@ def create_volume_subset_table(lumi_writer, luminoso_data, subset_fields=None, f
     :param filter_list: document filter (as a list of dicts)
     :return: List of volumes
     '''
+    
     volume_table = []
 
     # if the user specifies the list of subsets to process
@@ -167,14 +168,13 @@ def create_volume_subset_table(lumi_writer, luminoso_data, subset_fields=None, f
             'overall', 'Suggested Sentiment', prepend_to_rows
         ))
 
-    logger.info("for field_name in tqdm(subset_fields):")
-    for field_name in tqdm(subset_fields):
+    for field_name in tqdm(subset_fields, desc="for field_name"):
         field_values = luminoso_data.get_fieldvalue_lists_for_fieldname(field_name)
         print("{}: volume field_values = {}".format(field_name, field_values))
         if not field_values:
             print("  {}: skipping".format(field_name))
         else:
-            for field_value in tqdm(field_values, leave=False):
+            for field_value in tqdm(field_values, desc="for field_value", leave=False):
                 if (not isinstance(field_value[0], str)) or len(field_value[0])<64:
                     filter_list = []
                     if orig_filter_list:
@@ -184,7 +184,7 @@ def create_volume_subset_table(lumi_writer, luminoso_data, subset_fields=None, f
 
                     api_params = {'filter': filter_list}
 
-                    for list_name in luminoso_data.concept_lists:
+                    for list_name in tqdm(luminoso_data.concept_lists, desc="for list_name", leave=False):
                         concept_list_params = dict(api_params,
                                                 concept_selector={'type': 'concept_list', 'name': list_name})
                         volume_table.extend(_create_row_for_volume_subsets(

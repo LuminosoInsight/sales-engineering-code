@@ -722,7 +722,6 @@ def create_doc_table(client,
     doc_subset_table = []
 
     offset = 0
-    logger.info("outer loop: while True")
     while True:
         new_docs = client.get(
             'docs', limit=DOC_BATCH_SIZE, offset=offset,
