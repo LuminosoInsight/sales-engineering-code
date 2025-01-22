@@ -10,6 +10,10 @@ from se_code.score_drivers import (
      LuminosoData, write_table_to_csv
 )
 
+from tqdm import tqdm
+from loguru import logger
+from pprint import pformat
+
 WRITER_BATCH_SIZE = 5000
 
 def create_volume_table(client, scl_match_counts, root_url=''):
@@ -29,8 +33,9 @@ def create_volume_table(client, scl_match_counts, root_url=''):
          }
         for concept in results_top
     ]
-
-    for scl_name, shared_concepts in scl_match_counts.items():
+    
+    logger.info("for scl_name, shared_concepts in tqdm(scl_match_counts.items()):")
+    for scl_name, shared_concepts in tqdm(scl_match_counts.items()):
         results_saved = client.get(
             '/concepts/match_counts/',
             concept_selector={
@@ -52,7 +57,8 @@ def create_volume_table(client, scl_match_counts, root_url=''):
         ])
 
     # add three sample documents to each row
-    for srow in volume_match_counts:
+    logger.info("add three sample documents to each row")
+    for srow in tqdm(volume_match_counts):
         if len(root_url) > 0:
             srow['url'] = (root_url
                            + "/galaxy?suggesting=false&search="
@@ -161,13 +167,14 @@ def create_volume_subset_table(lumi_writer, luminoso_data, subset_fields=None, f
             'overall', 'Suggested Sentiment', prepend_to_rows
         ))
 
-    for field_name in subset_fields:
+    logger.info("for field_name in tqdm(subset_fields):")
+    for field_name in tqdm(subset_fields):
         field_values = luminoso_data.get_fieldvalue_lists_for_fieldname(field_name)
         print("{}: volume field_values = {}".format(field_name, field_values))
         if not field_values:
             print("  {}: skipping".format(field_name))
         else:
-            for field_value in field_values:
+            for field_value in tqdm(field_values, leave=False):
                 if (not isinstance(field_value[0], str)) or len(field_value[0])<64:
                     filter_list = []
                     if orig_filter_list:

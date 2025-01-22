@@ -701,11 +701,14 @@ def create_doc_table(client,
     doc_term_summary_table = []
 
     concept_ids = defaultdict(list)
-    for concept in concepts:
+    
+    logger.info("for concept in concepts")
+    for concept in tqdm(concepts):
         for term_id in concept['exact_term_ids']:
             concept_ids[term_id].append((concept['name'], 'top', None))
 
-    for scl_name, shared_concepts in scl_match_counts.items():
+    logger.info("for scl_name, shared_concepts in scl_match_counts.items()")
+    for scl_name, shared_concepts in tqdm(scl_match_counts.items()):
         for concept in shared_concepts['match_counts']:
             for term_id in concept['exact_term_ids']:
                 concept_ids[term_id].append(
@@ -719,6 +722,7 @@ def create_doc_table(client,
     doc_subset_table = []
 
     offset = 0
+    logger.info("outer loop: while True")
     while True:
         new_docs = client.get(
             'docs', limit=DOC_BATCH_SIZE, offset=offset,
@@ -733,7 +737,8 @@ def create_doc_table(client,
                         if date is not None:
                             docs_by_date.append({'date': date, 'doc_id': d['doc_id'], 'i': 1})
 
-        for doc in new_docs:
+        logger.info("for doc in new_docs")
+        for doc in tqdm(new_docs):
             row = {'doc_id': doc['doc_id'], 'doc_text': doc['text']}
             if (len(doc['text']) > 0):
                 # add the theme (cluster) data
