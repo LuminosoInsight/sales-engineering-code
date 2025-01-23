@@ -721,14 +721,16 @@ def create_doc_table(client,
 
     offset = 0
     while True:
-        logger.debug("getting docs.")
+        logger.debug("getting docs...")
+
         new_docs = client.get(
             'docs', limit=DOC_BATCH_SIZE, offset=offset,
             include_sentiment_on_concepts=True
         )['result']
+        logger.debug("getting docs... done.")
 
         if date_field_name:
-            for i, d in enumerate(new_docs):
+            for i, d in tqdm(enumerate(new_docs), desc="process date_field_name"):
                 for m in d['metadata']:
                     if m['name'] == date_field_name:
                         date = lumi_date_to_epoch(m['value'])

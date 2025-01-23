@@ -168,13 +168,17 @@ def create_volume_subset_table(lumi_writer, luminoso_data, subset_fields=None, f
             'overall', 'Suggested Sentiment', prepend_to_rows
         ))
 
-    for field_name in tqdm(subset_fields, desc="for field_name"):
+    for field_name in (t1:=tqdm(subset_fields)):
+        t1.set_description(f"field_name: {field_name}")
         field_values = luminoso_data.get_fieldvalue_lists_for_fieldname(field_name)
         print("{}: volume field_values = {}".format(field_name, field_values))
         if not field_values:
             print("  {}: skipping".format(field_name))
         else:
-            for field_value in tqdm(field_values, desc="for field_value", leave=False):
+            # manas.mark: dev
+            # field_values = field_values[:5]
+            for field_value in (t2:=tqdm(field_values, leave=False)):
+                t2.set_description(f"field_value: {field_value}")
                 if (not isinstance(field_value[0], str)) or len(field_value[0])<64:
                     filter_list = []
                     if orig_filter_list:
@@ -184,7 +188,8 @@ def create_volume_subset_table(lumi_writer, luminoso_data, subset_fields=None, f
 
                     api_params = {'filter': filter_list}
 
-                    for list_name in tqdm(luminoso_data.concept_lists, desc="for list_name", leave=False):
+                    for list_name in (t3:=tqdm(luminoso_data.concept_lists, leave=False)):
+                        t3.set_description(f"list_name: {list_name}")
                         concept_list_params = dict(api_params,
                                                 concept_selector={'type': 'concept_list', 'name': list_name})
                         volume_table.extend(_create_row_for_volume_subsets(
