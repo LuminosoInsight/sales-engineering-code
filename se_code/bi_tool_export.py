@@ -545,7 +545,7 @@ def pull_lumi_data(project, api_url, concept_count=100,
     
     logger.info("connected to luminoso client")
 
-    logger.info("getting concept_lists...")
+    logger.info("getting concept_lists")
     if cln:
         concept_list_names = cln.split("|")
         concept_lists_raw = client.get("concept_lists/")
