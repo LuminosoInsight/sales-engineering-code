@@ -14,6 +14,7 @@ from luminoso_api import V5LuminosoClient as LuminosoClient
 from pack64 import unpack64
 from loguru import logger
 from tqdm import tqdm
+from pprint import pformat
 
 from se_code.data_writer import (LumiDataWriter, LumiCsvWriter, LumiSqlWriter)
 from se_code.unique_to_filter import (
@@ -535,7 +536,7 @@ def pull_lumi_data(project, api_url, concept_count=100,
          separated by |
     :return: Return lists of dictionaries containing project data
     '''
-    print('Extracting Lumi data...')
+    logger.info('Extracting Lumi data...')
     if token:
         client = LuminosoClient.connect('{}/projects/{}'.format(api_url, project), token=token)
     else:
@@ -543,9 +544,9 @@ def pull_lumi_data(project, api_url, concept_count=100,
     luminoso_data = LuminosoData(client)
     luminoso_data.project_id = project
     
-    logger.info("connected to luminoso client")
+    logger.debug("connected to luminoso client")
 
-    logger.info("getting concept_lists")
+    logger.debug("getting concept_lists")
     if cln:
         concept_list_names = cln.split("|")
         concept_lists_raw = client.get("concept_lists/")
@@ -562,15 +563,14 @@ def pull_lumi_data(project, api_url, concept_count=100,
             sys.exit(1)
     else:
         concept_lists = client.get("concept_lists/")
-    logger.info("getting concept_lists... done")
     
-    logger.info("getting concept list match counts")
-
+    logger.debug("getting concept list match counts")
     # For naming purposes scl = shared_concept_list
     scl_match_counts = {}
-    for clist in tqdm(concept_lists):
+    for clist in (t:=tqdm(concept_lists)):
         concept_selector = {"type": "concept_list",
                             "concept_list_id": clist['concept_list_id']}
+        t.set_description(str(concept_selector))
         clist_match_counts = client.get('concepts/match_counts',
                                         concept_selector=concept_selector)
         clist_match_counts['concept_list_id'] = clist['concept_list_id']
@@ -687,7 +687,7 @@ def create_doc_table(client,
     :                       used later for over time calculations
     '''
 
-    print('Creating doc table...')
+    logger.info('Creating doc table...')
 
     all_shared_concepts = []
     if tag_doc_term_sentiment_list:
@@ -702,13 +702,11 @@ def create_doc_table(client,
 
     concept_ids = defaultdict(list)
     
-    logger.info("for concept in concepts")
-    for concept in tqdm(concepts):
+    for concept in tqdm(concepts, desc="get concept names"):
         for term_id in concept['exact_term_ids']:
             concept_ids[term_id].append((concept['name'], 'top', None))
 
-    logger.info("for scl_name, shared_concepts in scl_match_counts.items()")
-    for scl_name, shared_concepts in tqdm(scl_match_counts.items()):
+    for scl_name, shared_concepts in tqdm(scl_match_counts.items(), desc="get shared concept names"):
         for concept in shared_concepts['match_counts']:
             for term_id in concept['exact_term_ids']:
                 concept_ids[term_id].append(
@@ -723,6 +721,7 @@ def create_doc_table(client,
 
     offset = 0
     while True:
+        logger.debug("getting docs.")
         new_docs = client.get(
             'docs', limit=DOC_BATCH_SIZE, offset=offset,
             include_sentiment_on_concepts=True
@@ -736,8 +735,7 @@ def create_doc_table(client,
                         if date is not None:
                             docs_by_date.append({'date': date, 'doc_id': d['doc_id'], 'i': 1})
 
-        logger.info("for doc in new_docs")
-        for doc in tqdm(new_docs):
+        for doc in tqdm(new_docs, desc="process docs"):
             row = {'doc_id': doc['doc_id'], 'doc_text': doc['text']}
             if (len(doc['text']) > 0):
                 # add the theme (cluster) data
@@ -786,7 +784,7 @@ def create_doc_table(client,
                 doc_metadata_table = []
 
             # build the doc term sentiment table
-            for term in doc['terms']:
+            for term in tqdm(doc['terms'], desc="process terms", leave=False):
                 if 'sentiment' in term:
                     name = _DELANGTAG_RE.sub('', term['term_id'])
                     row = {**term,
@@ -958,7 +956,7 @@ def create_writer(format, filename, sql_connection, table_name, project_id, enco
 def run_export(export_config):
     root_url, api_url, workspace, project_id = parse_url(export_config['project_url'])
 
-    print(f"run_export: {export_config}")
+    logger.info(f"export_config: \n{pformat(export_config)}")
     conn = None
     if export_config['output_format'] in 'sql':
         if not export_config['db_connection']:
@@ -985,8 +983,6 @@ def run_export(export_config):
         root_url + '/app/projects/' + workspace + '/' + project_id
     )
 
-    print(f"export config  {export_config}")
-
     date_field_info = luminoso_data.first_date_field
     date_field_name = date_field_info['name']
 
@@ -996,7 +992,7 @@ def run_export(export_config):
     # docs, docs_by_date = read_docs(luminoso_data.client, date_field_name)
     # luminoso_data.docs_by_date = docs_by_date
     
-    logger.info("point 1")
+    logger.debug("starting exports.")
 
     if not export_config['skip_docs']:
     
