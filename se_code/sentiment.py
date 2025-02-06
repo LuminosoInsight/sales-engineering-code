@@ -30,8 +30,9 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
          'sentiment_share_negative': concept['sentiment_share']['negative']}
         for concept in results
     ]
-
-    for scl_name, shared_concepts in scl_match_counts.items():
+    
+    logger.info("for scl_name, shared_concepts in scl_match_counts.items())")
+    for scl_name, shared_concepts in tqdm(scl_match_counts.items()):
         results_saved = client.get(
             '/concepts/sentiment/',
             concept_selector={
@@ -71,7 +72,8 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
     ])
 
     # add three sample documents to each row
-    for srow in sentiment_match_counts:
+    logger.info("add three sample documents to each row")
+    for srow in tqdm(sentiment_match_counts):
         if len(root_url)>0:
             srow['url'] = (root_url
                            + "/galaxy?suggesting=false&search="
