@@ -1,6 +1,8 @@
 import argparse
 from datetime import datetime, timedelta
 import urllib.parse
+from tqdm import tqdm
+from loguru import logger
 
 from luminoso_api import V5LuminosoClient as LuminosoClient
 from luminoso_api import LuminosoServerError
@@ -8,6 +10,7 @@ from se_code.data_writer import (LumiCsvWriter)
 from se_code.score_drivers import (
      LuminosoData, write_table_to_csv
 )
+
 
 WRITER_BATCH_SIZE = 5000
 
@@ -27,8 +30,9 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
          'sentiment_share_negative': concept['sentiment_share']['negative']}
         for concept in results
     ]
-
-    for scl_name, shared_concepts in scl_match_counts.items():
+    
+    logger.info("for scl_name, shared_concepts in scl_match_counts.items())")
+    for scl_name, shared_concepts in tqdm(scl_match_counts.items()):
         results_saved = client.get(
             '/concepts/sentiment/',
             concept_selector={
@@ -68,7 +72,8 @@ def create_sentiment_table(client, scl_match_counts, root_url=''):
     ])
 
     # add three sample documents to each row
-    for srow in sentiment_match_counts:
+    logger.info("add three sample documents to each row")
+    for srow in tqdm(sentiment_match_counts):
         if len(root_url)>0:
             srow['url'] = (root_url
                            + "/galaxy?suggesting=false&search="
@@ -159,6 +164,7 @@ def create_sentiment_subset_table(lumi_writer, luminoso_data,
 
     api_params = {'filter': filter_list}
 
+    logger.info("preparation")
     # this is typically only for over-time output since the project
     # wide values are available in the standard output
     if add_overall_values:
@@ -184,13 +190,19 @@ def create_sentiment_subset_table(lumi_writer, luminoso_data,
             'overall', 'Suggested Sentiment', prepend_to_rows
         ))
 
-    for field_name in subset_fields:
+    logger.info("mark main outer loop")
+    subset_fields_len = len(subset_fields)
+    logger.info(f"subset_fields: \n {subset_fields}")
+    
+    for field_name_index, field_name in tqdm(list(enumerate(subset_fields)), desc="for field_name in subset_fields"):
+        logger.info(f"[{field_name_index}/{subset_fields_len}] main outer loop: field_name: {field_name}")
         field_values = luminoso_data.get_fieldvalue_lists_for_fieldname(field_name)
         print("{}: sentiment field_values = {}".format(field_name, field_values))
         if not field_values:
             print("  {}: skipping".format(field_name))
         else:
-            for field_value in field_values:
+            logger.info("iterate over field_values")
+            for field_value in tqdm(field_values, desc="for field_value in field_values"):
                 if (not isinstance(field_value[0], str)) or len(field_value[0])<64:
                     filter_list = []
                     if orig_filter_list:
@@ -201,6 +213,7 @@ def create_sentiment_subset_table(lumi_writer, luminoso_data,
                     api_params = {'filter': filter_list}
 
                     for list_name in luminoso_data.concept_lists:
+                    # for list_name in tqdm(luminoso_data.concept_lists):
                         concept_list_params = dict(api_params,
                                                 concept_selector={'type': 'concept_list', 'name': list_name})
                         sentiment_table.extend(_create_row_for_sentiment_subsets(
@@ -240,6 +253,7 @@ def create_sentiment_subset_table(lumi_writer, luminoso_data,
                         sentiment_table = []
 
             # do the same thing for _all_ the values in each field_name
+            logger.info("do the same thing for _all_ the values in each field_name")
             field_values = luminoso_data.get_all_fieldvalues_for_fieldname(field_name)
             field_values_oversize = [fv for fv in field_values if isinstance(field_value,str) and len(field_value)>63]
             if len(field_values_oversize) == 0:
@@ -251,7 +265,7 @@ def create_sentiment_subset_table(lumi_writer, luminoso_data,
 
                 api_params = {'filter': filter_list}
 
-                for list_name in luminoso_data.concept_lists:
+                for list_name in tqdm(luminoso_data.concept_lists, desc="for list_name in concept_lists"):
                     concept_list_params = dict(api_params,
                                             concept_selector={'type': 'concept_list', 'name': list_name})
                     sentiment_table.extend(_create_row_for_sentiment_subsets(

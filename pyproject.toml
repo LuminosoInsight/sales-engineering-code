@@ -1,0 +1,15 @@
+[project]
+name = "sales-engineering-code"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "debugpy>=1.8.11",
+    "loguru>=0.7.3",
+    "luminoso-api>=3.1.1",
+    "pack64>=2.0.2",
+    "pandas>=2.2.3",
+    "psycopg2-binary>=2.9.10",
+    "tqdm>=4.67.1",
+]

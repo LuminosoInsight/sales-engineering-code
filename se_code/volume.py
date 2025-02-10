@@ -10,6 +10,10 @@ from se_code.score_drivers import (
      LuminosoData, write_table_to_csv
 )
 
+from tqdm import tqdm
+from loguru import logger
+from pprint import pformat
+
 WRITER_BATCH_SIZE = 5000
 
 def create_volume_table(client, scl_match_counts, root_url=''):
@@ -29,8 +33,9 @@ def create_volume_table(client, scl_match_counts, root_url=''):
          }
         for concept in results_top
     ]
-
-    for scl_name, shared_concepts in scl_match_counts.items():
+    
+    logger.info("for scl_name, shared_concepts in tqdm(scl_match_counts.items()):")
+    for scl_name, shared_concepts in tqdm(scl_match_counts.items()):
         results_saved = client.get(
             '/concepts/match_counts/',
             concept_selector={
@@ -52,7 +57,8 @@ def create_volume_table(client, scl_match_counts, root_url=''):
         ])
 
     # add three sample documents to each row
-    for srow in volume_match_counts:
+    logger.info("add three sample documents to each row")
+    for srow in tqdm(volume_match_counts):
         if len(root_url) > 0:
             srow['url'] = (root_url
                            + "/galaxy?suggesting=false&search="
@@ -97,7 +103,7 @@ def _create_row_for_volume_subsets(luminoso_data, api_params, subset_name, subse
         print(f"Exception {e3}, volume - url too long? - skipping this subset {str(api_params['filter'])}")
         return rows
 
-    for c in volumes['match_counts']:
+    for c in tqdm(volumes['match_counts'], desc="_create_row_for_volume_subsets", leave=False):
         row = {'list_type': list_type,
                'list_name': list_name,
                'field_name': subset_name,
@@ -121,6 +127,7 @@ def create_volume_subset_table(lumi_writer, luminoso_data, subset_fields=None, f
     :param filter_list: document filter (as a list of dicts)
     :return: List of volumes
     '''
+    
     volume_table = []
 
     # if the user specifies the list of subsets to process
@@ -161,13 +168,17 @@ def create_volume_subset_table(lumi_writer, luminoso_data, subset_fields=None, f
             'overall', 'Suggested Sentiment', prepend_to_rows
         ))
 
-    for field_name in subset_fields:
+    for field_name in (t1:=tqdm(subset_fields)):
+        t1.set_description(f"field_name: {field_name}")
         field_values = luminoso_data.get_fieldvalue_lists_for_fieldname(field_name)
         print("{}: volume field_values = {}".format(field_name, field_values))
         if not field_values:
             print("  {}: skipping".format(field_name))
         else:
-            for field_value in field_values:
+            # manas.mark: dev
+            # field_values = field_values[:5]
+            for field_value in (t2:=tqdm(field_values, leave=False)):
+                t2.set_description(f"field_value: {field_value}")
                 if (not isinstance(field_value[0], str)) or len(field_value[0])<64:
                     filter_list = []
                     if orig_filter_list:
@@ -177,7 +188,8 @@ def create_volume_subset_table(lumi_writer, luminoso_data, subset_fields=None, f
 
                     api_params = {'filter': filter_list}
 
-                    for list_name in luminoso_data.concept_lists:
+                    for list_name in (t3:=tqdm(luminoso_data.concept_lists, leave=False)):
+                        t3.set_description(f"list_name: {list_name}")
                         concept_list_params = dict(api_params,
                                                 concept_selector={'type': 'concept_list', 'name': list_name})
                         volume_table.extend(_create_row_for_volume_subsets(
